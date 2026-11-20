@@ -113,8 +113,12 @@
         <a href="#/m/add?kind=expense" class="m-q out" data-testid="m-q-expense">${icon(I.out)}<span>Expense</span></a>
         <a href="#/m/add?kind=income" class="m-q in" data-testid="m-q-income">${icon(I.in)}<span>Income</span></a>
         <a href="#/m/add?kind=transfer" class="m-q" data-testid="m-q-transfer">${icon(I.swap)}<span>Transfer</span></a>
-        <button type="button" class="m-q" data-m-add>${icon(I.grid)}<span>More</span></button>
+        <a href="#/m/feed" class="m-q feed" data-testid="m-q-feed">${icon(I.bank)}<span>Bank Feed</span></a>
       </div>
+      ${(() => { const fa = feedAccts(), rv = U.sum(fa, (a) => book.bankLinesFor(a.id, 'review').length);
+        return `<section class="m-card m-feed-home" data-testid="m-home-feed"><div class="m-card-h"><h2>Bank Feed</h2><a href="#/m/feed">Accounts</a></div>
+          <p class="m-note">${rv ? `<b>${rv}</b> statement line${rv === 1 ? '' : 's'} waiting for a category.` : 'Type or paste your bank and credit card statement lines, then categorize them.'}</p>
+          <div class="m-feed-btns"><a class="m-btn primary" href="${fa.length ? '#/m/feed/enter?account=' + encodeURIComponent(fa[0].id) : '#/m/feed'}">${icon(I.plus)}Add Lines</a><a class="m-btn ${rv ? 'warn' : ''}" href="#/m/feed/review">${icon(I.check)}Review${rv ? ` <i class="m-badge">${rv}</i>` : ''}</a></div></section>`; })()}
       <section class="m-card">
         <div class="m-card-h"><h2>${esc(monthName(R.month.from))}</h2><a href="#/m/reports">Details</a></div>
         <div class="m-stats">
@@ -132,7 +136,7 @@
         <div class="m-card-h"><h2>Accounts</h2><a href="#/accounts">All</a></div>
         ${cashAccts.length ? cashAccts.map((a) => `<a class="m-acct" href="#/register/${encodeURIComponent(a.id)}"><span class="m-tx-ic">${icon(a.type === 'cc' ? I.bill : I.bank)}</span><span class="m-tx-main"><b>${esc(a.name)}</b><small>${a.type === 'cc' ? 'Credit card' : 'Bank'}</small></span><span class="m-tx-amt">${signed(bal(a))}</span></a>`).join('')
         : '<p class="m-empty">No bank or card accounts yet. <a href="#/accounts">Add one</a>.</p>'}
-        <a class="m-row-link" href="#/bankfeed">${icon(I.upload)}<span>Bank feed — import and review</span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/m/feed">${icon(I.upload)}<span>Bank feed — enter or review statements</span>${icon(I.chev)}</a>
       </section>
       <section class="m-card">
         <div class="m-card-h"><h2>Recent</h2><a href="#/m/activity">See all</a></div>
@@ -279,7 +283,7 @@
   function more(el) {
     const nav = document.querySelector('#sidebar .nav');
     let html = '', open = false;
-    const start = (t) => { if (open) html += '</section>'; html += `<section class="m-card m-menu"><h2>${esc(t)}</h2>`; open = true; };
+    const start = (t) => { if (open) html += '</section>'; html += `<h2 class="m-sec">${esc(t)}</h2><section class="m-card m-menu">`; open = true; };
     const link = (a) => {
       if (a.hidden || a.closest('[hidden]')) return;
       const svg = a.querySelector('svg'), label = (a.querySelector('span') || a).textContent.trim();
@@ -298,15 +302,17 @@
     if (open) html += '</section>';
     const lock = document.getElementById('btn-lock');
     el.innerHTML = page('More', `
-      <section class="m-card m-menu"><h2>Quick</h2>
+      <h2 class="m-sec">Quick</h2><section class="m-card m-menu">
         <button type="button" class="m-row-link" id="m-search">${icon(I.search)}<span>Search or go to anything</span>${icon(I.chev)}</button>
         <button type="button" class="m-row-link" data-m-add>${icon(I.plus)}<span>Create any transaction</span>${icon(I.chev)}</button>
+        <a class="m-row-link" href="#/m/reports">${icon(I.chart)}<span>Reports<small>This month, this year, net worth</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/m/feed">${icon(I.bank)}<span>Bank feed</span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/settings">${icon(I.upload)}<span>Backup and restore<small>Download a backup regularly</small></span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/gateway?full=1">${icon(I.grid)}<span>Gateway (classic home)</span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/dashboard?full=1">${icon(I.chart)}<span>Business overview dashboard</span>${icon(I.chev)}</a>
       </section>
       ${html}
-      <section class="m-card m-menu"><h2>App</h2>
+      <h2 class="m-sec">App</h2><section class="m-card m-menu">
         <button type="button" class="m-row-link" id="m-theme">${icon('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2"/>')}<span>${esc(document.getElementById('theme-toggle').getAttribute('aria-label') || 'Appearance')}</span></button>
         ${UI.gearMenu ? `<button type="button" class="m-row-link" id="m-gear">${icon(I.grid)}<span>Lists, settings and tools</span>${icon(I.chev)}</button>` : ''}
         ${lock && !lock.hidden ? `<button type="button" class="m-row-link" id="m-lock">${icon('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>')}<span>Lock company</span></button>` : ''}
@@ -319,6 +325,260 @@
     el.querySelector('#m-switch').addEventListener('click', () => document.getElementById('btn-switch').click());
   }
 
+  /* ---------- Bank feed for touch screens (phone and iPad) ----------
+   * Statement lines typed or pasted here go to the account's For review list through Book.importBankLines (the same
+   * duplicate check as a bank file); review posts each through Book.postBankLine (rules, history, matching). */
+  const FEED = { bank: 1, cc: 1, oca: 1 };
+  const feedAccts = () => b().sortedAccounts((a) => FEED[a.type] && a.active !== false && !(a.type === 'oca' && a.system));
+  const isCard = (id) => accType(id) === 'cc';
+  const draftKey = (acct) => 'vbFeedDraft:' + (b().company.id || '') + ':' + acct;
+  const loadDraft = (acct) => { try { return JSON.parse(localStorage.getItem(draftKey(acct)) || '[]'); } catch (e) { return []; } };
+  const saveDraft = (acct, rows) => { try { if (rows.length) localStorage.setItem(draftKey(acct), JSON.stringify(rows)); else localStorage.removeItem(draftKey(acct)); } catch (e) { /* draft is a convenience */ } };
+  async function contactFor(name, kind) {
+    const who = String(name || '').trim(); if (!who) return '';
+    const book = b(), lc = who.toLowerCase(), list = book.contacts.filter((c) => !c.deleted && c.name.toLowerCase() === lc);
+    const hit = list.find((c) => c.kind === kind) || list[0]; if (hit) return hit.id;
+    const c = await book.saveContact({ kind, name: who });
+    return (c && c.id) || ((book.contacts.find((x) => x.name.toLowerCase() === lc) || {}).id || '');
+  }
+  const pickAcct = (sel, base) => `<label class="m-f"><span>Account</span><select id="m-feed-acct" data-base="${esc(base)}">${feedAccts().map((a) => `<option value="${esc(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)} · ${a.type === 'cc' ? 'Credit card' : 'Bank'}</option>`).join('')}</select></label>`;
+  const wirePick = (el) => { const s = el.querySelector('#m-feed-acct'); if (s) s.addEventListener('change', () => UI.go(s.dataset.base + encodeURIComponent(s.value))); };
+
+  function feedHub(el) {
+    const book = b(), list = feedAccts(), today = U.today();
+    const total = U.sum(list, (a) => book.bankLinesFor(a.id, 'review').length);
+    el.innerHTML = page('Bank Feed', `
+      <section class="m-card m-feed-intro">
+        <p>Type or paste the lines from your bank and credit card statements, a month or a whole year at a time. They wait in <b>For review</b> until you pick a category; VaultBook suggests one from your rules and past choices and spots entries you already recorded.</p>
+        ${total ? `<p class="m-feed-total"><b>${total}</b> line${total === 1 ? '' : 's'} waiting for review</p>` : ''}
+      </section>
+      ${list.length ? list.map((a) => {
+        const rev = book.bankLinesFor(a.id, 'review').length, posted = book.bankLinesFor(a.id, 'posted'), card = a.type === 'cc';
+        const lastD = book.bankLinesFor(a.id)[0];
+        return `<section class="m-card m-feed-acct" data-testid="m-feed-acct">
+          <div class="m-feed-acct-h"><span class="m-tx-ic">${icon(card ? I.bill : I.bank)}</span>
+            <span class="m-tx-main"><b>${esc(a.name)}</b><small>${card ? 'Credit card' : 'Bank'}${lastD ? ' · statement lines to ' + esc(U.fmtDate(lastD.date)) : ' · no statement lines yet'}</small></span>
+            <span class="m-tx-amt">${signed(book.accountBalance(a.id, today))}<small>${card ? 'owed' : 'in VaultBook'}</small></span></div>
+          <div class="m-feed-btns">
+            <a class="m-btn primary" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Add Lines</a>
+            <a class="m-btn ${rev ? 'warn' : ''}" href="#/m/feed/review?account=${encodeURIComponent(a.id)}">${icon(I.check)}Review${rev ? ` <i class="m-badge">${rev}</i>` : ''}</a>
+          </div>
+          ${posted.length ? `<small class="m-feed-meta">${posted.length} line${posted.length === 1 ? '' : 's'} posted</small>` : ''}
+          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Enter statement</small>` : ''}
+        </section>`;
+      }).join('') : '<section class="m-card"><p class="m-empty">No bank or credit card accounts yet. Add one below to start.</p></section>'}
+      <section class="m-card">
+        <div class="m-card-h"><h2>Add a bank or credit card account</h2></div>
+        <form id="m-new-acct" class="m-form" autocomplete="off">
+          <div class="m-seg m-seg2" role="radiogroup"><label><input type="radio" name="type" value="bank" checked><span>Bank</span></label><label><input type="radio" name="type" value="cc"><span>Credit card</span></label></div>
+          <label class="m-f"><span>Name</span><input name="name" placeholder="e.g. Chase Checking, Amex Gold" autocapitalize="words" required></label>
+          <label class="m-f"><span>Balance on the first statement (optional)</span><input name="open" inputmode="decimal" placeholder="0.00"></label>
+          <label class="m-f"><span>As of</span><input type="date" name="openDate" value="${esc(U.addDays(U.monthStart(today), -1))}"></label>
+          <p class="m-err" hidden></p>
+          <button class="m-btn" type="submit">Add account</button>
+        </form>
+      </section>
+      <h2 class="m-sec">Other ways in</h2><section class="m-card m-menu">
+        <a class="m-row-link" href="#/bankfeed?full=1">${icon(I.upload)}<span>Import a bank file (CSV, OFX, QFX)<small>Opens the full bank feed</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/pdfimport">${icon(I.doc)}<span>Import a PDF statement</span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/rules">${icon(I.list)}<span>Bank rules<small>Categorize repeating lines automatically</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/reconcile">${icon(I.check)}<span>Reconcile to a statement</span>${icon(I.chev)}</a>
+      </section>`, { sub: 'Bank and credit card statements' });
+    const f = el.querySelector('#m-new-acct'), err = f.querySelector('.m-err');
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault(); err.hidden = true;
+      const v = Object.fromEntries(new FormData(f).entries());
+      try {
+        let cents = 0; if (v.open) cents = U.toCents(v.open);
+        const a = await book.saveAccount({ name: v.name, type: v.type });
+        if (cents) await book.setOpeningBalance(a.id, v.openDate || today, cents);
+        UI.toast(a.name + ' added.');
+        UI.go('#/m/feed/enter?account=' + encodeURIComponent(a.id));
+      } catch (x) { err.textContent = x.message || String(x); err.hidden = false; }
+    });
+  }
+
+  function feedEnter(el, r) {
+    const book = b(), list = feedAccts();
+    if (!list.length) return UI.go('#/m/feed');
+    const acct = list.some((a) => a.id === r.params.account) ? r.params.account : list[0].id, card = isCard(acct);
+    let rows = loadDraft(acct), dir = OB.prefs.get('mFeedDir_' + acct) || 'out';
+    const descs = Array.from(new Set(book.bankLinesFor(acct).map((l) => l.description))).slice(0, 300);
+    const L = card ? { out: 'Charge', in: 'Payment / credit' } : { out: 'Money out', in: 'Money in' };
+    const lastDate = rows.length ? rows[rows.length - 1].date : (OB.prefs.get('mFeedDate_' + acct) || U.today());
+    el.innerHTML = page('Add Lines', `
+      ${pickAcct(acct, '#/m/feed/enter?account=')}
+      <form class="m-card m-form m-entry" id="m-line" autocomplete="off" novalidate>
+        <div class="m-seg m-seg2 m-dir" role="radiogroup" aria-label="Direction">
+          <label class="out"><input type="radio" name="dir" value="out"${dir === 'out' ? ' checked' : ''}><span>${L.out}</span></label>
+          <label class="in"><input type="radio" name="dir" value="in"${dir === 'in' ? ' checked' : ''}><span>${L.in}</span></label></div>
+        <div class="m-date-row"><button type="button" class="m-step" data-d="-1" aria-label="Previous day">${icon(I.back)}</button>
+          <input type="date" name="date" value="${esc(lastDate)}" required aria-label="Date">
+          <button type="button" class="m-step" data-d="1" aria-label="Next day">${icon(I.chev)}</button></div>
+        <label class="m-f"><span>Description</span><input name="desc" list="m-descs" placeholder="As on the statement, e.g. SHELL OIL 123" autocapitalize="characters" enterkeyhint="next"><datalist id="m-descs">${descs.map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
+        <div class="m-two"><label class="m-f"><span>Amount</span><input name="amount" inputmode="decimal" placeholder="0.00" enterkeyhint="done" data-testid="m-line-amt"></label>
+          ${card ? '' : '<label class="m-f m-chk"><span>Check #</span><input name="checkNo" inputmode="numeric" placeholder="—"></label>'}</div>
+        <p class="m-err" id="m-line-err" hidden></p>
+        <button type="submit" class="m-btn primary" data-testid="m-line-add">Add Line</button>
+        <button type="button" class="m-link m-paste-t" id="m-paste-t">Paste many lines at once</button>
+        <div class="m-paste" id="m-paste" hidden>
+          <p class="m-note">One line per transaction: <b>date, description, amount</b>, separated by commas or tabs. Rows copied from a spreadsheet, Notes or your bank's website work.</p>
+          <textarea id="m-paste-x" rows="6" placeholder="01/03/2026, GROCERY OUTLET, 54.21&#10;01/04/2026, PAYROLL DEPOSIT, -2150.00"></textarea>
+          <label class="m-check"><input type="checkbox" id="m-paste-sign" checked> ${card ? 'A minus sign means a payment or credit; other amounts are charges' : 'A minus sign means money out; other amounts are money in'}</label>
+          <p class="m-note">Untick to use the ${esc(L.out)} / ${esc(L.in)} switch above for every pasted line.</p>
+          <button type="button" class="m-btn" id="m-paste-go">Add these lines</button>
+        </div>
+      </form>
+      <section class="m-card" id="m-pending"></section>`, { back: '#/m/feed', sub: card ? 'Credit card statement' : 'Bank statement' });
+    wirePick(el);
+    const form = el.querySelector('#m-line'), err = el.querySelector('#m-line-err'), pend = el.querySelector('#m-pending');
+    const fail = (m) => { err.textContent = m; err.hidden = !m; };
+    const sign = (d) => (d === 'in' ? 1 : -1);
+    const draw = () => {
+      saveDraft(acct, rows);
+      const inn = U.sum(rows.filter((x) => x.amount > 0), (x) => x.amount), out = -U.sum(rows.filter((x) => x.amount < 0), (x) => x.amount);
+      const sorted2 = rows.map((x, i) => ({ x, i })).sort((a, c) => (a.x.date < c.x.date ? 1 : a.x.date > c.x.date ? -1 : c.i - a.i));
+      pend.innerHTML = rows.length ? `<div class="m-card-h"><h2>${rows.length} line${rows.length === 1 ? '' : 's'} ready</h2><button type="button" class="m-link" id="m-clear">Clear</button></div>
+        <div class="m-stats m-stats2"><div><span>${L.in}</span><b class="in">${money(inn)}</b></div><div><span>${L.out}</span><b class="out">${money(out)}</b></div></div>
+        <div class="m-plist">${sorted2.map(({ x, i }) => `<div class="m-pline"><button type="button" class="m-pedit" data-i="${i}"><span><b>${esc(x.description)}</b><small>${esc(U.fmtDate(x.date))}${x.checkNo ? ' · #' + esc(x.checkNo) : ''}</small></span><i class="${x.amount > 0 ? 'in' : 'out'}">${x.amount > 0 ? '+' : '−'}${money(x.amount)}</i></button><button type="button" class="m-pdel" data-i="${i}" aria-label="Remove line">×</button></div>`).join('')}</div>
+        <details class="m-endbal"><summary>Statement ending balance (optional)</summary>
+          <div class="m-two"><label class="m-f"><span>Ending balance</span><input id="m-end" inputmode="decimal" placeholder="0.00"></label><label class="m-f"><span>Statement date</span><input type="date" id="m-end-d" value="${esc(rows.map((x) => x.date).sort().pop() || U.today())}"></label></div>
+          <p class="m-note">Kept with this batch so you can compare it with VaultBook and reconcile later.</p></details>
+        <button type="button" class="m-btn primary" id="m-save-lines" data-testid="m-save-lines">Save ${rows.length} line${rows.length === 1 ? '' : 's'} for review</button>
+        <p class="m-note">Lines you add are kept on this device until you save them.</p>`
+        : '<p class="m-empty">Lines you add show here. Save them when the statement is done; nothing is posted until you review.</p>';
+      pend.querySelectorAll('.m-pdel').forEach((x) => x.addEventListener('click', () => { rows.splice(+x.dataset.i, 1); draw(); }));
+      pend.querySelectorAll('.m-pedit').forEach((x) => x.addEventListener('click', () => {
+        const row = rows.splice(+x.dataset.i, 1)[0]; draw();
+        form.elements.date.value = row.date; form.elements.desc.value = row.description; form.elements.amount.value = U.fmt(Math.abs(row.amount)).replace(/,/g, '');
+        if (form.elements.checkNo) form.elements.checkNo.value = row.checkNo || '';
+        form.querySelector(`input[name=dir][value=${row.amount > 0 ? 'in' : 'out'}]`).checked = true;
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' }); form.elements.amount.focus();
+      }));
+      const clr = pend.querySelector('#m-clear'); if (clr) clr.addEventListener('click', () => UI.confirm('Clear the lines?', `Remove the ${rows.length} unsaved line${rows.length === 1 ? '' : 's'}?`, { ok: 'Clear' }).then((ok) => { if (ok) { rows = []; draw(); } }));
+      const sv = pend.querySelector('#m-save-lines'); if (sv) sv.addEventListener('click', async () => {
+        sv.disabled = true;
+        try {
+          const endTxt = (pend.querySelector('#m-end') || {}).value || '', meta = { fileName: 'Entered on ' + (isPhone() ? 'phone' : 'tablet') + ' ' + U.fmtDate(U.today()), source: 'manual' };
+          if (endTxt) { meta.endingBalance = (card ? -1 : 1) * U.toCents(endTxt); meta.endingDate = pend.querySelector('#m-end-d').value; }
+          const res = await book.importBankLines(acct, rows.map((x) => ({ date: x.date, description: x.description, amount: x.amount, checkNo: x.checkNo || '' })), meta);
+          rows = []; saveDraft(acct, rows); markTab();
+          pend.innerHTML = `<div class="m-done">${icon(I.check)}<h2>${res.added} line${res.added === 1 ? '' : 's'} saved for review</h2>
+            ${res.duplicates ? `<p class="m-note">${res.duplicates} line${res.duplicates === 1 ? ' was' : 's were'} skipped because the same date, description and amount was already entered. If one is really a separate purchase, add it again with a small change to the description (for example “#2”).</p>` : ''}
+            <a class="m-btn primary" href="#/m/feed/review?account=${encodeURIComponent(acct)}">Review and categorize now</a>
+            <button type="button" class="m-btn ghost" id="m-more-lines">Enter more lines</button></div>`;
+          pend.querySelector('#m-more-lines').addEventListener('click', draw);
+        } catch (x) { sv.disabled = false; UI.toast(x.message || String(x), 'error'); }
+      });
+    };
+    form.querySelectorAll('.m-step').forEach((x) => x.addEventListener('click', () => { const d = form.elements.date; d.value = U.addDays(d.value || U.today(), +x.dataset.d); }));
+    form.querySelectorAll('input[name=dir]').forEach((x) => x.addEventListener('change', () => { dir = x.value; OB.prefs.set('mFeedDir_' + acct, dir); }));
+    form.elements.desc.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); form.elements.amount.focus(); } });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault(); fail('');
+      const v = Object.fromEntries(new FormData(form).entries());
+      let cents = 0; try { cents = U.toCents(v.amount); } catch (x) { cents = 0; }
+      if (!U.isDate(v.date)) return fail('Choose the date.');
+      if (!String(v.desc || '').trim()) { fail('Type the description from the statement.'); return form.elements.desc.focus(); }
+      if (!cents) { fail('Enter the amount.'); return form.elements.amount.focus(); }
+      rows.push({ date: v.date, description: String(v.desc).trim(), amount: sign(v.dir) * Math.abs(cents), checkNo: String(v.checkNo || '').trim() });
+      OB.prefs.set('mFeedDate_' + acct, v.date);
+      form.elements.desc.value = ''; form.elements.amount.value = ''; if (form.elements.checkNo) form.elements.checkNo.value = '';
+      draw(); form.elements.desc.focus();
+    });
+    const pt = el.querySelector('#m-paste-t'), pbox = el.querySelector('#m-paste');
+    pt.addEventListener('click', () => { pbox.hidden = !pbox.hidden; if (!pbox.hidden) el.querySelector('#m-paste-x').focus(); });
+    el.querySelector('#m-paste-go').addEventListener('click', () => {
+      const minusFlips = el.querySelector('#m-paste-sign').checked, txt = el.querySelector('#m-paste-x').value, bad = [];
+      let n = 0;
+      txt.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).forEach((line, k) => {
+        const parts = line.indexOf('\t') >= 0 ? line.split('\t') : line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+        const cells = parts.map((s) => s.trim().replace(/^"|"$/g, '')).filter((s) => s !== '');
+        if (cells.length < 3) { bad.push(k + 1); return; }
+        const dt = (U.smartDate ? U.smartDate(cells[0], U.today()) : null) || U.parseDate(cells[0]);
+        let cents; try { cents = U.toCents(cells[cells.length - 1]); } catch (x) { cents = 0; }
+        if (!U.isDate(dt) || !cents) { bad.push(k + 1); return; }
+        const amount = minusFlips ? (card ? (cents < 0 ? Math.abs(cents) : -Math.abs(cents)) : cents) : sign(form.querySelector('input[name=dir]:checked').value) * Math.abs(cents);
+        rows.push({ date: dt, description: cells.slice(1, -1).join(', ') || '(no description)', amount, checkNo: '' }); n++;
+      });
+      draw();
+      UI.toast(n + ' line' + (n === 1 ? '' : 's') + ' added' + (bad.length ? '; could not read line ' + bad.slice(0, 8).join(', ') + (bad.length > 8 ? '…' : '') : '') + '.', bad.length ? 'error' : '');
+      if (n) el.querySelector('#m-paste-x').value = '';
+    });
+    draw();
+  }
+
+  function feedReview(el, r) {
+    const book = b(), list = feedAccts();
+    if (!list.length) return UI.go('#/m/feed');
+    const acct = list.some((a) => a.id === r.params.account) ? r.params.account : (list.find((a) => book.bankLinesFor(a.id, 'review').length) || list[0]).id;
+    const card = isCard(acct);
+    const pl = book.sortedAccounts((a) => S.isPL(a.type) && a.active !== false);
+    const xfer = book.sortedAccounts((a) => ['bank', 'cc', 'oca', 'ocl', 'ltl'].indexOf(a.type) >= 0 && a.id !== acct && a.active !== false);
+    const grp = (label, accts, sel) => accts.length ? `<optgroup label="${esc(label)}">${accts.map((a) => `<option value="${esc(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(book.accountFullName ? book.accountFullName(a) : a.name)}</option>`).join('')}</optgroup>` : '';
+    const catOpts = (inbound, sel) => {
+      const inc = pl.filter((a) => ['income', 'oi'].indexOf(a.type) >= 0), exp = pl.filter((a) => ['expense', 'cogs', 'oe'].indexOf(a.type) >= 0);
+      return `<option value="">Choose a category…</option>` + (inbound ? grp('Income', inc, sel) + grp('Refunds and expenses', exp, sel) : grp('Expenses', exp, sel) + grp('Income', inc, sel))
+        + grp(card && inbound ? 'Paid from (transfer)' : 'Transfer to or from', xfer, sel);
+    };
+    const people = book.contacts.filter((c) => c.active !== false && !c.deleted).map((c) => c.name).sort((x, y) => x.localeCompare(y));
+    let filt = 'all', shown = 40;
+    el.innerHTML = page('Review', `
+      ${pickAcct(acct, '#/m/feed/review?account=')}
+      <div class="m-chips" role="tablist"><button type="button" role="tab" data-rf="all" aria-selected="true">All</button><button type="button" role="tab" data-rf="sug" aria-selected="false">Has a suggestion</button><button type="button" role="tab" data-rf="in" aria-selected="false">${card ? 'Payments' : 'Money in'}</button><button type="button" role="tab" data-rf="out" aria-selected="false">${card ? 'Charges' : 'Money out'}</button></div>
+      <div id="m-rv-top"></div><div id="m-rv"></div>
+      <datalist id="m-rv-people">${people.map((p) => `<option value="${esc(p)}">`).join('')}</datalist>`,
+      { back: '#/m/feed', sub: accName(acct), right: `<a class="m-head-btn" href="#/m/feed/enter?account=${encodeURIComponent(acct)}">+ Lines</a>` });
+    wirePick(el);
+    const host = el.querySelector('#m-rv'), top = el.querySelector('#m-rv-top');
+    const card1 = (l) => {
+      const sug = book.bankSuggestion(l.id), cands = book.bankCandidates(l.id), best = cands.find((c) => c.best && c.kind === 'register');
+      const bt = best ? book.txById[best.txnId] : null, inbound = l.amount > 0;
+      return `<article class="m-card m-rl" data-id="${esc(l.id)}" data-testid="m-review-line">
+        <header><span class="m-rl-d">${esc(fmtDay(l.date))}<small>${esc(l.date.slice(0, 4))}</small></span><b>${esc(l.description)}</b><i class="${inbound ? 'in' : 'out'}">${inbound ? '+' : '−'}${money(l.amount)}</i></header>
+        ${bt ? `<div class="m-rl-match">${icon(I.check)}<span><b>Already in VaultBook?</b><small>${esc(txLabel(bt))}${bt.number ? ' ' + esc(bt.number) : ''} · ${esc(UI.contactName(bt.contactId) || bt.memo || '')} · ${esc(U.fmtDate(bt.date))}</small></span><button type="button" class="m-btn small" data-act="match" data-txn="${esc(best.txnId)}" data-si="${best.splitIndex}">Match</button></div>` : ''}
+        <label class="m-f"><span>Category${sug ? ` <em class="m-sug">${esc(sug.source === 'rule' ? 'from your rule' : 'suggested')}</em>` : ''}</span><select data-k="cat">${catOpts(inbound, sug ? sug.categoryId : '')}</select></label>
+        <label class="m-f"><span>${inbound ? 'Received from' : 'Paid to'} (optional)</span><input data-k="who" list="m-rv-people" value="${esc(sug && sug.contactId ? UI.contactName(sug.contactId) : '')}" autocapitalize="words"></label>
+        <div class="m-rl-btns"><button type="button" class="m-btn primary" data-act="add">${sug ? 'Accept' : 'Add'}</button><button type="button" class="m-btn ghost" data-act="excl">Exclude</button></div>
+        <p class="m-err" hidden></p></article>`;
+    };
+    const lines = () => book.bankLinesFor(acct, 'review').slice().reverse().filter((l) => filt === 'all' || (filt === 'in' ? l.amount > 0 : filt === 'out' ? l.amount < 0 : !!book.bankSuggestion(l.id)));
+    const draw = () => {
+      const all = lines(), withSug = book.bankLinesFor(acct, 'review').filter((l) => book.bankSuggestion(l.id));
+      markTab();
+      top.innerHTML = all.length || withSug.length ? `<div class="m-rv-sum"><span><b>${book.bankLinesFor(acct, 'review').length}</b> to review</span>${withSug.length ? `<button type="button" class="m-btn small primary" id="m-acc-all">Accept ${withSug.length} suggestion${withSug.length === 1 ? '' : 's'}</button>` : ''}</div>` : '';
+      host.innerHTML = all.length ? all.slice(0, shown).map(card1).join('') + (all.length > shown ? `<button type="button" class="m-btn ghost" id="m-rv-more">Show ${Math.min(40, all.length - shown)} more of ${all.length - shown}</button>` : '')
+        : `<section class="m-card m-done">${icon(I.check)}<h2>All caught up</h2><p class="m-note">Nothing left to review for ${esc(accName(acct))}.</p><a class="m-btn primary" href="#/m/feed/enter?account=${encodeURIComponent(acct)}">Enter more statement lines</a><a class="m-btn ghost" href="#/m/feed">Back to bank feed</a></section>`;
+      const more = host.querySelector('#m-rv-more'); if (more) more.addEventListener('click', () => { shown += 40; draw(); });
+      const accAll = top.querySelector('#m-acc-all'); if (accAll) accAll.addEventListener('click', async () => {
+        const go = withSug.slice(); if (!(await UI.confirm('Accept suggestions?', `Post ${go.length} line${go.length === 1 ? '' : 's'} with the suggested category? You can undo any of them later in the full bank feed.`, { ok: 'Post ' + go.length }))) return;
+        accAll.disabled = true; let ok = 0, bad = 0;
+        for (const l of go) { const s = book.bankSuggestion(l.id); if (!s) continue; try { await book.postBankLine(l.id, { kind: 'add', categoryId: s.categoryId, contactId: s.contactId || '' }); ok++; } catch (x) { bad++; } }
+        UI.toast(ok + ' posted' + (bad ? ', ' + bad + ' need a look' : '') + '.', bad ? 'error' : ''); draw();
+      });
+    };
+    host.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-act]'); if (!btn) return;
+      const art = btn.closest('.m-rl'), id = art.dataset.id, l = book.bankLineById[id], er = art.querySelector('.m-err');
+      er.hidden = true; btn.disabled = true;
+      try {
+        if (btn.dataset.act === 'excl') await book.excludeBankLines([id], 'Excluded on ' + (isPhone() ? 'phone' : 'tablet'));
+        else if (btn.dataset.act === 'match') await book.postBankLine(id, { kind: 'match', txnId: btn.dataset.txn, splitIndex: +btn.dataset.si });
+        else {
+          const cat = art.querySelector('[data-k=cat]').value;
+          if (!cat) throw new Error('Choose a category first.');
+          const ct = accType(cat), transfer = ['bank', 'cc', 'oca', 'ocl', 'ltl'].indexOf(ct) >= 0;
+          const contactId = transfer ? '' : await contactFor(art.querySelector('[data-k=who]').value, l.amount > 0 ? 'customer' : 'vendor');
+          await book.postBankLine(id, transfer ? { kind: 'transfer', accountId: cat } : { kind: 'add', categoryId: cat, contactId });
+        }
+        art.classList.add('m-gone'); setTimeout(draw, 180);
+      } catch (x) { btn.disabled = false; er.textContent = x.message || String(x); er.hidden = false; }
+    });
+    el.querySelectorAll('[data-rf]').forEach((x) => x.addEventListener('click', () => { filt = x.dataset.rf; shown = 40; el.querySelectorAll('[data-rf]').forEach((y) => y.setAttribute('aria-selected', String(y === x))); draw(); }));
+    draw();
+  }
+  const feed = (el, r) => ({ enter: feedEnter, review: feedReview }[r.sub] || feedHub)(el, r);
+
   /* ---------- Add sheet (bottom sheet with every way to record something) ---------- */
   function addSheet() {
     if (document.getElementById('m-sheet')) return;
@@ -328,7 +588,7 @@
     wrap.innerHTML = `<div class="m-sheet" role="dialog" aria-modal="true" aria-label="Add">
       <div class="m-grab" aria-hidden="true"></div><h2>Add</h2>
       <div class="m-tiles">
-        ${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
+        ${T('#/m/feed/enter', I.bank, 'Enter statement')}${T('#/m/feed/review', I.check, 'Review bank lines')}${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
         ${T('#/txn/new?type=invoice', I.doc, 'Invoice')}${T('#/txn/new?type=payment', I.cash, 'Receive payment')}${T('#/txn/new?type=salesReceipt', I.cash, 'Sales receipt')}
         ${T('#/txn/new?type=bill', I.bill, 'Bill')}${T('#/txn/new?type=billPayment', I.check, 'Pay bills')}${T('#/txn/new?type=check', I.bill, 'Write check')}
         ${T('#/bankfeed', I.upload, 'Import bank file')}${T('#/pdfimport', I.doc, 'Import statement')}${T('#/txn/new?type=journal', I.list, 'Journal entry')}
@@ -349,27 +609,36 @@
   /* ---------- bottom tab bar ---------- */
   const tabbar = document.createElement('nav');
   tabbar.className = 'm-tabbar'; tabbar.id = 'm-tabbar'; tabbar.setAttribute('aria-label', 'Main'); tabbar.dataset.testid = 'm-tabbar';
-  tabbar.innerHTML = `<a href="#/m" data-tab="home">${icon(I.home)}<span>Home</span></a>
+  /* a floating tab bar that only navigates, with the Add action in its own round button beside it */
+  tabbar.innerHTML = `<div class="m-tabs"><a href="#/m" data-tab="home">${icon(I.home)}<span>Home</span></a>
+    <a href="#/m/feed" data-tab="feed" data-testid="m-tab-feed">${icon(I.bank)}<span>Bank Feed</span><i class="m-tab-badge" hidden></i></a>
     <a href="#/m/activity" data-tab="activity">${icon(I.list)}<span>Activity</span></a>
-    <button type="button" class="m-tab-add" data-m-add aria-label="Add">${icon(I.plus)}</button>
-    <a href="#/m/reports" data-tab="reports">${icon(I.chart)}<span>Reports</span></a>
-    <a href="#/m/more" data-tab="more">${icon(I.more)}<span>More</span></a>`;
+    <a href="#/m/more" data-tab="more">${icon(I.more)}<span>More</span></a></div>
+    <button type="button" class="m-tab-add" data-m-add aria-label="Add">${icon(I.plus)}</button>`;
   document.body.appendChild(tabbar);
   const markTab = () => {
     const h = location.hash, r = UI.parseHash();
-    const tab = r.name === 'm' ? (r.id || 'home') : /^#\/(transactions|txn|register|find)/.test(h) ? 'activity' : /^#\/(report|reports)/.test(h) ? 'reports' : 'more';
+    const tab = r.name === 'm' ? (r.id === 'reports' ? 'home' : r.id || 'home') : /^#\/(bankfeed|rules|reconcile|pdfimport|import)/.test(h) ? 'feed' : /^#\/(transactions|txn|register|find)/.test(h) ? 'activity' : 'more';
+    const bd = tabbar.querySelector('.m-tab-badge');
+    if (bd && UI.book && UI.book.bankLinesFor) { const n = UI.book.bankLines.filter((l) => l.status === 'review').length; bd.hidden = !n; bd.textContent = n > 99 ? '99+' : String(n); }
     tabbar.querySelectorAll('[data-tab]').forEach((a) => { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   };
   window.addEventListener('hashchange', markTab);
 
   /* ---------- routes ---------- */
   UI.routes.m = (el, r) => {
+    if (r.id === 'feed' && (isPhone() || touchMQ.matches)) { root.classList.add('m-screen'); feed(el, r); markTab(); return; }
     if (!isPhone()) { const map = { activity: '#/transactions', reports: '#/reports', more: '#/gateway', add: '#/txn/new?type=' + ((KINDS[r.params.kind] || KINDS.expense).full) }; location.replace(map[r.id] || '#/dashboard'); return; }
     root.classList.add('m-screen');
     ({ activity, add, reports, more }[r.id] || home)(el, r);
     markTab();
   };
   /* on a phone the landing screens open the mobile Home; ?full=1 still shows the classic screen */
+  const bf0 = UI.routes.bankfeed;
+  if (bf0) UI.routes.bankfeed = (el, r) => {
+    if ((isPhone() || touchMQ.matches) && !Object.keys(r.params || {}).length) { location.replace('#/m/feed'); return; }
+    return bf0(el, r);
+  };
   ['gateway', 'dashboard'].forEach((name) => {
     const orig = UI.routes[name]; if (!orig) return;
     UI.routes[name] = (el, r) => {

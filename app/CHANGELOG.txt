@@ -23,6 +23,19 @@ VaultBook (formerly OfflineBooks US) — Changelog
     offline. On iPhone and iPad this also stops Safari from clearing your
     books after weeks without use. Keep downloading backups.
   * View and Window menus: hide or show the window tabs.
+  * Bank feed on iPhone and iPad (Bank Feed tab, Home, and the + button):
+    add a bank or credit card account, then type statement lines one after
+    another (date steps a day at a time, the description remembers earlier
+    ones) or paste many at once from a spreadsheet or Notes, for a month or
+    a whole year. Unsaved lines are kept on the device. Saved lines wait in
+    For review, where each shows the category your rules or past choices
+    suggest, offers to match an entry already in VaultBook, and posts with
+    one tap; Accept all posts every suggested line. Card payments and
+    transfers are chosen as the other account. Lines already entered with
+    the same date, description and amount are skipped.
+  * iPhone and iPad use iOS system colors, the system font, grouped lists,
+    a floating tab bar with a separate + button, and capsule buttons, in
+    light and dark appearance.
 
 1.51.0  (2026-11-20)  Menu bar and toolbar at the top, new colours
 -------------------------------------------------------------------------------
