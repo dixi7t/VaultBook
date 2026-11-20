@@ -21,6 +21,8 @@
 <link rel="stylesheet" href="css/vault.css">
 <link rel="stylesheet" href="css/studio.css">
 <link rel="stylesheet" href="css/mobile.css">
+<link rel="stylesheet" href="css/gate.css">
+<script src="js/gate.js"></script>
 <script>/* apply saved appearance before first paint (no flash of the wrong theme) */
 try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'), d = document.documentElement;
   if (p.theme === 'light' || p.theme === 'dark') d.dataset.theme = p.theme;
@@ -213,6 +215,6 @@ try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'
 <script src="js/ui-qbupdate.js"></script>
 <script src="js/ui-payroll.js"></script>
 <script src="js/ui-mobile.js"></script>
-<script>OB.ui.start(); OB.windows.init();</script>
+<script>VBGate.ready.then(function () { OB.ui.start(); OB.windows.init(); });</script>
 </body>
 </html>

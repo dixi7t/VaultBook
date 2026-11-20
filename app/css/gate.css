@@ -1,0 +1,40 @@
+/* VaultBook passcode screen (js/gate.js), modelled on the iOS passcode screen. */
+html.vb-locked body > *:not(#vb-gate) { display: none !important; }
+html.vb-locked, html.vb-locked body { background: var(--g-bg); overflow: hidden; }
+:root {
+  --g-bg: #f2f2f7; --g-text: #000000; --g-dim: #6c6c70; --g-key: rgba(118, 118, 128, .12); --g-key-on: rgba(118, 118, 128, .32);
+  --g-dot: #000000; --g-danger: #d70015; --g-accent: #007aff;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --g-bg: #000000; --g-text: #ffffff; --g-dim: #98989f; --g-key: rgba(118, 118, 128, .26); --g-key-on: rgba(118, 118, 128, .5); --g-dot: #ffffff; --g-danger: #ff453a; --g-accent: #0a84ff; } }
+:root[data-theme="dark"] { --g-bg: #000000; --g-text: #ffffff; --g-dim: #98989f; --g-key: rgba(118, 118, 128, .26); --g-key-on: rgba(118, 118, 128, .5); --g-dot: #ffffff; --g-danger: #ff453a; --g-accent: #0a84ff; }
+
+.vbg { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; overflow-y: auto;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  background: var(--g-bg); color: var(--g-text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; transition: opacity .3s ease, transform .3s ease; }
+.vbg-in { width: 100%; max-width: 300px; display: flex; flex-direction: column; align-items: center; }
+.vbg-mark { width: 60px; height: 60px; border-radius: 14px; display: grid; place-items: center; background: #1c1c1e; color: #f4c95d;
+  font-size: 24px; font-weight: 700; letter-spacing: .02em; margin-bottom: 18px; box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset; }
+.vbg-t { margin: 0; font-size: 20px; line-height: 25px; font-weight: 600; letter-spacing: .01em; color: var(--g-text); }
+.vbg-s { margin: 6px 0 0; min-height: 20px; font-size: 15px; color: var(--g-dim); text-align: center; }
+.vbg-wait .vbg-s { color: var(--g-danger); }
+.vbg-dots { display: flex; gap: 22px; margin: 26px 0 36px; height: 14px; }
+.vbg-dots i { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--g-dot); box-sizing: border-box; transition: background .12s ease; }
+.vbg-dots i.on { background: var(--g-dot); }
+.vbg-field { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.vbg-pad { display: grid; grid-template-columns: repeat(3, 78px); gap: 16px 24px; justify-content: center; }
+.vbg-key { width: 78px; height: 78px; border-radius: 50%; border: 0; background: var(--g-key); color: var(--g-text);
+  font: inherit; font-size: 36px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; cursor: pointer;
+  display: grid; place-items: center; touch-action: manipulation; transition: background .25s ease; }
+.vbg-key:active { background: var(--g-key-on); transition: none; }
+.vbg-key:focus-visible, .vbg-del:focus-visible { outline: 3px solid var(--g-accent); outline-offset: 3px; }
+.vbg-del { width: 78px; height: 78px; border: 0; background: none; color: var(--g-text); font: inherit; font-size: 17px; cursor: pointer; touch-action: manipulation; }
+.vbg-del[aria-hidden="true"] { visibility: hidden; }
+.vbg-key:disabled { opacity: .35; cursor: default; }
+.vbg-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.vbg-shake .vbg-dots { animation: vbg-shake .42s cubic-bezier(.36, .07, .19, .97); }
+@keyframes vbg-shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-10px); } 40%, 60% { transform: translateX(10px); } }
+.vbg-out { opacity: 0; transform: scale(1.06); pointer-events: none; }
+@media (max-height: 600px) { .vbg-mark { display: none; } .vbg-dots { margin: 18px 0 22px; } .vbg-pad { gap: 10px 22px; } .vbg-key, .vbg-del { width: 66px; height: 66px; } .vbg-pad { grid-template-columns: repeat(3, 66px); } .vbg-key { font-size: 30px; } }
+@media (prefers-reduced-motion: reduce) { .vbg, .vbg-dots i, .vbg-key { transition: none; } .vbg-shake .vbg-dots { animation: none; } .vbg-out { transform: none; } }
