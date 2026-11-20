@@ -85,6 +85,45 @@ html.m-touch * { -webkit-tap-highlight-color: transparent; }
 :root.m-touch .btn, :root.m-phone .btn { border-radius: 10px; }
 :root.m-touch .card, :root.m-phone .card { border-radius: 12px; }
 
+/* touch audit (every route at 375 and 820 wide): every control at least 36pt (Apple's minimum is 28, default 44),
+ * text at least 11pt. Dense accounting grids keep 36pt rows so a screen still shows a useful amount of data. */
+html.m-touch main :is(button, .btn, select, summary, [role=button], [role=tab],
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color])) { min-height: 36px; }
+html.m-touch main :is(button, .btn, [role=button]):not(.m-btn):not(.m-q):not(.m-tile) { min-width: 36px; }
+html.m-touch main input:is([type=checkbox], [type=radio]) { width: 22px; height: 22px; }
+html.m-touch .vch-k { min-height: 36px; padding-left: 10px; padding-right: 10px; font-size: 14px; }   /* F-key strip on every form */
+html.m-touch .qbi-mini, html.m-touch .bf-sort, html.m-touch .sb-sort, html.m-touch .sb-tog, html.m-touch .pd-tog, html.m-touch .tile-grip { min-width: 36px; min-height: 36px; }
+html.m-touch .pe-grid input { min-height: 40px; font-size: 16px; }                        /* Paste entries grid */
+html.m-touch .cal-nav .btn, html.m-touch .cal-n { min-width: 40px; min-height: 40px; }   /* Calendar */
+html.m-touch .cal-h { font-size: 12px; }
+html.m-touch .cal-t, html.m-touch .cal-hol { font-size: 11px; }
+html.m-touch .rc-a { min-height: 40px; }                                                 /* Reclassify */
+html.m-touch .rc-f, html.m-touch .rc-grid span { font-size: max(12px, 1em); }
+html.m-touch .rc-acc-head span { font-size: 12px; }
+html.m-touch .rb-move .btn { min-width: 36px; min-height: 36px; }                        /* Report builder */
+html.m-touch main code { font-size: 13px; }                                              /* Find help */
+html.m-touch main th span { font-size: max(11px, 1em); }                                 /* report sort marks */
+html.m-touch main :is(td, th) .btn { min-height: 32px; }
+/* text links (report drill-downs, Back, Details): a taller hit area with no change to the layout */
+html.m-touch main a[href]:not(.btn):not(.m-btn):not(.m-q):not(.m-tile):not(.m-tx):not(.m-acct):not(.m-row-link):not(.m-bar):not(.vr-bar):not(.m-back) {
+  padding-top: 9px; padding-bottom: 9px; margin-top: -9px; margin-bottom: -9px; }
+html.m-touch main :is(td, th) a[href]:not(.btn) { display: inline-block; padding-left: 8px; padding-right: 8px; margin-left: -8px; margin-right: -8px; min-width: 28px; text-align: inherit; }
+html.m-touch .m-card-h a, html.m-touch main .rb-cols a { padding: 10px 8px; margin: -10px -8px; }
+html.m-touch .cal-bal { font-size: 11px; }
+/* iPad chrome: the menu bar scrolls sideways instead of widening the page; command bar and toolbar labels at touch size */
+html.m-touch .mbar { height: auto; min-height: 44px; flex-wrap: wrap; row-gap: 0; }   /* wraps rather than widening the page; drop-downs stay unclipped */
+html.m-touch .mbar .mb-top { padding: 10px 9px; }
+html.m-touch .mbar .mb-item:nth-last-of-type(-n+3) .mb-menu { left: auto; right: 0; }   /* Reports, Window, Help open leftward */
+html.m-touch .mb-menu { max-width: calc(100vw - 16px); }
+@media (max-width: 1100px) { html.m-touch .mb-co { display: none; } }
+html.m-touch .cmdbar button { min-height: 36px; padding-left: 12px; padding-right: 12px; }
+html.m-touch .tbar span { font-size: 11px; }
+/* phone: a month cell is ~42pt wide; the day's balance stays in the Week and Agenda views */
+html.m-phone .cal-d .cal-bal { display: none; }
+/* phone: report date/time/basis stack above the title instead of overlapping it */
+html.m-phone .sb-meta { position: static; display: flex; flex-wrap: wrap; gap: 0 10px; margin: 0 0 6px; color: var(--text-3); font-weight: 600; }
+html.m-phone .sb-meta div:last-child { margin-top: 0; }
+
 /* ---------- phone shell ---------- */
 .m-tabbar { display: none; }
 html.m-phone body:not(.no-company) .m-tabbar {
@@ -93,7 +132,7 @@ html.m-phone body:not(.no-company) .m-tabbar {
 .m-tabs, .m-tab-add { pointer-events: auto; background: var(--ios-bar); -webkit-backdrop-filter: saturate(1.8) blur(20px); backdrop-filter: saturate(1.8) blur(20px);
   border: .5px solid var(--ios-sep); box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
 .m-tabs { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--m-tab-h); border-radius: 31px; padding: 0 4px; }
-.m-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ios-gray); text-decoration: none; font-size: 10px; font-weight: 600; letter-spacing: .01em; border-radius: 27px; margin: 4px 0; }
+.m-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ios-gray); text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: .01em; border-radius: 27px; margin: 4px 0; }
 .m-tabs a svg { width: 25px; height: 25px; }
 .m-tabs a[aria-current="page"] { color: var(--accent); background: var(--ios-fill); }
 .m-tab-badge { position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: var(--ios-badge); color: #fff; font-style: normal; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
@@ -167,9 +206,8 @@ b.out { color: var(--text); }
 
 /* list rows with inset hairline separators */
 .m-tx, .m-acct, .m-row-link { position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; color: var(--text); text-decoration: none; width: 100%; background: none; border: 0; font: inherit; font-size: 17px; text-align: left; cursor: pointer; }
-.m-tx + .m-tx::before, .m-acct + .m-acct::before, .m-acct + .m-row-link::before, .m-row-link + .m-row-link::before, .m-tx + .m-month, .m-month + .m-tx::before {
+.m-tx + .m-tx::before, .m-acct + .m-acct::before, .m-acct + .m-row-link::before, .m-row-link + .m-row-link::before {
   content: ""; position: absolute; top: 0; left: 44px; right: -16px; border-top: .5px solid var(--ios-sep); }
-.m-month + .m-tx::before { content: none; }
 .m-card > .m-tx:first-child, .m-card > .m-row-link:first-child { margin-top: -4px; }
 .m-tx-ic { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--ios-fill); color: var(--text-2); }
 .m-tx-ic svg { width: 17px; height: 17px; stroke-width: 2; }

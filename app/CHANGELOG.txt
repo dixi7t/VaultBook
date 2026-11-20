@@ -33,6 +33,15 @@ VaultBook (formerly OfflineBooks US) — Changelog
     one tap; Accept all posts every suggested line. Card payments and
     transfers are chosen as the other account. Lines already entered with
     the same date, description and amount are skipped.
+  * Touch audit of every screen (107 on iPhone, 97 on iPad portrait and
+    landscape): no screen scrolls sideways, no text is under 11pt, and no
+    control is under 28pt. Buttons, fields and menus are at least 36pt on
+    touch screens (the form F-key strip, paste grid, calendar, reclassify,
+    report sorting, command bar); text links in reports get a taller tap
+    area; the iPad menu bar fits the width and its last menus open
+    leftward; report date and basis sit above the title on a phone; the
+    calendar month grid on a phone leaves the daily balance to the Week
+    and Agenda views.
   * iPhone and iPad use iOS system colors, the system font, grouped lists,
     a floating tab bar with a separate + button, and capsule buttons, in
     light and dark appearance.
