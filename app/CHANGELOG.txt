@@ -1,6 +1,68 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.55.1  (2026-11-20)  Version numbers
+-------------------------------------------------------------------------------
+  * Every change now ships as its own version: a git tag (v1.55.1) and a
+    GitHub Release with these notes, so any version can be found and
+    restored. The version shows in Settings > About and in backups.
+
+1.55.0  (2026-11-20)  Faster start
+-------------------------------------------------------------------------------
+  * Faster start: the published page loads one script and one stylesheet
+    instead of 99 files (built by app/tools/build-site.py from the new
+    source page app/index.src.html). Their names carry a content hash, so
+    the offline copy serves them instantly on later visits and a phone only
+    downloads what changed after an update.
+
+1.54.1  (2026-11-20)  Contrast and offline-cache fixes
+-------------------------------------------------------------------------------
+  * Accessibility audit (Impeccable method, light and dark): every text and
+    control on iPhone and iPad screens now meets WCAG AA contrast (4.5:1).
+    Links use Apple's Action Blue #0066CC (light) and #409CFF (dark); filled
+    buttons use #0066CC / #0071E3 so white text passes; money in is
+    #1E7B34; badges #D70015; tab labels and the selected tab are readable.
+    Today's date in the calendar, the overdue legend in dark mode and the
+    logo preview label were fixed too. Activity month headings are now h2.
+  * The offline cache now always checks for a newer file, so an update
+    shows at once instead of after the browser's own cache expires.
+
+1.54.0  (2026-11-20)  Passcode screen
+-------------------------------------------------------------------------------
+  * Passcode screen before VaultBook opens on the hosted site (iPhone-style
+    keypad; keyboard digits, Backspace and Enter also work). It stays open
+    until the tab or app is closed. Five wrong tries pause entry for a
+    minute. It keeps casual visitors out; it is not encryption. To protect
+    your books, turn on the company password in Settings.
+
+1.53.1  (2026-11-20)  Touch fixes on every screen
+-------------------------------------------------------------------------------
+  * Touch audit of every screen (107 on iPhone, 97 on iPad portrait and
+    landscape): no screen scrolls sideways, no text is under 11pt, and no
+    control is under 28pt. Buttons, fields and menus are at least 36pt on
+    touch screens (the form F-key strip, paste grid, calendar, reclassify,
+    report sorting, command bar); text links in reports get a taller tap
+    area; the iPad menu bar fits the width and its last menus open
+    leftward; report date and basis sit above the title on a phone; the
+    calendar month grid on a phone leaves the daily balance to the Week
+    and Agenda views.
+
+1.53.0  (2026-11-20)  Bank feed on iPhone and iPad; iOS look
+-------------------------------------------------------------------------------
+  * Bank feed on iPhone and iPad (Bank Feed tab, Home, and the + button):
+    add a bank or credit card account, then type statement lines one after
+    another (date steps a day at a time, the description remembers earlier
+    ones) or paste many at once from a spreadsheet or Notes, for a month or
+    a whole year. Unsaved lines are kept on the device. Saved lines wait in
+    For review, where each shows the category your rules or past choices
+    suggest, offers to match an entry already in VaultBook, and posts with
+    one tap; Accept all posts every suggested line. Card payments and
+    transfers are chosen as the other account. Lines already entered with
+    the same date, description and amount are skipped.
+  * iPhone and iPad use iOS system colors, the system font, grouped lists,
+    a floating tab bar with a separate + button, and capsule buttons, in
+    light and dark appearance.
+
 1.52.0  (2026-11-20)  iPhone and iPad
 -------------------------------------------------------------------------------
   * On a phone VaultBook opens its own mobile screens with a tab bar at the
@@ -22,48 +84,14 @@ VaultBook (formerly OfflineBooks US) — Changelog
   * Add to Home Screen: VaultBook opens full screen like an app and works
     offline. On iPhone and iPad this also stops Safari from clearing your
     books after weeks without use. Keep downloading backups.
+
+1.51.2  (2026-11-20)  Hide the window tabs
+-------------------------------------------------------------------------------
   * View and Window menus: hide or show the window tabs.
-  * Faster start: the published page loads one script and one stylesheet
-    instead of 99 files (built by app/tools/build-site.py from the new
-    source page app/index.src.html). Their names carry a content hash, so
-    the offline copy serves them instantly on later visits and a phone only
-    downloads what changed after an update.
-  * Accessibility audit (Impeccable method, light and dark): every text and
-    control on iPhone and iPad screens now meets WCAG AA contrast (4.5:1).
-    Links use Apple's Action Blue #0066CC (light) and #409CFF (dark); filled
-    buttons use #0066CC / #0071E3 so white text passes; money in is
-    #1E7B34; badges #D70015; tab labels and the selected tab are readable.
-    Today's date in the calendar, the overdue legend in dark mode and the
-    logo preview label were fixed too. Activity month headings are now h2.
-  * The offline cache now always checks for a newer file, so an update
-    shows at once instead of after the browser's own cache expires.
-  * Passcode screen before VaultBook opens on the hosted site (iPhone-style
-    keypad; keyboard digits, Backspace and Enter also work). It stays open
-    until the tab or app is closed. Five wrong tries pause entry for a
-    minute. It keeps casual visitors out; it is not encryption. To protect
-    your books, turn on the company password in Settings.
-  * Bank feed on iPhone and iPad (Bank Feed tab, Home, and the + button):
-    add a bank or credit card account, then type statement lines one after
-    another (date steps a day at a time, the description remembers earlier
-    ones) or paste many at once from a spreadsheet or Notes, for a month or
-    a whole year. Unsaved lines are kept on the device. Saved lines wait in
-    For review, where each shows the category your rules or past choices
-    suggest, offers to match an entry already in VaultBook, and posts with
-    one tap; Accept all posts every suggested line. Card payments and
-    transfers are chosen as the other account. Lines already entered with
-    the same date, description and amount are skipped.
-  * Touch audit of every screen (107 on iPhone, 97 on iPad portrait and
-    landscape): no screen scrolls sideways, no text is under 11pt, and no
-    control is under 28pt. Buttons, fields and menus are at least 36pt on
-    touch screens (the form F-key strip, paste grid, calendar, reclassify,
-    report sorting, command bar); text links in reports get a taller tap
-    area; the iPad menu bar fits the width and its last menus open
-    leftward; report date and basis sit above the title on a phone; the
-    calendar month grid on a phone leaves the daily balance to the Week
-    and Agenda views.
-  * iPhone and iPad use iOS system colors, the system font, grouped lists,
-    a floating tab bar with a separate + button, and capsule buttons, in
-    light and dark appearance.
+
+1.51.1  (2026-11-20)  Published on GitHub Pages
+-------------------------------------------------------------------------------
+  * The repository root opens the app (index.html redirects to app/).
 
 1.51.0  (2026-11-20)  Menu bar and toolbar at the top, new colours
 -------------------------------------------------------------------------------
