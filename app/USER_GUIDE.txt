@@ -1,0 +1,1194 @@
+OfflineBooks US — User Guide
+============================
+
+CONTENTS
+  1. First-time setup
+  2. How the books work (double-entry in plain English)
+  3. Everyday tasks
+  4. Banking: import, rules, reconciliation
+  5. Recurring transactions
+  6. Correcting mistakes: edit, void, reverse
+  7. Reports
+  8. Backup and restore
+  9. Import and export
+ 10. Settings, closing the books, data integrity
+ 11. Keyboard shortcuts
+ 12. Company password (security)
+ 13. Command bar, appearance and accessibility
+ 14. Working with long reports and tables
+ 15. Saving and unsaved changes
+ 16. Company Snapshot
+
+
+1. FIRST-TIME SETUP
+-------------------
+a) Create the company. Choose:
+   - Accounting basis. Accrual (income when invoiced, expenses when billed) or
+     Cash (income when money arrives, expenses when paid). You can switch any
+     report between the two at any time; this only sets the default.
+   - First month of the fiscal year (January for most small businesses).
+b) Review the chart of accounts (Chart of accounts). A standard US list is
+   created for you. Add, rename, renumber or make sub-accounts as you like.
+c) Enter opening balances. Pick a start date (usually the last day before your
+   fiscal year). For each bank, credit card, loan and asset account, click
+   "Opening balance" in the Chart of accounts and enter the statement balance.
+   These post against "Opening Balance Equity".
+   - Customers who owed you money on the start date: enter an invoice dated on
+     or before the start date for each unpaid amount.
+   - Bills you still owed: enter each as a bill.
+   This keeps customer and vendor balances correct.
+d) Add customers and vendors (Customers / Vendors, or "+ New" inside any form).
+e) Settings and backup -> Company: enter your address (printed on invoices).
+f) Download your first backup.
+
+
+2. HOW THE BOOKS WORK
+---------------------
+Every transaction is recorded as debits and credits that always balance.
+OfflineBooks creates these for you; you can see them under "Journal entry
+(debits and credits)" at the bottom of any saved transaction.
+
+  Sales receipt $1,000      Debit Checking 1,000   / Credit Sales 1,000
+  Invoice $1,000            Debit A/R 1,000        / Credit Sales 1,000
+  Payment $400 on invoice   Debit Checking 400     / Credit A/R 400
+  Bill $300                 Debit Expense 300      / Credit A/P 300
+  Bill payment $100         Debit A/P 100          / Credit Checking 100
+  Transfer $500             Debit Savings 500      / Credit Checking 500
+
+Payments never count as income a second time and bill payments never count as
+expenses a second time: they only move money against A/R or A/P. Transfers
+never create income or expenses.
+
+
+3. EVERYDAY TASKS
+-----------------
+Click "+ New" (or press Alt+N) for the full list.
+
+CHOOSING ACCOUNTS, CUSTOMERS AND VENDORS (type to search)
+Account fields and customer/vendor fields work like search boxes:
+- Type part of a name or an account number ("util", "6600", "office sup").
+  Suggestions appear as you type; ↓/↑ to move, Enter or Tab to choose.
+- If what you need doesn't exist, the last suggestion is "+ Add new account"
+  (or "+ Add new customer/vendor"). Choose it and a small window opens with the
+  name already filled in. Pick the type, save, and you're returned to the same
+  line of your transaction with the new account selected and the cursor in
+  the next field. Nothing you already typed is lost.
+- Click the field (or press ↓) to see the full list.
+- If you leave a field with text that matches nothing, it turns red.
+
+FAST ENTRY
+- Enter moves to the next field; Ctrl+S saves the transaction.
+- A blank line is added automatically when you fill the last line.
+- Journal entries: when you choose the account on a new line, the amount
+  needed to balance the entry is filled in for you on the debit or credit side.
+- Date fields: t = today, + = next day, - = previous day.
+- Amounts are tidied to two decimals when you leave the field.
+
+CUSTOMERS
+- Estimate: a quote for a customer. It does not affect your books. Open it and
+  choose Create Invoice to bill it; the estimate is then closed. (If you void
+  that invoice, the estimate opens again.) Mark closed / Reopen by hand.
+- Purchase Order: an order to a vendor; also does not affect your books.
+  Create bill turns it into a bill and closes it.
+- Invoice: customer owes you. The screen follows QuickBooks Desktop's Create
+  Invoices window. Pick the CUSTOMER:JOB (the BILL TO box and TERMS fill in),
+  then enter lines: ITEM (a product/service, or the income account),
+  DESCRIPTION, QTY and RATE (AMOUNT = QTY x RATE, or type the amount). TERMS
+  set the due date ("Due on receipt" = the invoice date).
+  CUSTOMER MESSAGE prints at the bottom of the invoice; "< Add New >" adds
+  your own message to the list. MEMO is for you.
+  Save & Close (Ctrl+S), Save & New (Ctrl+E), Revert (throw away changes).
+  The arrows next to Find step to the previous / next invoice.
+- Receive payment: choose the customer; open invoices are listed. Enter the
+  amount and click "Apply oldest first", or type amounts per invoice. Partial
+  payments are fine; the remainder stays open. Money left over is kept as a
+  credit on the customer's account.
+  You cannot apply more than an invoice's open balance.
+- Sales receipt: a sale paid immediately (no invoice).
+- Credit memo: reduces what a customer owes (return, discount). Apply it to an
+  invoice, or leave it as a credit.
+- Customer refund: pays a customer credit back (an overpayment or credit memo).
+- Statement: open a customer -> Statement -> Print / Save as PDF.
+
+VENDORS
+- Bill: you owe a vendor. Pay bills: choose the vendor and apply the payment.
+- Expense: money spent directly from a bank or credit card account.
+- Check: an expense paid by paper check (check number auto-increments).
+- Vendor credit: a vendor's credit that reduces what you owe; apply to a bill.
+- Credit card credit: a refund on a card.
+
+OTHER
+- Deposit: money into a bank account that isn't a customer payment (owner
+  investment, loan proceeds, refunds). Choose the "received from" account.
+- Transfer: between your own accounts, including paying a credit card bill from
+  checking (Transfer from Checking to Business Credit Card).
+- Journal entry: advanced; any accounts, debits must equal credits. Lines that
+  use A/R or A/P need a customer or vendor.
+  Don't use a journal entry to record a customer paying an invoice (or you
+  paying a bill): the invoice/bill would stay open. Use Receive payment / Pay
+  bills. The journal form shows a reminder when it sees this pattern.
+
+Printing invoices: open the invoice -> Print. Download PDF saves a PDF file;
+Print sends it to a printer. To put your logo on invoices: Settings and
+backup -> Company -> Invoice logo (PNG or JPEG). There is no logo by default.
+
+MAKE DEPOSITS
+Record customer payments and sales receipts to Undeposited Funds, then
+Banking -> Make deposits: tick the ones in today's bank deposit and save.
+The deposit moves them to the bank account as one amount, like your bank
+statement shows.
+
+PRINTING CHECKS
+Tick "Print later" on a check, bill payment or expense (from a bank
+account). Banking -> Print checks: tick the checks, enter the first check
+number on your check stock, and print (US Letter voucher checks, at 100%).
+Print a test on plain paper first and use Move right / Move down to line it
+up. Then choose "Checks printed correctly" to record the numbers.
+
+WRITE-OFFS AND FINANCE CHARGES
+An invoice you will never collect: open it -> More -> Write off as bad debt.
+Sales -> Assess finance charges charges interest on overdue balances (annual
+rate x days overdue / 365, with a minimum charge and grace period).
+
+1099 FORMS
+On the 1099 page tick W-9 for vendors who gave you one. Section 4 shows the
+1096 totals, any problems to fix, Recipient copies (PDF, to give vendors)
+and 1099 data (CSV). To e-file, download the IRS template in IRIS and copy
+the columns from the CSV into it.
+
+INVENTORY
+Edit (or create) an Inventory part and tick "Track quantity on hand". Enter
+the quantity you have now and its value. Buy stock with a bill, check or
+expense: pick the item, enter Qty and Cost - the line goes to Inventory
+Asset. When you sell it, VaultBook records the cost of goods sold at the
+average cost. Products and services -> Adjust inventory corrects counts.
+Reports -> Inventory Valuation Summary and Inventory Stock Status.
+
+FIXED ASSETS AND DEPRECIATION
+Lists -> Fixed assets: add each asset (cost, date placed in service,
+method: straight-line, double-declining or MACRS, and the accounts). Choose a
+date and Post depreciation entry - VaultBook posts what is due and not yet
+posted. Report: Fixed Asset Register.
+
+DISCOUNTS, CREDITS AND REFUNDS
+Early-payment discount: on a customer or vendor enter e.g. 2 % within 10
+days. New invoices and bills carry it. On Receive Payment / Pay Bills, tick
+"Take $x" next to the document while the discount is open; the payment and
+the discount credit (Sales Discounts / Purchase Discounts) save together.
+Apply credits: Receive Payment and Pay Bills list the contact's open credit
+memos and unapplied payments under the documents; choose an amount and the
+document to use each on, or tick "Use credits first".
+Vendor refund: Vendors -> Vendor refund records money a vendor paid back
+against a vendor credit. Refund deposit: a customer's page -> Refund deposit.
+
+BOUNCED PAYMENTS
+Open the customer payment -> More -> Record bounced payment. Enter the date
+and any bank fee and customer fee. The payment stays as it was; a new charge
+puts the amount back on the customer's balance and takes it out of the bank.
+
+VOID AS OF A LATER DATE
+A transaction in a closed or reconciled period can be voided "as of" a date
+in an open period: the original stays in its period as reported and a
+reversing entry is posted on that date.
+
+ASSET DISPOSAL
+Lists -> Fixed assets -> Dispose... on the asset: enter the date, the
+proceeds and where they went. VaultBook posts depreciation to that date
+(MACRS: half a year in the disposal year), clears the asset's cost and
+accumulated depreciation and books the gain or loss. A warning shows when
+the mid-quarter convention applies. "Tax depreciation" keeps a MACRS
+figure on the register while the book method posts.
+
+ATTACHMENTS
+Open a saved transaction -> Attachments -> Attach file. Click a file name to
+open it. Files are saved in this company and in its backups.
+
+JOBS AND BILLABLE COSTS
+On a customer's page choose + New job (or set "Job of" when editing a
+customer). Use the job like a customer on invoices. On a bill, check or
+expense line pick the Customer:Job and tick Billable; when you invoice that
+customer choose + Billable costs to add them. Reports: Profit and Loss by
+Job, Unbilled Costs by Job.
+
+TAX LINES
+Lists -> Tax lines: choose your income tax return, press Suggest from account
+names, check the choices and save. Reports -> Income Tax Summary totals each
+line; Tax export (CSV) is for your tax preparer.
+
+SALES ORDERS AND PROGRESS INVOICING
+A sales order (or estimate) does not affect your books. Open it and choose
+Create Invoice: invoice everything left, or a percentage of each line
+(for example 30% now, the rest later). It closes when it is fully invoiced.
+A purchase order can be billed in parts the same way.
+
+BATCH INVOICING
+Sales -> Batch invoicing: enter the lines once, tick the customers and
+create one invoice for each, with their own prices, terms and sales tax.
+
+CUSTOMER DEPOSITS (RETAINERS)
+On the customer's page choose Receive deposit. The money is held in
+Customer Deposits until you invoice; on the invoice choose + Apply deposit.
+
+PRICE LEVELS
+Lists -> Price levels: create a level (e.g. Wholesale -20%, or a price per
+item) and choose it on the customer. Picking an item on that customer's
+invoice uses their price.
+
+SALES TAX RETURNS AND PAYMENTS
+If your rate combines several agencies (state + county + city), enter each
+part in Settings -> Sales tax. Reports -> Sales Tax Return by Agency gives the
+figures for each return. Banking -> Pay sales tax writes one check to each
+agency. Record exemption certificates on tax-exempt customers and attach a
+copy on the customer's page.
+
+MORE REPORTS
+A/R Collections (who to call), Missing Checks (gaps and duplicate numbers),
+Voided/Changed Transactions, Cash Flow Forecast (next 12 weeks).
+
+SALES TAX
+Settings and backup -> Settings -> Sales tax: add each rate you charge (name,
+rate %, agency, and the liability account it is owed in - usually Sales Tax
+Payable). A combined rate (state + county + city) is entered as one rate.
+Invoices, sales receipts, credit memos and estimates then show a Tax column
+and a Sales tax choice. Tick Tax on the taxable lines (products marked
+Taxable tick it for you). Tax = rate x taxable lines, rounded to the cent,
+and is owed in the liability account - it is not income. Customers marked
+Tax-exempt get "No sales tax"; a customer can also have their own rate.
+Reports -> Sales Tax Liability shows taxable and non-taxable sales, tax
+charged and what you owe. To pay the agency, write a check (or record an
+expense) with the line account Sales Tax Payable.
+
+CLOSING DATE PASSWORD
+Settings -> Company: with a closing date password set, the closing date (and
+so closed periods) cannot be changed without it. Every change of the closing
+date is listed under Closing date history.
+
+AUDIT TRAIL
+Every change is recorded in the audit log, and each entry is sealed with a
+SHA-256 hash of the entry before it. Settings -> Data integrity reports if an
+entry was changed or removed.
+
+QuickBooks Desktop (.iif): Transactions -> QuickBooks .iif lists your invoices
+(filter by dates, customer, open only); tick the ones you want and download.
+In QuickBooks Desktop: File -> Utilities -> Import -> IIF Files. Tick "Include
+account, customer and item lists" if the QuickBooks file doesn't have them
+yet. One invoice: open it -> QuickBooks .iif. Back up the QuickBooks company
+file before importing.
+
+If you save something that looks identical to an existing transaction (same
+type, date, amount, name and account) you are warned before it is saved.
+
+
+4. BANKING
+----------
+BANK FEED (Banking -> Bank feed)
+The Bank feed is where bank and card transactions are reviewed. Each account
+has a tile showing the bank balance from your last file and the balance in
+VaultBook, plus how many lines wait for review.
+1. Import file: choose the account and drop a CSV, Excel, OFX/QFX/QBO or PDF
+   file. VaultBook picks the columns (date, description, amount or money
+   in/out, check number, running balance) and the date format. Check them; if
+   every date could be read as month/day or day/month you are warned. Tick
+   "Remember these columns" and the next file from the same bank skips this
+   step. A file that is not a bank export is refused with the reason.
+2. The preview shows how many lines are new, how many were already imported
+   (skipped), and whether the running balance checks out. Add them to For
+   review. Nothing is posted on import.
+3. For review: each line shows a match (an entry you already recorded, the
+   other side of a transfer, or an open invoice or bill for that amount) or a
+   category from your rules or from what you used last time for that
+   merchant. Click Match or Add to post it, or click the line to open it:
+   Categorize, Find match (all candidates with the reasons), Transfer, or
+   Split (the difference must reach $0.00). Create rule and Exclude are there
+   too.
+4. Select several lines (or "Select them" on the ready banner) to post them
+   together, set one category for all, or exclude them.
+5. Posted: Undo returns a line to For review. A match is unlinked (your entry
+   stays); a transaction the Bank feed created is voided.
+6. Excluded lines keep their reason and can be restored. Imports lists every
+   file; Undo import removes a file's lines while none of them is posted.
+Keys in the list: Up/Down move, Enter open, Space select, A post, X exclude,
+Esc close. Columns lets you show the check number, payee or bank balance and
+rows per page; Comfortable/Compact sets the row height. Both are remembered.
+Reconcile (top right) opens with the statement date and ending balance taken
+from the last file, and lines posted from the Bank feed are already ticked.
+
+MENU BAR AND TOOLBAR (1.51)
+- The menu bar at the top holds every screen: File, Edit, View, Lists,
+  Company, Customers, Vendors, Employees, Banking, Accountant, Reports,
+  Window, Help. Window lists the screens you have open.
+- Keyboard: Tab to the bar, Down opens a menu, Left and Right move between
+  menus, Esc closes.
+- The icon toolbar under it opens the most used screens.
+- View > Show the side menu brings back the old side menu (Ctrl+\).
+- File > Import, Export and Print are the old O, X and P menus.
+- A company opens on Home. View > Gateway opens the keyboard menu.
+
+THE SCREEN (1.25)
+- Top bar: search (Ctrl+K), the current period (click or Alt+F2), + New
+  (F10). Since 1.51 the K, Y, O, X and P menus are under File; their Alt
+  keys still work.
+- Home has two tabs. Get things done is the Gateway menu you drive with the
+  keyboard (G H). Business overview (G D) shows your numbers: profit and
+  loss for the last 30 days, expenses, bank accounts and how many lines
+  wait for review, invoices, and a task list. Click any figure to open the
+  transactions behind it.
+- + New lists everything you can create. Type to filter, use the arrow keys
+  and Enter, or press the F-key shown next to a form. Recently used entries
+  open as a copy.
+- The Banking menu shows a count when bank lines wait for review.
+
+REGISTER GRAPHS AND OPTIONS (1.25.1)
+- Sales and Purchase Registers show a bar per month under the table; click a
+  bar to see that month's vouchers.
+- Period, Show and Filters open with "Filters and options" (or Ctrl+F).
+
+QUICKBOOKS ONLINE PATTERNS (1.26)
+- Bookmarks: Ctrl+D or the star in the top bar adds the page you are on to
+  the side menu; press it again to remove it. Edit (next to Bookmarks)
+  renames and reorders them.
+- The gear in the top bar (Ctrl+Alt+L) opens company settings, lists and
+  tools, and turns the compact side menu (icons only) on or off.
+- QuickBooks Online keys work too: Ctrl+Alt+I invoice, W check, X expense,
+  E estimate, R receive payment, C customers, V vendors, A chart of
+  accounts, F search, H help, Ctrl+Alt+/ all shortcuts. On a form,
+  Ctrl+Alt+S saves and starts a new one, Ctrl+Alt+D saves and closes,
+  Ctrl+Alt+P prints, Ctrl+Alt+X closes.
+- Bank feed: open a line in For review and use "Date and note" to fix its
+  date or leave a note before you post it.
+- Reports: Chart shows bars above the report; Customize opens the options
+  panel; More > Classic layout gives the older toolbar.
+- Business overview: Customize chooses and orders the widgets; Privacy
+  hides the amounts.
+- A customer or vendor page has tabs for transactions, statements (or open
+  bills), details and notes.
+- On an invoice, "Preview and customize" shows the printed invoice beside
+  the form.
+
+ONE DEPOSIT, SEVERAL INVOICES (1.26.1)
+- When a customer pays several invoices in one bank deposit, open the line
+  in the bank feed. If the invoices add up, Find match offers them
+  together; choose Match.
+- To pick them yourself: Find match > Match open invoices yourself, choose
+  the customer, tick the invoices, lower an amount to pay part of an
+  invoice, then Match once the difference is $0.00.
+
+ONE INVOICE, SEVERAL DEPOSITS (1.26.2)
+- If a customer pays one invoice in two or more parts, open one of the
+  bank lines: Find match shows "Part payment of Invoice ... with ..."
+  when the other lines from that customer add up to the invoice. Match it,
+  then match the next line, which now fits what is left.
+- The customer's name has to be in the bank text of each line; amounts
+  alone are never joined.
+
+FIND: SEARCH ALL COMPANY DATA (1.27)
+- Press Ctrl+F (or gear > Tools > Find). Type what you remember, e.g.
+  "invoices over 5000 from acme may 2026", "1162", "$370,074.75",
+  memo:"cash paid", "checks this year", "overdue".
+- Every date is searched unless you name a period.
+- Simple tab: type, name, period, number, amount.
+- Advanced tab: add conditions, choose all or any, pick a period (All
+  dates or your own From/To), then Find. Save search keeps it for next
+  time; Export gives CSV or Excel.
+- The tags under each memo say where the match was found.
+
+RECONCILIATION REPORT (1.27.2)
+- After Finish, or from Reconcile > history, the report opens. Detail
+  lists every cleared and uncleared item with running balances; Summary
+  shows the totals. Download PDF gives a print-ready file; Excel and CSV
+  give the same rows.
+
+PAYMENTS SENT TO QUICKBOOKS DESKTOP (1.27.3)
+- Export to QuickBooks Desktop sends customer payments as Payments and
+  bill payments as Bill Payments, with the invoices they pay in the memo,
+  and downloads "payments to apply" (.csv) with the file.
+- QuickBooks cannot link imported payments to invoices. In QuickBooks,
+  open each payment (or Customers > Receive Payments) and tick the invoices
+  from the list. With Edit > Preferences > Payments > Automatically apply
+  payments on, QuickBooks applies each to an invoice of the same amount or
+  else the oldest.
+- If an earlier file left invoices open: export panel > Payments to apply
+  for lines already exported, then in QuickBooks Receive Payments for the
+  customer > Discounts and Credits on each invoice > tick the credit.
+
+POST TO THE BOOKS AND DOWNLOAD .IIF (1.35)
+- Payroll > Paystubs to journal: after the paystubs are read, the bar at
+  the bottom has Entries (one per pay date, or one combined entry), "Post
+  ... to the books" and "Download .iif for QuickBooks". Untick a pay date
+  to leave it out of both.
+- The .iif uses the accounts chosen in Payroll settings, with their
+  VaultBook names. Tick "Create the accounts in QuickBooks first" if the
+  client's QuickBooks file does not have them.
+
+COMBINED PAYROLL ENTRY (1.34.1, standalone tool)
+- Next to Download .iif choose Entries > "One combined entry for all
+  ticked pay dates". Untick any pay date to leave it out. The .iif then
+  holds one General Journal entry dated the last pay date.
+
+PAYROLL DOCUMENTS AND CROSS-CHECK (1.34)
+- Drop everything the client gave you for payroll into Payroll >
+  Paystubs to journal (or the standalone tool): paystubs, payroll
+  summaries/registers, EFTPS confirmations, Form 941, state withholding
+  and unemployment returns and payments.
+- "Cross-check of all payroll documents" lists each file, what it was
+  recognised as and what it is used for, the employees and their states,
+  a month-by-month table (wages, taxes, federal liability, deposit), and
+  every check: green when the documents agree, red with the difference
+  when they do not. "Not provided" lists what is missing.
+- Only paystubs make journal entries; the other documents only check.
+
+PAYSTUB TO QUICKBOOKS IIF (1.33.1, standalone tool)
+- Open PaystubToIIF.html (works offline, any computer). Drop paystubs.
+- Under "QuickBooks accounts" type each account name as it is in
+  QuickBooks. Tick "Create these accounts in QuickBooks first" when the
+  client's file does not have them yet.
+- Download .iif, then in QuickBooks: File > Utilities > Import > IIF
+  Files. Each pay date arrives as one General Journal entry.
+
+CALENDAR: CLICK, DRAG AND UNDO (1.50.1)
+- Click an empty spot of a day (or of an hour in Week and Day) to add a
+  to-do. More options sets the time, repeat and reminder.
+- Drag a to-do, bill, invoice or the next recurring entry to move it.
+  Ctrl-click several to move them together. Undo, or press Ctrl+Z.
+- In Week and Day, drag down in the grid to make a timed to-do, and drag
+  the bottom edge of a to-do to change how long it is.
+
+CALENDAR (1.50)
+- Click Calendar in the sidebar. Month, Week or Agenda; tick the kinds
+  of dates to show. Each day shows the forecast bank balance.
+- Click a day to see its items. Pay a bill, set Pay on, or drag the
+  bill to another day. Tick Filed / paid on a deadline.
+- Settings: the low balance warning, payroll deadlines, reminders, and
+  how often each sales tax agency is filed and on which day.
+- Choose the income tax return in Tax lines so its deadlines show.
+- Download for Outlook / Google saves an .ics file to open in your
+  calendar.
+
+DOC CENTER (1.49)
+- Books > Doc Center. Drop receipts and bills on the page or click Add
+  files. They wait in the Inbox.
+- Each file shows the date, amount and vendor VaultBook read and the
+  transaction it suggests. Correct a value and the suggestion follows.
+  Click Attach, or Attach all sure matches.
+- Missing documents lists spending of $75 or more with no file;
+  download the list for the client, or attach a file on its row.
+- Clean up removes copies, files on void transactions and large files.
+- CPA package downloads a period's documents as one zip with an index.
+
+SPLIT ONE AMOUNT OVER SEVERAL ACCOUNTS (1.48.1)
+- In Excel, put the extra lines under the first row with the Date left
+  blank; or give the rows the same Entry #; or list the accounts in one
+  Split cell: Rent A 2000; Rent B 2000; Rent C (the last takes the
+  rest) or Rent A 20%; Rent B 20%; Rent C 60%.
+- In the grid, tick rows and click Join into one entry.
+
+PASTE ENTRIES FROM EXCEL (1.48)
+- Open a ledger and click Paste entries (or Books > Paste entries and
+  choose the ledger).
+- In Excel, select the rows (headings included is fine) and copy. Click
+  a cell in the grid and press Ctrl+V.
+- Debit and Credit are this ledger's side; Split is the other account.
+- To repeat entries, tick the rows, enter the number of months and
+  click Repeat monthly. Change dates, memos or amounts as needed.
+- Accounts that are not in VaultBook are listed above the grid: choose
+  what each becomes. Rows marked in red need a fix.
+- Click Post entries. To take them back, click Void these.
+
+EXCEL AND CSV BANK FILES (1.47.1)
+- Bank feed > Import file takes .csv, .xlsx, .xlsm and .xls. VaultBook
+  finds the header row and the sheet with the most transactions.
+- Check the columns: Amount (minus = money out), or Money out and Money
+  in. If the amounts have no minus signs and a Type or Dr/Cr column says
+  Debit or Credit, choose it as the Debit / Credit column.
+- Card accounts: Reverse signs is on when charges show as positive.
+- Continue, then compare Money in and Money out with the statement.
+
+UPDATE QUICKBOOKS TO MATCH VAULTBOOK (1.47)
+- QuickBooks Desktop > Update QuickBooks. Back up the QuickBooks file.
+- On the QuickBooks PC open the tool (Open the QuickBooks tool, or
+  VaultBook QuickBooks.cmd > 7 Connect to VaultBook). First time only:
+  run 8 Install the link so VaultBook can open it.
+- Type the link code the tool shows and click Connect and get the
+  export. VaultBook lists every edit and void.
+- Click Send to the tool and answer Y/N in the tool's window. Then get
+  a fresh export: the number of edits should be 0.
+- Without the link: Download the update file and run 2 Send to
+  QuickBooks with it; load a new 5 Export everything to check.
+
+CLOSE THE BOOKS (1.46)
+- Choose the year (or one month) at the top. Work down the eight steps;
+  each shows Done or what is still open.
+- Prepared by VaultBook: run the self-test first. It shows how many of
+  last year's lines VaultBook would have posted and how many of those
+  were right. Tick "Let VaultBook post the sure lines" and click
+  Prepare. Lines it posted show their reason in the bank feed's Posted
+  tab, where Undo puts them back.
+- Review: pick the account once for a payee and Accept, or Ask client.
+- Client questions: Copy or Download them for the client; type the
+  answers back, then accept the payee in Review.
+- Compare to last year: set the floor for this client; write a reason
+  for each flagged account.
+- Sign off is offered only when statements, review, questions,
+  reconciliations and reasons are complete. It sets the closing date.
+
+EXTRA HELP IN THE BANK FEED (1.45)
+- In For review, choose Extra help: Other clients or Common merchants.
+  The count shows how many lines with no suggestion it identified.
+- Other clients uses the account names of your other companies on
+  this computer. Companies with a password are not read.
+- Each suggestion shows where it came from. Check it and click Add;
+  these lines are not posted in bulk.
+
+IMPORTING A GENERAL LEDGER FROM A PDF (1.44)
+- Drop the General Ledger PDF together with the Balance Sheet and
+  Profit and Loss PDFs for the same date. The two statements give
+  the account types and are the check after the import.
+- Print all three from QuickBooks on the same day, or the statements
+  will show entries the ledger does not have.
+- Long names and memos are cut where the printout cuts them. If the
+  QuickBooks file is available, a General Ledger saved as CSV keeps
+  the full text.
+- A scanned ledger (a picture of paper) cannot be read.
+
+IMPORTING A LEDGER WITH CLOSED YEARS (1.43)
+- If the General Ledger shows "Closing Entry" lines on Retained
+  Earnings, earlier years' income and expense lines are not in the
+  file. VaultBook rebuilds them from the Split column.
+- Add a Profit and Loss PDF for ALL dates together with the ledger:
+  it lets VaultBook complete those years by account, and it is the
+  check after the import. Add the Balance Sheet PDF for the ledger's
+  last date as well.
+- For exact detail by year, export the General Ledger one fiscal
+  year at a time instead.
+
+VAULTBOOK INTELLIGENCE (1.42)
+- Star button on the top bar, or Ctrl+I. Esc closes it.
+- Type a name (customer, vendor, account) for its summary, or a
+  question: "how many open invoices", "invoices open more than 90
+  days", "income by month with percentage", "top 5 expenses this
+  year", "why did profit change from last year", "bank balances",
+  "check 1042".
+- Periods understood: this/last month, quarter, year; a month name; a
+  year; last N days; all dates. Without one, totals use this year to
+  date.
+- "More than N days" counts days past the due date; add "since invoice
+  date" to count from the invoice date.
+- The grey line above each answer shows how the question was read.
+
+PRINTING REPORTS (1.41)
+- Ctrl+P or Print on any report opens the print window with the real
+  report pages. Paper size, orientation and text size come from the
+  last PDF page setup (Export to PDF shows it).
+- If the browser cannot print it directly, the report opens in a new
+  tab; press Ctrl+P there.
+
+STATEMENT LAYOUTS (1.40)
+- Settings > Company > Statement layout: pick 1 to 12. It applies to the
+  Balance Sheet and Profit and Loss on screen, in Print and in Export
+  to PDF. Excel stays plain rows.
+- On the report, the Layout buttons switch between Classic, Clean
+  lines and Full grid, or back to the company's layout.
+- Two-sided: liabilities and equity (or expenses) on the left, assets
+  (or income) on the right. Two-sided and Stepped columns work with
+  Show Columns = Total only.
+
+STATEMENT LOOKS (1.39)
+- Open Balance Sheet or Profit and Loss > the View button at the top
+  right > Look: Classic, Clean lines, Full grid, Banded, Header bars,
+  Ledger paper, Formal print. Row density and zoom are in the same menu.
+- Same menu: Expand all rows, Show two levels, Collapse all rows. Click
+  the arrow beside any group to fold just that group.
+- Click an account name or its amount to open the account's ledger.
+  Click a total to list the transactions behind it.
+
+SEND BANK TRANSACTIONS TO QUICKBOOKS (1.38)
+- First: connector > 1 Read QuickBooks, then load the snapshot in
+  QuickBooks Desktop > Months & send. What QuickBooks has shows as Sent.
+- Items tab: tick Bank transactions (and Invoices / Customer payments),
+  choose the Account and dates, tick the rows, Download for QuickBooks.
+  Or Months tab: tick months and download.
+- Connector > 4 Check only with that file first, then 2 Send. Use the
+  connector files from this version: the older script ignores bank
+  transactions in the file.
+
+CONNECTOR: REPORTS AND LEDGERS (1.37)
+- VaultBook QuickBooks.cmd > 6 Reports and ledgers. Pick what (for a
+  ledger: pick the account, or type part of its name or number), pick the
+  dates, pick a folder once. The .csv opens in Excel. Nothing is written
+  to QuickBooks.
+- Before SENDING to QuickBooks: Window > Close All in QuickBooks.
+- A payment QuickBooks already has as a Deposit of the same date and
+  amount is treated as already there and is not sent again.
+
+DENSE LEDGER LOOK (1.36)
+- Screens are denser: more rows fit, amounts are full size, buttons and
+  boxes are flat. Nothing moved: every key, menu and shortcut is the same.
+- New forms start with the cursor in the first field. Save & New is the
+  main button, bottom right. Lines are added as you type in the last one.
+- The dashboard's profit and expenses follow the period in the top bar
+  (Alt+F2). The bottom taskbar is off by default: turn it back on from the
+  tabs menu (window layout) if you used it.
+
+PAYROLL FROM PAYSTUBS (1.33)
+- Side menu > Payroll > Paystubs to journal. Drop the paystub PDFs (or
+  scans / photos). Scans are read with offline OCR, a few seconds a page.
+- Each pay date shows its employees. A green tick means every figure ties
+  to the stub's totals and net pay. Fix anything marked; choose what an
+  unknown line is once and VaultBook remembers it for this company.
+- Employer taxes (not on the stub) are worked out from Payroll settings;
+  change them on the stub if needed.
+- Check the journal entry preview, then Post journal entry (or Post all
+  ready). It is a normal journal entry: open it from the Posted entries tab.
+- First time: Payroll settings. Pick the accounts, or Create standard
+  payroll sub-accounts, or Learn from an earlier payroll entry. Enter your
+  state unemployment (SUTA) rate and wage base. Net pay can go to a
+  clearing liability (cleared by the bank feed) or straight to the bank.
+
+QUICKBOOKS DESKTOP SECTION (1.32)
+- Side menu > QuickBooks Desktop > Overview lists everything in order:
+  1 Import everything, 2 Read QuickBooks and see the gap, 3 Send what is
+  missing, 4 Load what happened, then the reports (Tie-out, Months, Sent,
+  Problems), the connector menu and the other routes.
+- Import everything: on the QuickBooks PC run VaultBook QuickBooks.cmd >
+  5 Export everything, choose a folder (and a start date, or Enter for all
+  dates). In VaultBook choose the VaultBook-QB-full-....json on the
+  Overview. The preview opens; press Import. An empty company receives it;
+  a company with transactions gets a new company named from the file.
+  Payments come in applied to the same invoices and bills as in
+  QuickBooks.
+- Tie-out report: every balance-sheet account, QuickBooks against
+  VaultBook. Differences appear when either side changed after the export.
+
+SEND TO QUICKBOOKS DESKTOP (1.30, 1.31)
+- Banking > Send to QuickBooks records VaultBook invoices and customer
+  payments in QuickBooks Desktop, with each payment applied to its
+  invoices so they close there. Windows only; nothing to install. One
+  script does everything: tools\VaultBook QuickBooks.cmd (copy the tools
+  folder to the QuickBooks PC once). It never searches for files; it
+  always asks you to choose them.
+- First time: open the company file in QuickBooks as Admin and choose
+  File > Switch to Single-user Mode. When QuickBooks asks to allow
+  "VaultBook Connector", choose Yes, always and log in as Admin.
+- Step 1, Read QuickBooks: double-click VaultBook QuickBooks.cmd, choose
+  1. Pick a folder; it saves a snapshot (every transaction of the last
+  five years, by month; nothing is written). In VaultBook: Load snapshot
+  or result file. The Months tab now shows each month: In QuickBooks, In
+  VaultBook, Matched, Only in VaultBook, Only in QuickBooks, and a state
+  (Done / Partly / Not in QuickBooks / QuickBooks only).
+- Step 2, choose months: tick any months, in any order. Only what is not
+  yet in QuickBooks is sent; invoices from other months that a ticked
+  payment pays come along automatically. Download for QuickBooks saves
+  one file. (The Items tab lets you pick single invoices and payments
+  instead, with period, customer, status and amount filters.)
+- Step 3, Send: run VaultBook QuickBooks.cmd, choose 2 (or 3 to read,
+  send and read again), pick the file. It checks every item, asks before
+  creating any missing customer or item, shows the plan (Ready / Already
+  in QuickBooks / Problem) and asks once more before recording invoices
+  first, then payments. Option 4 shows the plan and writes nothing.
+- Step 4, back in VaultBook: Load snapshot or result file with the
+  .result.json saved next to your file; items show Sent (with the
+  QuickBooks id) or Problem with the reason (Items > Status: Problems).
+  Load the new snapshot too and the months show Done.
+- Invoice lines: an item name that exists in QuickBooks is used as is. A
+  line without an item uses the QuickBooks item whose name the description
+  starts with, and the full description prints on the invoice
+  ("Radiology Services - For Holiday" -> item Radiology Services).
+- Matching: each transaction the script records carries its VaultBook id
+  in the memo as [VB:...], so a later Read recognizes it exactly. Entries
+  typed in QuickBooks by hand are matched by type, date, number and
+  amount. Names must match QuickBooks exactly (customers, the bank
+  account the payment went to, income accounts for new items).
+- Running Send again is safe: items already in QuickBooks are skipped.
+
+INVOICE PAYMENT DAYS (1.29)
+- Reports > Management (MIS) > Invoice Payment Days shows how fast
+  customers pay: days to pay, days late, averages by customer, paid on time
+  %, and what is still open.
+- View: Summary by customer, By invoice or By payment. Period is: Invoice
+  date (invoices raised in the period) or Date paid (paid in the period).
+  Status, Customer and Payments up to narrow it. Then Run report.
+- Fields: tick the columns you want and order them with the arrows. The
+  choice is kept for next time and used by CSV, Excel and PDF.
+- Drill-down (the standard view): click > beside a customer to see its
+  invoices, or Expand all customers. Each invoice row shows its payments,
+  so you do not need to open it. Excel keeps the grouping: use the 1 and 2
+  buttons (or +/-) at the left of the sheet.
+
+- Click a customer in the summary to see its invoices.
+
+- Income accounts (1.29.2): in Fields, tick "Income accounts" for the list
+  of income accounts on each invoice with amounts, "No. of income accounts",
+  or the column of any income account (by number and name) to see how much
+  of each invoice went to it, added up by customer.
+
+KEYBOARD WORK LIKE TALLYPRIME (1.22)
+- F2 on the Gateway changes the current date; Alt+F2 the current period.
+  Click them on the Gateway too. Type dates any way: june20, 0620, 620,
+  6/20, 6.20, 06-20, 6/20/25, just the day (20), t for today, +7. New entries
+  use the current date; reports open on the current period.
+- On a report the panel on the right lists its keys: F2 Period, Alt+N Auto
+  column (months, quarters, class, customer...), Alt+C New column (previous
+  year or period, $ and % change, % of income...), Ctrl+B Basis of values,
+  Alt+F5 Detailed/Condensed. Profit and Loss and Balance Sheet are one report
+  each; by month, comparison and % of income are these options.
+- Gateway > Registers: Sales Register, Purchase Register, Cash/Bank Book.
+  Months first (debit, credit, closing balance); Enter on a month opens its
+  vouchers, Enter on a voucher opens it, Esc goes back. Filters on the side:
+  voucher type (F4), name, ledger, amount from/to, voucher number, narration,
+  status, class. Ctrl+F jumps to the filters.
+- Company list: Up/Down, Enter opens, type a name to jump, Alt+C create,
+  Alt+R restore, Del delete.
+
+RECLASSIFY TRANSACTIONS (Gateway > Reclassify transactions)
+For cleaning up a client's books. Choose the dates and an account on the
+left (or All accounts to search), filter the lines on the right by name,
+type, text or amount, tick them (Space, or Select all), then tick Account to
+and/or Class to and choose the new one. The line under the buttons shows
+what will move before you press Reclassify (Ctrl+Enter). Lines that can't
+move say why: A/R and A/P lines follow their invoice or bill, product lines
+take their account from the item (class only), reconciled and closed-period
+transactions are locked. History lists every change with Undo.
+
+BANK FEED: ALREADY IN YOUR BOOKS, SMARTER RULES, SEVERAL ENTRIES (1.23)
+- Already in your books: if you typed some transactions in yourself and later
+  import the bank file, the import preview lists the lines that are already
+  in the account (same amount and a close date, or the same check number).
+  They are matched to your entries instead of being added again. Untick the
+  box to review them yourself. On Posted they show "Already in books"; Undo
+  unmatches one.
+- Bank rules (Banking > Bank rules, or Create rule on a bank line): add
+  conditions on the description (contains, does not contain, starts, ends,
+  is exactly) and on the amount (is, under, over, between); choose all or any;
+  limit to money in or out and to chosen accounts. Then use one category or a
+  split ($ lines first, % lines share the rest), with payee, class and memo.
+  Auto-add posts matching lines on import without review. The Preview shows
+  which waiting lines the rule catches before you save.
+- One deposit, several payments: a $2,000 bank deposit made of three customer
+  payments waiting in Undeposited Funds shows "Deposit of 3 payments"; Match
+  records the deposit. Several entries already in the account that add up to
+  one bank line can be matched together too (Find match).
+
+RECONCILE: FIND, ADJUSTMENT, REPORT (1.23)
+- Find box: type an amount, check number, payee or memo; Enter ticks the one
+  line found. "Only not ticked" hides what you already ticked.
+- Finish with adjustment: when you can't find a small difference, VaultBook
+  posts it to the Reconciliation Discrepancies expense account and finishes.
+  If you find it later, Undo last reconciliation also voids the adjustment.
+- Report: after finishing, and from History, each reconciliation has a report
+  (beginning balance, cleared items, adjustment, statement balance, uncleared
+  items, register balance). It is frozen when you finish, so it prints the
+  same later. Print, PDF, Excel or CSV.
+
+BRING A WHOLE COMPANY IN FROM QUICKBOOKS (company screen -> Create from
+QuickBooks files, Alt+Q; or inside a company: Import from QuickBooks)
+When a client sends you their QuickBooks files, choose all of them at once.
+VaultBook creates the company with the name on the reports, shows what it
+will import, and posts nothing until you press Import. Afterwards it compares
+every account with QuickBooks' own Trial Balance and tells you if any differ.
+- From QuickBooks Online (Excel, Export -> Export to Excel), all for the
+  report period "All Dates":
+    Journal                the transactions, exactly as posted
+    Balance Sheet and
+    Profit and Loss        what kind each account is, and the sub-accounts
+    Trial Balance          the proof: every balance is checked against it
+    Customer / Vendor / Employee Contact List   names and addresses (optional)
+  A General Ledger is only used when there is no Journal: totals are still
+  exact, but entries on the same day may be combined into one.
+- From QuickBooks Desktop: the IIF lists (File -> Utilities -> Export ->
+  Lists to IIF Files) and the General Ledger for All dates (CSV or Excel).
+- Keep each file as QuickBooks made it: one report per file, title rows on
+  top. If a report is missing VaultBook says which one; it never guesses an
+  account's type.
+- Import goes into a new, empty company. If you add the files to a company
+  that already has transactions, VaultBook offers to create a new company
+  from them.
+- What comes across: accounts with their types and sub-accounts, vendors and
+  customers, and every transaction as a deposit, expense, check, transfer,
+  invoice, bill, payment or journal entry. Not carried: attachments,
+  reconciliation marks, bank rules, budgets, payroll detail.
+
+SEND BANK TRANSACTIONS TO QUICKBOOKS (Bank feed -> More -> Export posted
+transactions to QuickBooks; an advanced tool)
+After importing, reviewing and posting any number of months of statements,
+send them to QuickBooks in one file. Only transactions posted in VaultBook
+are sent; lines still in For review stay behind until you post them.
+- QuickBooks Desktop (.iif): each posted line goes as the transaction you
+  recorded, with its category, payee, class and split lines. Payments out
+  become Checks, deposits Deposits, card charges Credit Card charges, card
+  refunds Credit Card refunds, transfers go once even when both accounts are
+  sent. In QuickBooks: back up the company file, then File > Utilities >
+  Import > IIF Files.
+- QuickBooks Online cannot read .iif files: choose "QuickBooks Online bank
+  upload (.csv)" for one Date/Description/Amount file per account, then use
+  Banking > Upload transactions in QuickBooks Online. Categories are not
+  carried; QuickBooks Online categorizes them in its own bank feed.
+Choices: which accounts, which dates (all, this or last month, quarter, year,
+last 12 months, or custom), only lines not exported before (on by default),
+mark them cleared, include the accounts and names used, and whether
+payments of invoices and bills are left out (enter them in QuickBooks with
+Receive Payments / Pay Bills) or sent as deposits to A/R and payments from
+A/P. Beside each account, type its exact name in QuickBooks if it differs;
+VaultBook remembers it. The preview shows lines and money in/out per account
+and what is left out and why. Export history lists every file; "Mark as not
+exported" makes its lines go again next time.
+
+BANK RULES (Bank rules)
+"When the description contains X, categorize as Y." Click "Rule..." on any
+import row to create a rule from it. Higher priority rules are checked first.
+
+RECONCILE (Reconcile)
+1. Choose the account, enter the statement's ending date and ending balance.
+2. Tick each transaction that appears on the statement. Ticks are saved as you
+   go, so you can leave and come back.
+3. When Difference shows $0.00, click Finish now.
+Reconciled transactions are locked. To change one, use "Undo last" in the
+reconciliation history for that account.
+If the difference won't reach zero: look for missing transactions, duplicates,
+amounts typed wrong, or items dated after the statement date.
+
+
+5. RECURRING TRANSACTIONS
+-------------------------
+Open any saved invoice, bill, expense, check, deposit, transfer or journal entry
+and click "Make recurring". Pick weekly/monthly/quarterly/yearly and the next
+date. When something is due, the dashboard tells you; go to Recurring and post
+it (or "Post all due", or "Skip" one occurrence). Nothing is posted without your
+confirmation, and the same occurrence can never be posted twice.
+
+
+6. CORRECTING MISTAKES
+----------------------
+Open any saved transaction. The form is shown on its own; less common actions
+are under the "More" button: Duplicate, Make recurring, Reverse entry,
+Transaction journal (the debits and credits it posted), Audit history, Void.
+The journal and history open in a side panel; press Esc to close it.
+
+- Edit: open the transaction, change it, Save changes. The previous version is
+  stored in the transaction's History and in the audit log.
+- Void: keeps the transaction (marked Void) but removes every amount from the
+  books and reports. Posted transactions are never silently deleted.
+  You can't void an invoice or bill that has payments applied — void or edit
+  the payment first. This prevents orphaned payments.
+- Reverse (journal entries only): posts an equal and opposite entry on a date
+  you choose, e.g. for month-end accruals.
+- Duplicate: opens a copy as a new transaction.
+Transactions in a reconciled statement or before the closing date are locked.
+
+
+7. REPORTS
+----------
+Reports -> pick a report -> set the period, basis and columns -> Run report.
+Every number is calculated live from posted transactions. Click any amount to
+see the transactions behind it (it opens the General Ledger for that account
+and period). Export with CSV, Excel or PDF, or Print.
+
+  Profit and Loss .......... Columns: total, months, quarters, years, or
+                             "vs. previous year" with $ and % change.
+  Balance Sheet ............ Compare with previous month end, previous year,
+                             or the last 12 month ends.
+  Statement of Cash Flows .. Indirect method; reconciles to bank balances.
+  Trial Balance ............ Debits = credits check.
+  General Ledger, Journal .. Every posting.
+  A/R and A/P Aging ........ Current, 1-30, 31-60, 61-90, 91+ days past due.
+                             Tick "Show documents" for invoice/bill detail.
+  Customer/Vendor Balance .. Ties to A/R and A/P.
+  Expense Detail, Expenses by Vendor, Transaction List by Date.
+
+Built-in checks: the Balance Sheet, Trial Balance, Cash Flow and aging reports
+show a green check when they tie out, or a red warning if not.
+
+On screen, very long ledgers show the first 5,000-6,000 lines; CSV and Excel
+exports always contain every line.
+
+COMPARE COLUMNS (Profit and Loss "Compare to")
+Previous year, previous period, month-to-date (MTD), quarter-to-date (QTD,
+fiscal quarters), year-to-date (YTD) and previous year-to-date, plus $ change,
+% change and % of income / expense / row / column.
+
+REPORT RECONCILIATION (Reports -> For my accountant)
+One page that proves the trial balance, balance sheet, profit and loss, cash
+flow and A/R and A/P aging all tie to the posted ledger for a period.
+
+PDF AND EXCEL
+  PDF ..... Every report has PDF (statements: Export -> Export to PDF). Choose
+            paper (Letter, Legal, Tabloid, A4, A3 or a custom size in inches),
+            orientation and text size. The company name, title and column
+            headings repeat on every page, with "Page X of Y". Made on this PC.
+  Excel ... Title rows are merged, headings stay frozen while you scroll and
+            repeat on printed pages, and the sheet prints to one page wide.
+            Statement subtotals and totals are real formulas (=B5+B6...), so
+            the spreadsheet stays live; the values match the screen.
+The figures on screen, in the PDF and in Excel come from one calculation and
+one number formatter, so they are always identical.
+
+EXPORT FINANCIAL WORKBOOK (Reports -> Export financial workbook, or Ctrl+K)
+One Excel workbook for the open company, for accountants and CPA firms:
+Dashboard, Profit & Loss, Balance Sheet, Cash Flow, Trial Balance, General
+Ledger, Income Details, Expense Details, AR Aging, AP Aging, Journal Entries,
+Account Index, My Analysis and "Data - Ledger Lines" (the original data).
+1. Choose a fiscal year (or custom dates), cash or accrual, and the sheets you
+   want. Optionally protect the original data sheets (no password).
+2. In Excel, change From date / To date on the Dashboard: every report
+   recalculates (SUMIFS formulas over the data sheet). The Checks on the
+   Dashboard should all read OK.
+3. Click any account or amount to drill down: statement -> details -> the
+   account's ledger -> the journal entry. Every sheet links back.
+4. Filter, sort, group (+ / - at the left), add your own columns, formulas,
+   charts, PivotTables and sheets. The grey data tab is the original data; the
+   green "My Analysis" tab and new sheets are yours.
+Notes: the workbook is a snapshot - changes in Excel never reach VaultBook;
+enter transactions in VaultBook and export again. Ledger and journal lines
+cover the exported period; balances use all earlier data. Aging shows open
+items on the export date (change the aging date to re-bucket). Each company
+exports separately. One sheet holds at most 1,048,576 rows.
+
+STATEMENT DESIGNER (Reports -> Statement designer, or Ctrl+K "designer")
+Lay out your own profit and loss or balance sheet - like Statement Writer.
+1. Start from a template (Condensed P&L with margins, Balance Sheet with key
+   ratios, or a blank one).
+2. Rows: + Add row -> Accounts, Formula, Heading, Text or Blank line. Drag rows
+   to reorder, or select a row and press Alt+Up / Alt+Down. Delete removes it.
+3. Accounts rows add up accounts picked by type, by number range (4000-4999,
+   6100), by name, one by one, or "all remaining accounts". Show them as one
+   expandable line, every account with a total, or one line only.
+4. Formula rows use other rows' ids: gp - opex, gp / income (show as Percent),
+   ca / cl (Ratio). + - * / ( ) abs() min() max(). Dividing by zero shows a
+   blank, never an error.
+5. Style each row (bold, italic, indent, line above or total lines, start a new
+   page, hide when zero) and add a highlight rule (e.g. red when below 30 %).
+6. The preview updates as you type. A yellow note lists any account with
+   amounts that is on no row, or on two rows; "Add a row for them" fixes it.
+7. Save (it appears under My reports), Excel, PDF, Print. More -> Export
+   template saves a .json file you can import into another company.
+
+
+8. BACKUP AND RESTORE
+---------------------
+BACKUP: Settings and backup -> Backup and restore -> Download backup.
+The file (OfflineBooks_<Company>_<date>_<time>.json) contains everything for
+that company: accounts, customers, vendors, all transactions (including voided
+ones), rules, recurring schedules, reconciliations and the audit log. It has a
+checksum so damage or editing can be detected.
+
+Good routine: back up at the end of every working week and before big changes
+(imports, year-end), and keep copies OFF this PC (USB drive, another computer,
+or your own cloud folder).
+
+RESTORE: on the first screen ("Restore from backup...") or in Settings.
+The file is checked first: format, checksum, every transaction balances,
+accounts and customers referenced exist, and A/R and A/P tie out. If any check
+fails, nothing is changed and you see the reasons. If it passes you choose:
+  - Restore as a new company: safest; your current company is untouched.
+  - Replace "<company>": overwrites that company's current data with the backup.
+Backups from older versions are upgraded automatically.
+
+MOVING TO A NEW PC: back up on the old PC, copy the backup file and the app ZIP
+to the new PC, extract, open index.html, Restore from backup.
+
+
+9. IMPORT AND EXPORT
+--------------------
+Settings and backup -> Import and export.
+Export: all transactions as journal lines (CSV), chart of accounts, customers,
+vendors, or one Excel workbook with everything. Exports neutralize spreadsheet
+formulas in text fields for safety.
+Import: customers/vendors CSV (needs a "Name" column; optional Company, Email,
+Phone, Address, Terms) and chart of accounts CSV (needs "Name" and "Type", e.g.
+Expense, Bank, Other Current Asset; optional Number, Description).
+Bank transactions: see section 4.
+
+
+10. SETTINGS, CLOSING THE BOOKS, DATA INTEGRITY
+-----------------------------------------------
+- Company: name, address, EIN, default basis, fiscal year, default terms.
+- Close the books through a date (e.g. after filing taxes): nothing on or before
+  that date can be added, edited or voided until you change the date.
+- Data integrity: re-checks that every transaction balances, the trial balance
+  balances, A/R and A/P equal the customer/vendor totals, no invoice is
+  over-paid, and the balance sheet balances.
+- Audit log: append-only history of every change.
+- Storage and about: storage used, and a button asking the browser to keep the
+  data permanently (prevents automatic clean-up when the disk is very full).
+
+Multiple companies: "Switch company" in the sidebar. Each company is stored
+separately and backed up separately. Deleting a company requires typing its name.
+
+
+11. KEYBOARD SHORTCUTS
+----------------------
+Ctrl+K     Command bar: find anything, start any task
+Ctrl+\     Hide or show the sidebar
+Alt+N      Create a new transaction
+Ctrl+S     Save the open transaction form
+Enter      Next field (in transaction forms); choose a suggestion
+Tab        Choose the highlighted suggestion and move on
+Up/Down    Move through suggestions (Down opens the full list)
+Esc        Close suggestions or a dialog
+t + -      In a date field: today, next day, previous day
+
+
+12. COMPANY PASSWORD (SECURITY)
+------------------------------
+Each company can have its own password: Settings and backup -> Security.
+
+WHAT IT DOES
+- Everything stored for the company (accounts, customers, vendors, every
+  transaction, rules, reconciliations, audit log) is ENCRYPTED on this PC with
+  AES-256. Without the password the data can't be read, not even with the
+  browser's developer tools or by copying the browser's files.
+- Opening the company asks for the password. "Lock company" in the sidebar
+  locks it immediately, and it locks itself after a period without activity
+  (5, 15, 30 or 60 minutes, or never). When it locks, anything typed into an
+  unsaved form is discarded.
+- Backups you download are encrypted too (file name ends in _protected.json)
+  and open only with the company password or recovery key. A protected backup
+  restores as a protected company with the same password.
+- Wrong passwords are rejected; after 3 wrong tries the unlock screen makes
+  you wait a little longer each time.
+
+TURNING IT ON
+1. Settings and backup -> Security. Enter a password twice (at least 8
+   characters; a short sentence is a good choice). Optional hint.
+2. You are shown a RECOVERY KEY (32 characters, like XXXX-XXXX-...).
+   Copy it, download it as a text file, or write it down, and keep it away
+   from this PC. You must tick "I have saved the recovery key" to continue.
+3. Download a new backup (it will be encrypted) and delete older backup files
+   made before protection was on — those are NOT encrypted.
+
+FORGOT THE PASSWORD
+On the unlock screen: "Forgot password? Use recovery key". Enter the key (any
+upper/lower case, dashes optional). You must then choose a new password, and a
+NEW recovery key is issued — the used one stops working. Save the new one.
+If both the password and the recovery key are lost, the data cannot be
+recovered by anyone. This is what makes the protection real.
+
+CHANGE / OFF
+- Change password: Security -> Change password (current password required).
+- Lost the recovery key but know the password: "Issue new recovery key".
+- Turn off: decrypts the data back to normal storage (password required).
+All of these are recorded in the audit log.
+
+WHAT IT DOES NOT DO
+- The company NAME is still shown in the company list.
+- It does not protect against someone using the PC while the company is
+  unlocked, or against malware such as keyloggers on this PC.
+- It is one password per company, not separate user accounts or permissions.
+- "Delete company" on the first screen still works without the password
+  (deleting can't reveal data) — keep your backups.
+
+
+13. COMMAND BAR, APPEARANCE AND ACCESSIBILITY
+--------------------------------------------
+COMMAND BAR (Ctrl+K, or "Search" at the top of the sidebar)
+Type anything and press Enter:
+- a transaction number ("INV-1004"), a customer or vendor name, a memo word,
+  or an amount ("1,250.00") to open that transaction or contact;
+- an account name or number to open its register;
+- a report name ("aging", "balance sheet");
+- an action ("new invoice", "pay bills", "reconcile", "download backup",
+  "lock company").
+With nothing typed it shows common actions and your most recent transactions.
+Up/Down to move, Enter to open, Esc to close.
+
+APPEARANCE
+The sun/moon button at the top right switches instantly between Light and
+Dark. Settings and backup -> App and storage also has "Match Windows", which
+follows the Windows setting, and a Density choice: Comfortable (default) or
+Compact (more rows on screen). Printing and Save as PDF always use the light
+appearance. The sidebar can be hidden with the button at the top left (or
+Ctrl+\) to give reports more room.
+These preferences, and table column layouts, are saved in this browser and
+kept when you close and reopen it. They are display settings only - not part
+of your books or your backups.
+
+ACCESSIBILITY
+- Everything works from the keyboard: Tab moves through controls, every row in
+  a list is a link (Tab to it, Enter to open), menus and suggestion lists use
+  the arrow keys, Esc closes dialogs, panels and lists.
+- Text meets WCAG AA contrast (4.5:1) in both light and dark appearance.
+- Works with Windows Narrator and other screen readers (labelled controls,
+  dialogs, list boxes and status messages).
+- Respects the Windows "Show animations" setting (reduced motion).
+- On narrow windows and phones, tables scroll inside themselves and
+  transaction lines become stacked cards.
+
+
+14. WORKING WITH LONG REPORTS AND TABLES
+--------------------------------------
+- Reports and lists fill the window. The title and filter bar stay in place
+  and only the report or table scrolls; column headers stay at the top.
+- Wide reports scroll sideways inside the report; the first (key) column -
+  Date in the General Ledger, Account in the Trial Balance - stays pinned on
+  the left.
+- Resize a column: drag the right edge of its header. With the keyboard, Tab
+  to the edge and press Left/Right (Shift for bigger steps). Double-click an
+  edge to reset that column.
+- Show or hide columns: "Columns" button (reports, Transactions, registers).
+  The key column can't be hidden. "Reset layout" restores the defaults.
+- Layouts are remembered per report or list. All account sections of the
+  General Ledger share one layout so their columns line up.
+  Settings -> App and storage -> "Reset all table layouts" clears them all.
+- Reloading the page keeps you on the report or list you were viewing.
+
+15. SAVING AND UNSAVED CHANGES
+-----------------------------
+- When you change a transaction or the company settings, the top bar shows
+  "Unsaved changes" and the title shows "Edited". Undoing your edits clears it.
+- Saving shows "Saving..." then "Saved". The Save button is disabled while
+  saving, so double clicks or pressing Ctrl+S again can't post twice.
+- If saving fails (for example the disk is full), you see "Save failed" with
+  the reason and a "Try again" button. Nothing is posted and everything you
+  typed stays on screen.
+- If you try to leave with unsaved changes (a sidebar link, the Back button,
+  Close, switching or locking the company), you are asked: Keep editing,
+  Discard changes, or Save. Closing the browser tab also warns you.
+
+
+16. COMPANY SNAPSHOT
+-------------------
+Sidebar -> Company Snapshot (or Ctrl+K and type "snapshot"). A one-page view
+of your business made of panels. Every number is calculated from your posted
+transactions - click any bar, slice, name or amount to open the detail behind
+it (P&L for that month, the account's ledger, the invoice, the customer).
+
+TABS
+- Company:  Income and Expense Trend, Previous Year Income Comparison,
+            Previous Year Expense Comparison, Account Balances, Customers Who
+            Owe Money, Top Customers by Sales, Expense Breakdown.
+            Also available: Vendors to Pay, Top Vendors by Expense, Income
+            Breakdown, Key Figures, Reminders, Aging Summary.
+- Payments: Aging Summary, Customers Who Owe Money, Invoice Payment Status,
+            Recent Payments Received, Reminders, Vendors to Pay (+ Key Figures).
+- Customer: choose a customer at the top; Customer Summary (balance, overdue,
+            sales, average days to pay, last payment), Open Invoices, Customer
+            Sales Trend (this year vs last), Recent Transactions.
+
+ARRANGING PANELS (each tab keeps its own layout, per company)
+- Move: drag a panel by its title bar and drop it anywhere - in any column, at
+  any position. Keyboard: Tab to the panel's handle (six dots) and use the
+  arrow keys (Up/Down within a column, Left/Right to the next column,
+  Home/End for top/bottom). The new position is announced to screen readers.
+- Columns: choose 2, 3 or 4 at the top. Panels keep their reading order.
+- Remove: the X on a panel. It goes back into "Add content".
+- Add content: opens a gallery with live previews of everything not shown.
+  Click Add on each one you want, then Done. New panels go to the shortest
+  column.
+- Collapse: the ^ button shrinks a panel to its title bar.
+- Expand: the diagonal-arrows button opens the panel full size with ALL of
+  its data (every account, every open invoice), and has a Print button.
+- Restore defaults: puts this tab back to its original panels, positions and
+  settings. Other tabs are not touched.
+Panel buttons appear when you point at a panel or Tab into it.
+
+PANEL OPTIONS (the sliders button on each panel)
+Each panel has its own settings, applied instantly and remembered:
+- Date range: this fiscal year to date, this/last fiscal year, last 12
+  months, this quarter, this/last month.
+- Show as: Chart or Table (exact figures; also best for screen readers).
+- Panel-specific choices, for example: group by month or quarter; compare
+  yearly / quarterly / monthly and how many years; one account or all;
+  which accounts to list (bank & cards, assets, liabilities, all, or pick
+  them one by one); sort order; hide zero balances; each invoice or totals
+  per customer; overdue only; top 5/10/20; how many slices in a breakdown;
+  receivables or payables aging.
+"Reset this panel" in the options returns that panel to its defaults.

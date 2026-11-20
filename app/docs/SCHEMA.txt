@@ -1,0 +1,234 @@
+VaultBook (formerly OfflineBooks US) — storage schema
+=====================================================
+App 1.18.0 · IndexedDB company schema version 5 · company data version 8.
+Storage names keep the OfflineBooksUS prefix (never renamed).
+
+DATABASES (IndexedDB, per browser profile)
+  OfflineBooksUS                  registry
+    companies   keyPath id        { id, name, createdAt, lastOpened }
+    settings    keyPath key       { key: 'lastCompany', value }
+  OfflineBooksUS_<companyId>      one per company (IndexedDB schema version 5)
+    company         keyPath id    company record (one row)
+    accounts        keyPath id
+    contacts        keyPath id    customers and vendors (kind)
+    transactions    keyPath id    indexes: date, type
+    rules           keyPath id
+    recurring       keyPath id
+    reconciliations keyPath id
+    audit           keyPath id    append-only
+    meta            keyPath key   (added in v2) { key: 'security', ... } when protected
+    classes         keyPath id    (v3) class tracking list
+    budgets         keyPath id    (v3)
+    reports         keyPath id    (v3) saved (memorized) reports
+    items           keyPath id    (v4) products & services
+    attachments     keyPath id    (v5) { id, ownerId, name, type, size, data (data URL), addedAt, deleted }
+
+MONEY
+  Integer cents everywhere. A split amount > 0 is a debit, < 0 is a credit.
+
+TRANSACTION RECORD
+  { id, type, date (YYYY-MM-DD), number, contactId, memo, accountId,
+    lines: [{ accountId, description, qty, rate, amount, itemId, classId, taxable }]  item types
+    jlines: [{ accountId, debit, credit, contactId, memo }]      journal
+    amount, toAccountId                                          payment/transfer types
+    applications: [{ txnId, amount }]                            payments & credits
+    dueDate, terms                                               invoices/bills/estimates/POs
+    taxId, taxableAmount, taxRate, tax                           sales tax (1.13): invoice, sales receipt,
+                                                                 credit memo, estimate. taxRate = rate used,
+                                                                 in millionths (8.25% = 82500)
+    message                                                      customer message printed on sales documents
+    sourceId                                                     invoice/bill made from an estimate/PO
+    linkedTo: [txnId]                                            estimate/PO -> documents made from it
+    splits: [{ accountId, amount, contactId, memo, cleared: ''|'C'|'R' }]
+    total, status: 'posted'|'void' ('open'|'closed'|'void' for estimate and
+    purchaseOrder, which never post: splits = []), version, createdAt, updatedAt,
+    voidedAt, voidReason, reversalOf, reversedBy, clientToken, importHash, recurringId }
+  splits are always rebuilt from the source fields and must sum to zero.
+  Sales tax adds one split to the rate's liability account (company.salesTaxes[].accountId).
+
+COMPANY RECORD (additions)
+  statementLook (1.40): layout of the Balance Sheet and Profit and Loss, one of
+    classic lines grid two banded formal boxed pad bars step dense big; missing = classic.
+  salesTaxes: [{ id, name, agency, rate (millionths), accountId, active }], defaultSalesTaxId,
+  closingDate, closingHistory: [{ at, from, to }], closingPasswordSalt, closingPasswordHash
+  (iterated salted SHA-256, a gate on moving the closing date — not encryption),
+  customerMessages: [text], logo (image data URL), counters { ..., estimate, purchaseOrder }.
+  Contacts (customers) may carry taxExempt and salesTaxId.
+
+INVENTORY AND FIXED ASSETS (1.15)
+  item: trackQty, reorderPoint, assetAccountId (Inventory Asset), expenseAccountId (COGS).
+  Sales-type lines of tracked items carry cost, cogsAccountId, assetAccountId (average cost at posting);
+  buildSplits adds Dr COGS / Cr asset (reversed on credit memos). Purchase lines of tracked items
+  post to the asset account and need a quantity.
+  type 'invAdjust': { accountId, adjustments: [{ itemId, qty, value, memo }] } — value defaults to
+  qty x average cost. Average cost = asset value / qty, walked in date order (Book.inventoryState).
+  company.fixedAssets: [{ id, name, inService, cost, salvage, method 'SL'|'DDB'|'MACRS', lifeMonths,
+  macrsClass, accountId, accumAccountId, expenseAccountId, disposed }]; depreciation journal entries
+  carry depreciation: true and jlines[].assetId.
+  Deposits (1.14): deposit lines may carry fromTxnId (a payment moved out of Undeposited Funds).
+  check / billPayment / expense may carry toBePrinted, printedAt; invoice financeCharge;
+  credit memo writeOffOf; contact w9OnFile; company checkAlign, checkCompanyBlock, financeCharge.
+
+JOBS, BILLABLE COSTS, TAX LINES (1.16)
+  contact (customer): parentId (Customer:Job), jobStatus, jobStart, jobEnd, jobType.
+  bill / check / expense lines: contactId (customer or job) and billable; invoice lines: billOf
+  = '<txnId>:<lineIndex>' of the cost being re-billed (each cost billed once, by a posted invoice).
+  company.taxForm '1040C'|'1120S'|'1065'|'1120' and taxLines { accountId: line code }.
+
+SALES WORKFLOWS (1.17)
+  type 'salesOrder' (non-posting, converts to invoice). Converted document lines carry srcLine (index
+  of the source line); the source closes when every line is fully invoiced / billed (sourceProgress).
+  company.priceLevels [{ id, name, method 'pct'|'item', pct, prices { itemId: cents } }]; contact
+  priceLevelId. Customer deposits: a sales receipt line to the Customer Deposits liability; applied
+  with a negative invoice line to that account (an invoice may total 0 when a deposit covers it).
+
+SALES TAX BY AGENCY (1.18)
+  salesTaxes[].components [{ name, agency, rate }] (rate = their sum); documents keep taxParts
+  [{ agency, name, rate, amount }] (tax split with exact cents). Sales tax payments are check /
+  expense lines to the liability carrying taxAgency. Contact exemptCert { number, state, reason, expires }.
+
+AUDIT TRAIL (1.13)
+  audit entry = { id, ts, action, txnId, summary, before, prev, hash }
+  hash = SHA-256( prev + '|' + stableJSON({ id, ts, action, txnId, summary, before }) )
+  prev = hash of the entry before it ('' for the first chained entry). Book.verifyAudit()
+  and Data integrity report changed entries, missing entries and extra starting points.
+  Entries written before 1.13 have no hash and are listed as not chained.
+
+PASSWORD PROTECTION (encryption at rest)
+  When a company is protected, every record in every store except 'meta' is
+  stored as  { id, enc: { v: 1, iv: Uint8Array(12), ct: ArrayBuffer } }
+  ct = AES-GCM-256( JSON(record) ), additional data = "<store>/<id>".
+  meta.security = { version, cipher, password: W, recovery: W, hint,
+                    autoLockMinutes, enabledAt, changedAt }
+  W (wrapped data key) = { kdf: 'PBKDF2-SHA256', iterations, salt, iv, wrapped }
+  password: 600,000 iterations; recovery key (160-bit random): 100,000.
+  Encrypted backup file = { format, encrypted: true, appVersion, createdAt,
+    companyName, security: {password: W, recovery: W, ...},
+    payload: { iv, ct } }  where ct decrypts (AAD "backup") to a normal backup.
+
+TWO KINDS OF MIGRATION
+  1. IndexedDB structure: COMPANY_UPGRADES in js/db.js, applied in onupgradeneeded
+     for each version step. v1 -> v2 adds the 'meta' store; v3 classes, budgets,
+     reports; v4 items; v5 attachments.
+  2. Company data format: schema.DATA_VERSION and schema.MIGRATIONS in
+     js/schema.js. Applied when a company is opened (results saved in one atomic
+     write) and when a backup is restored. Data from a NEWER app version is
+     refused rather than misread. Current data version: 8
+     (v2 counters/rules, v3 classes/budgets/reports, v4 items, v5 sales tax rates,
+     estimate/PO counters, closing history, STAX system account; v6 invAdjust counter,
+     INV system account, fixed asset register; v7 attachments list, taxForm, taxLines; v8 salesOrder counter, priceLevels).
+
+BACKUP FILE (JSON)
+  { format: 'OfflineBooksUS-Backup', appVersion, dataVersion, createdAt,
+    companyName, counts, checksum: 'crc32:..-fnv:..-len:..', data: {company, accounts,
+    contacts, transactions, rules, recurring, reconciliations, audit, classes, budgets,
+    reports, items} }
+  Checksum is computed over a key-sorted serialization of data.
+
+Saved reports with report: 'designer' (1.10) keep the template in params.def:
+{ format: 'vaultbook-report-template', version: 1, name, kind: 'pl'|'bs',
+  period: { range, from, to }, basis: ''|'cash'|'accrual', columns: { by, compare[] },
+  rows: [{ id?, type: 'accounts'|'formula'|'header'|'text'|'spacer', label, totalLabel,
+           select: { types[], numbers, match, accounts[], rest, netIncome }, detail, sign,
+           formula, format: 'money'|'pct'|'ratio', style: { bold, italic, indent, line,
+           pageBreak, hideZero }, cond: { op, value, style } }] }
+Full JSON Schema: OB.designer.SCHEMA (js/designer.js). No new IndexedDB store or version.
+
+1.19.0 (CPA audit) — optional fields only; data format 8 and IndexedDB 5 unchanged
+-------------------------------------------------------------------------------
+New transaction type: vendorRefund (vendor, head bank/oca/cc; applies to vendorCredit
+  and billPayment; Dr account / Cr A/P).
+transactions.applications[].date   'YYYY-MM-DD' — when an application counts (it is
+  effective on the latest of the source date, the target date and this date).
+transactions.financeChargeOf[]     { txnId, from, to, open, charge } on finance-charge
+  invoices: which invoices were charged and through which date.
+transactions.adjustments[].auto    true when an inventory adjustment is costed by VaultBook.
+transactions.taxRate/taxParts      kept from posting; updateTaxRate (draft only) re-taxes.
+transactions.exempt                taxable documents: customer exempt when posted.
+transactions.discountPct/discountDays  invoice/bill early-payment terms (percent, days).
+transactions.discountOf            credit memo / vendor credit = discount taken on that doc.
+transactions.bounceOf              invoice = charge for a returned payment (payment id).
+transactions.voidOf / voidedBy     journal that voids a document as of a later date, and
+  the link on the original (which stays posted in its own period).
+transactions.disposal              journal that disposes of a fixed asset (asset id).
+journal jlines[].assetId, classId  kept by reverseJournal.
+company.allowNegativeInventory     true = selling below zero on hand is allowed.
+company.fixedAssets[]              + convention 'MQ' (mid-quarter), taxMethod 'MACRS',
+  taxClass, disposalId (the disposal journal).
+accounts.cashFlow                  'operating' | 'investing' | 'financing' override.
+contacts.discountPct/discountDays  default early-payment terms.
+
+1.20.0 (Bank feed) — IndexedDB company schema 6; data format 8 unchanged
+-------------------------------------------------------------------------------
+New store bankLines: { id, accountId, importId, seq, date, description, amount (cents,
+  + = money in), checkNo, balance (cents|null), hash (import fingerprint), status:
+  'review'|'posted'|'excluded'|'removed', createdAt, [posted] txnId, splitIndex, via:
+  'add'|'transfer'|'split'|'open'|'match', postedAt, categoryId, contactId, clearedBefore,
+  [excluded] excludeReason, excludedAt }.
+New store bankImports: { id, accountId, fileName, source, importedAt, added, duplicates,
+  dateFrom, dateTo, endingBalance (cents|null), endingDate, undone?, undoneAt? }.
+company.bankProfiles: { <accountId>: [{ header, mapping, dateFormat 'MDY'|'DMY'|'YMD', invert,
+  savedAt }] } — remembered CSV layouts (up to 5 per account).
+Posted bank-feed transactions carry importHash = the line's hash; their bank split is
+  cleared 'C'. Older imports (importHash only, no bank line) still count as imported.
+Backups include both stores (older backups restore with empty stores).
+
+1.21.0 (Bank feed export to QuickBooks) — no schema change; optional fields only
+-------------------------------------------------------------------------------
+bankLines.exportId / exportedAt     the export the line went out in.
+company.bankExports[]               { id, at, fileName, format 'iif'|'csv', accountIds, from, to,
+                                      count, undone?, undoneAt? }.
+company.qbNames                     { <accountId>: 'account name in QuickBooks' } used by the .iif export.
+
+1.22.0 (TallyPrime-style keyboard work, Reclassify Transactions) — no schema change; optional fields only
+-------------------------------------------------------------------------------
+company.reclassBatches[]            last 50 reclassifications: { id, at, note, accountId, classId,
+                                      lines, moves [{ from, to, amount }], txns [{ id, version,
+                                      before (the transaction as it was) }], undone? }.
+Audit actions 'reclassify' and 'reclassify-undo'.
+Browser preferences (not in the books): 'period:<companyId>' { from, to } = the current period
+  set with Alt+F2. The current date (F2) lasts for the session only.
+
+1.23.0 (Bank rules v2, several entries per bank line, already in the books, reconcile) — no schema change; optional fields only
+-------------------------------------------------------------------------------
+rules: + conditions [{ field 'desc'|'amount', op ('contains'|'notContains'|'starts'|'ends'|'equals' /
+  'eq'|'lt'|'gt'|'between'), value, value2 (amounts in cents) }], match 'all'|'any', accountIds [] (empty = all
+  bank/card accounts), splits [{ accountId, kind 'pct'|'amount', pct, amount (cents), memo, classId }], classId,
+  memo, autoAdd, createdAt, updatedAt. 'contains' is kept (first description condition) for older readers.
+bankLines: + via 'deposit' (a Deposit of Undeposited Funds payments was created) | 'group' (several entries);
+  links [{ txnId, splitIndex, clearedBefore }] for a group match (txnId/splitIndex = the first link);
+  auto 'books' + matchReasons [] when matched on import to an entry already in the books.
+reconciliations: + report { cleared [], outstanding [], registerBalance, madeAt } frozen at finish (rows:
+  txnId, i, date, type, number, name, memo, amount in the account's own sign); adjustment { txnId, amount }
+  when finished with a difference (journal entry to the "Reconciliation Discrepancies" expense account,
+  voided when the reconciliation is undone).
+
+1.24.0 (data format 8, unchanged): QuickBooks Online report import adds no stores or fields. company.imports[]
+records gain from = 'QuickBooks Online' for such imports; expected[] holds the Trial Balance figure per account
+(integer cents, debit +, credit -), as it already did for QuickBooks Desktop list balances.
+
+1.25.0 (data format 8, unchanged): visual and screen changes only (Studio look, Business overview, + New menu). No stores or fields added.
+1.25.1 (data format 8, unchanged): screen changes only. New preference key vregSide (register options panel open).
+1.26.0 (data format 8, unchanged): bankLines may carry note (text, up to 500) and bankDate (the date the bank sent, kept
+when date is corrected before posting). New browser preference keys: bookmarks:<companyId>, navCompact, reportLayout,
+reportChart, homeWidgets, homePrivacy. No stores added.
+1.26.1 (data format 8, unchanged): a bank-feed payment may apply part of an invoice or bill (applications[].amount below the open balance), as a Receive Payment already could.
+1.26.2 (data format 8, unchanged): no stored change; split-payment suggestions are computed, each bank line posts an ordinary payment.
+1.27.0 (data format 8, unchanged): no stored change. New browser preference key findSaved:<companyId> = [{name, c: criteria}].
+1.27.1 (data format 8, unchanged): no stored change.
+1.27.2 (data format 8, unchanged): no stored change; the reconciliation report is drawn from reconciliations[].report (frozen at finish).
+1.27.3 (data format 8, unchanged): no stored change. Bank export option payments: payment (default) | skip; deposit kept in the engine only.
+
+1.28.0: no data change. Connector batch file (not stored): { format: "vaultbook-qb-batch", version: 1, company, createdAt, billPayments, payments: [ { key (VaultBook txn id), customer, date, amount ("0.00" text), depositTo, ref, memo, apply: [ { invoice, invoiceDate, amount } ] } ] }.
+1.29.0: no data change. Preference paydaysFields:<view> (summary | invoice | payment) holds the chosen report fields in order.
+1.30.0: company.qbSent { <txnId>: { qbTxnId, at } | { problem, at } } — what reached QuickBooks Desktop (set by Load result file). Batch v2 (not stored): { format: "vaultbook-qb-batch", version: 2, company, createdAt, invoices: [ { key, customer, date, dueDate, terms, number, memo, total, billTo[], tax?, lines: [ { item, description, qty, rate, amount, incomeAccount, taxable } ] } ], payments: [ as v1 ] }. Result: { format: "vaultbook-qb-result", version: 2, at, items: [ { key, kind, label, status, txnId, details } ] }.
+1.31.0: no data change. Snapshot (not stored in the DB; kept in prefs qbSnapshot:<companyId>): { format: "vaultbook-qb-snapshot", version: 1, company, at, from, to, txns: [ { txnId, type (qbXML name), date, num, name, amount, key } ], months: [ { month, count } ] }. company.qbSent also gains entries for matched (not only sent) transactions.
+1.32.0: no data change. Full export (not stored): { format: "vaultbook-qb-full", version: 1, at, from, to, company, lists: { Account, Customer, Vendor, Employee, OtherName, Item (with _type), Class, StandardTerms, DateDrivenTerms }, txns: { <qbXML type>: [ Ret objects ] } }. Prefs qbFull:<companyId> keeps its summary (account balances, counts) for the Tie-out report. Imported transactions carry "TxnID <id>" in importRef.
+1.33.0: company.payroll { accounts: { wages, taxExpense, fed, ss, medicare, state, local, otherTax, retirement, benefits, garnish, otherDed, futa, suta, net: <accountId> }, employer: { fica: bool, futa: { rate: "0.6", base: "7000" }, suta: { rate, base } }, detail: "employee" | "summary", labels: { <CANONICAL STUB LABEL>: <line type> } }. Paystub journal entries: number "PR-<pay date>", importRef "Paystub payroll <pay date> · <names>". Data format unchanged (optional field).
+1.34.0: no data change. Payroll documents and their cross-check are worked out on screen and not stored.
+1.46.0: Close the books (data format unchanged, optional fields). company.close { auto: bool (VaultBook may post sure lines), test: { from, to, lines, auto: { n, right }, suggest: { n, right, top3 }, ask } (last self-test), flux: { amt (cents), pct } (compare-to-last-year floor), periods: { "<from>_<to>": { preparedAt, preparedPosted, notes: { <accountId>: reason }, signedOff: { at, closingDate } } } }. bankLines gain prepared (the reason VaultBook posted the line), ask (question for the client) and answer (the client's answer), each text up to 300/500. Sign-off sets the closing date and writes an audit entry closeSignOff.
+1.49.0: Doc Center (data format unchanged, optional fields). An attachment with ownerId "" waits in the Doc Center inbox. Attachments gain hash (content fingerprint, to find copies) and info { date, amount (cents), vendorId } (what VaultBook read from the file name or PDF text, editable).
+1.50.0: Calendar (data format unchanged, optional field). company.calendar { todos: [{ id, date, title, note, repeat: "" | weekly | monthly | quarterly | yearly, until }], done: { <event key>: date ticked } (deadlines filed, to-dos done), payOn: { <bill id>: planned pay date }, salesTax: { <agency>: { freq: monthly | quarterly | yearly, day } }, low (cents, forecast warning), payroll: true | false | null (deadlines always, never, or from paystub payroll), remind: bool }.
+1.50.1: Calendar to-dos gain time ("HH:MM" or "" all day), dur (minutes), remind (minutes before, or null), moved { <occurrence date>: { date, time, dur } } and skip [occurrence dates] for single repeats; repeat may be daily. company.calendar.expectOn { <invoice id>: expected date }.
+1.47.0: no stored change. Update batch (not stored): { format: "vaultbook-qb-batch", version: 3, kind: "update", company, createdAt, snapshotAt (the QuickBooks export compared), accounts: { "<QuickBooks full name>": "<qbXML AccountType>" } (to create first), updates: [ { key (VaultBook txn id), kind: check|deposit|journal, txnId, editSeq, label, header: null | { date?, memo?, ref?, payee? }, lines: [ { lineId (TxnLineID, "-1" = new line), side? (Debit|Credit), account?, amount?, memo?, name? } ] (every QuickBooks line; an id alone keeps that line), what: [text] } ], voids: [ { key, kind, txnId, editSeq, label } ] }. Result version 3 adds item kinds update and void with status Updated, Voided or Problem. Link (connector 7, 127.0.0.1:47321): GET /hello; POST /run, body text JSON { code, action: export } answers the full export, { code, action: apply, batchText } answers the result.
+1.51.0: no data change. Browser preferences only: menubarSeen (true after the first start with the menu bar; that start hides the side menu once), sidebarCollapsed now defaults to true.

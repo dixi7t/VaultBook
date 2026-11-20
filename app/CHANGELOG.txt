@@ -1,0 +1,1791 @@
+VaultBook (formerly OfflineBooks US) — Changelog
+================================================
+
+1.51.0  (2026-11-20)  Menu bar and toolbar at the top, new colours
+-------------------------------------------------------------------------------
+  * A menu bar runs across the top: File, Edit, View, Lists, Company,
+    Customers, Vendors, Employees, Banking, Accountant, Reports, Window and
+    Help. Every screen is under one of them. Click a menu, or use the arrow
+    keys; Esc closes it.
+  * Under it, a toolbar of icons for the screens used most: Home, Calendar,
+    Customers, Vendors, Payroll, Bank feed, Reconcile, Close books, Reports,
+    Paste entries, Docs, Snapshot, Send to QBD and Backup. On a narrow
+    window the last ones drop off; the menus still reach them.
+  * The side menu is hidden. View > Show the side menu (or Ctrl+\) brings
+    it back, and VaultBook remembers the choice.
+  * A company now opens on Home (the Business overview). The Gateway is
+    under View, and G H still goes there.
+  * The K / Y / O / X / P menus moved under File (Import, Export, Print).
+    Their Alt keys work as before.
+  * Colours: neutral grey with one blue for buttons and the selected item,
+    in the light and the dark appearance. The green is gone.
+  * On a phone-width window the menu bar and toolbar are hidden and the
+    slide-in side menu is used, as before.
+
+1.50.4  (2026-11-19)  No how-to notes on screens
+-------------------------------------------------------------------------------
+  * Removed the one-line descriptions under page titles (30 screens) and
+    the how-to tips (drag, tick, click, keyboard hints) from the Calendar,
+    Paste entries, Doc Center, Close the books, Business overview, Company
+    Snapshot, report fields, Statement designer, Report builder, Budgets
+    and estimate-to-invoice. What stays is information a user could not
+    work out: a transaction's created/changed line, year-to-date totals in
+    the Chart of Accounts, the Split syntax in Paste entries, rules and
+    warnings.
+
+1.50.3  (2026-11-19)  Reports follow a typed date by themselves
+-------------------------------------------------------------------------------
+  * Typing a complete date in a report's period (P&L From and To, Balance
+    Sheet As of, and every date box that redraws the screen) now updates
+    the report by itself a moment after the last digit; no Enter needed.
+    The cursor stays in the box. Half-typed years never redraw.
+
+1.50.2  (2026-11-19)  Typed report dates; fewer duplicates
+-------------------------------------------------------------------------------
+  * Fixed: typing a date in Profit and Loss, Balance Sheet (and every date
+    box that redraws the screen) no longer redraws mid-typing. A typed
+    date applies on Enter or when you leave the box; a date picked from
+    the calendar applies at once.
+  * The Cash Flow Forecast report now uses the Calendar's figures, so the
+    two always agree (planned pay dates and payroll included).
+  * One Excel or CSV file dropped in Import statement opens in the Bank
+    feed's column step, so its columns can be checked first.
+  * Reclassify moved from Reports to Books in the sidebar (it is a work
+    screen, not a report).
+  * Removed an old unused copy of the Dashboard.
+
+1.50.1  (2026-11-19)  Calendar works like a desktop calendar
+-------------------------------------------------------------------------------
+  * Click any empty spot to add a to-do there; type and press Enter.
+  * Drag anything that can move: to-dos, a bill (its planned pay date), an
+    invoice (the date you expect it), the next recurring entry. Tax
+    deadlines and the books' own dates stay and say why.
+  * Ctrl- or Shift-click to pick several, then drag them together, mark
+    them done or delete them. Every move and delete can be undone (Undo
+    button or Ctrl+Z).
+  * New Day view; Week and Day have an hour grid: drag to draw a timed
+    to-do, drag it to move, drag its bottom edge to resize, drop an
+    all-day to-do on an hour to give it a time.
+  * Click an item for a popover with what you can do: Pay, Reminder,
+    Post now, Filed / paid, Edit, Delete.
+  * To-dos have a time, a length, a reminder (at the time up to 1 week
+    before) and can repeat daily. Move one repeat without the others.
+  * Keys: C create, T today, D W M A views, J/K next and previous, Esc,
+    Delete, Ctrl+Z.
+
+1.50.0  (2026-11-19)  Calendar
+-------------------------------------------------------------------------------
+  * New: Calendar (sidebar, under Dashboard). Month, week and agenda
+    views of bills to pay, invoices expected in, recurring entries,
+    payroll pay dates, Close the books, client questions, tax and
+    filing deadlines and your to-dos.
+  * The forecast bank balance on each day, with a warning when it falls
+    below the amount you set.
+  * Tax deadlines follow the return chosen in Tax lines (1120-S, 1065,
+    1120 or Schedule C) and the fiscal year: returns, extensions and
+    estimated tax; 941, 940 and W-2 when there is payroll; 1099-NEC
+    when there are 1099 vendors; sales tax per agency, monthly,
+    quarterly or yearly on the day you set. A date on a weekend or legal
+    holiday moves to the next business day. Tick Filed / paid.
+  * Act from the day panel: pay a bill, plan its pay date (or drag it to
+    another day; the due date stays), write an invoice reminder, post a
+    recurring entry, tick to-dos.
+  * To-dos on any date, repeating weekly, monthly, quarterly or yearly.
+  * Reminders while VaultBook is open (today, tomorrow and overdue
+    bills), optionally as desktop notifications.
+  * Download for Outlook / Google: an .ics file of the next 13 months.
+
+1.49.0  (2026-11-19)  Doc Center
+-------------------------------------------------------------------------------
+  * New: Books > Doc Center, one place for every receipt, bill and
+    statement. Drop many files at once; they wait in the Inbox until
+    they are attached.
+  * VaultBook reads the date, amount and vendor from the file name and
+    from the text of a PDF, and suggests the transaction. Attach one, or
+    Attach all sure matches. A copy of a file already kept is marked and
+    never attached automatically.
+  * All documents: search every file and see what it is attached to;
+    move one back to the inbox.
+  * Missing documents: checks, expenses, card charges and bills of $75
+    or more with no file, with a list to send the client. Close the books
+    shows the count on Client questions.
+  * Clean up: the same file twice, files on void transactions, and files
+    of 1 MB or more. Every removal is in the audit log. Files live inside
+    the company, so there are no links to repair.
+  * CPA package: one zip of a period's documents named date - vendor -
+    amount - type number, with Index.csv.
+
+1.48.1  (2026-11-19)  Paste entries: split one amount from Excel
+-------------------------------------------------------------------------------
+  * One payment can be split over several accounts straight from Excel,
+    three ways:
+    - lines under an entry with the Date left blank are its split lines
+      (as in a QuickBooks Journal report); Total rows are still skipped;
+    - rows with the same Entry # (or Trans #) are one entry;
+    - one Split cell lists the accounts: "Rent A 2000; Rent B 2000;
+      Rent C" (the one without an amount takes the rest) or
+      "Rent A 20%; Rent B 20%; Rent C 60%" (cents go to the last).
+      A split that does not add up is marked on its row.
+  * New: Join into one entry, for rows already in the grid.
+  * The Posts as column shows how many lines each entry has.
+
+1.48.0  (2026-11-19)  Paste entries from Excel
+-------------------------------------------------------------------------------
+  * New: Books > Paste entries, and a Paste entries button on every
+    ledger. An Excel-like grid with the QuickBooks report columns: Type,
+    Date, Num, Adj, Name, Memo, Clr, Split, Debit, Credit.
+  * Copy rows in Excel (a QuickBooks report or any sheet) and press
+    Ctrl+V: columns are matched by heading, headings and total rows are
+    skipped, Balance is ignored. Plain cells fill the grid from the cell
+    you are in, like Excel.
+  * Repeat monthly copies the ticked rows for more months with the dates
+    moved (month ends stay month ends); change only what differs.
+    Ctrl+D copies the cell above.
+  * Each row posts as its Type (Check, Deposit, Bill, Invoice...) the
+    same way as the QuickBooks import; a blank Type posts a journal
+    entry. Rows with the same date and Num are one split entry. Adj
+    marks an adjusting entry; Clr marks the bank line cleared.
+  * Accounts VaultBook does not have are listed with a type guessed
+    from the name; choose a type or an existing account. Missing
+    vendors and customers are created. Possible duplicates are flagged.
+  * Everything posts in one step and can be voided together.
+
+1.47.1  (2026-11-18)  Excel and CSV bank files: the right sign every time
+-------------------------------------------------------------------------------
+  * Bank feed > Import file now opens Excel workbooks (.xlsx, .xlsm, .xls)
+    in the same column step as CSV, on the sheet with the most
+    transactions. Summary sheets are skipped; a Sheet list appears when
+    the workbook has more than one transaction sheet.
+  * New Debit / Credit column: files with unsigned amounts and a Type,
+    Dr/Cr, CR/DR or Withdrawal/Deposit column get the right sign. When
+    the amounts already carry minus signs, the amounts win.
+  * Title rows above the header (bank name, account, period) are
+    skipped, in CSV and Excel.
+  * Real Excel date cells are read as dates.
+  * The statement reader reads Excel and CSV with the same engine, so
+    both ways give the same lines; card accounts are reversed there too.
+
+1.47.0  (2026-11-18)  Update QuickBooks to match VaultBook
+-------------------------------------------------------------------------------
+  * New: QuickBooks Desktop > Update QuickBooks. VaultBook compares the
+    transactions it took from QuickBooks with a fresh QuickBooks export
+    and sends only what you changed in VaultBook: reclassified lines,
+    amounts, memos, dates, check numbers, payees, and voids. Accounts
+    QuickBooks does not have are created first. Nothing is deleted;
+    entries that exist only in QuickBooks are never touched.
+  * Every edit carries QuickBooks' edit stamp: an entry changed in
+    QuickBooks after the export is refused and listed, never
+    overwritten. Voids are asked separately.
+  * The connector (VaultBook QuickBooks.cmd) gains 7 Connect to
+    VaultBook: VaultBook talks to its window directly on this computer,
+    using the link code it shows, to get a fresh export and send the
+    changes; you still answer every Y/N in the tool. 8 Install the link
+    (one time, no admin rights) lets "Open the QuickBooks tool" in
+    VaultBook start it.
+  * Without the link: Download the update file for 2 Send to QuickBooks,
+    and Load a QuickBooks export from 5 Export everything.
+
+1.46.0  (2026-11-18)  Close the books: VaultBook prepares, you review and sign off
+-------------------------------------------------------------------------------
+  * New page Close the books (side menu, Gateway > Banking, command
+    palette). VaultBook does the staff accountant's part; you review,
+    ask the client, tie out and sign off. The checklist:
+    1 Statements received - each bank and card account, month by month.
+    2 Prepared by VaultBook - a self-test on last year, then Prepare.
+    3 Review - by payee, largest dollars first, accept a whole group.
+    4 Client questions - kept on the bank lines, copy or download them,
+      type the answers back.
+    5 Bank reconciliations - each account through the last month ended.
+    6 Compare to last year - changes over a floor set per client need
+      a reason.
+    7 Adjusting entries - last year's journal entries for the same
+      period, one click to copy.
+    8 Sign off - only when 1 to 6 tie; locks the period (closing date)
+      and records it in the audit trail.
+  * Prepare works in this order: an entry already in the books is
+    matched (never entered twice), then your bank rules, then each
+    payee's habit from the last two years. Only sure habits are posted,
+    each with its reason and undo in the bank feed. Owner, loan,
+    payroll, tax and balance sheet accounts always wait for you.
+  * Self-test: VaultBook learns from the years before last year,
+    predicts last year and shows how often it was right. Auto-posting is
+    offered when at least 20 lines were sure and 95% of them right.
+  * Mixed habits show up to three accounts with how often each was used.
+
+1.45.2  (2026-11-18)  Extra help: checked across every kind of company
+-------------------------------------------------------------------------------
+  * Suggestions now follow where each company already posts: of
+    similar accounts (Meals or Meals & Entertainment), the one it uses
+    most is chosen; a parent account it posts to directly is kept
+    rather than its only sub-account.
+  * Bank words (CHK, DEPOSIT, WIRE, ZELLE, ONLINE BANKING and the like)
+    are never learned as payees from other clients.
+  * INTUIT on its own is no longer a common merchant (it can be
+    QuickBooks, payroll fees or card fees); QUICKBOOKS and QBOOKS stay.
+  * Supplies prefer an "office supplies" account before other office
+    accounts.
+  * Other clients is fast with many large companies (habits are
+    indexed by their first word).
+  * Checked with: new, empty and sample companies, a company saved in
+    an early data format (read, upgraded in memory, left unchanged), a
+    password-protected company (skipped), QuickBooks Desktop and Online
+    imports, sub-accounts, inactive accounts and credit card lines.
+
+1.45.1  (2026-11-18)  Common merchants: 1,487 names
+-------------------------------------------------------------------------------
+  * The Common merchants list grows from 326 to 1,487 US merchants
+    (fuel, vehicle, meals, travel, utilities, phone and internet,
+    software, supplies, shipping, advertising, repairs, insurance, bank
+    fees). Names are kept in their own file, js/merchants.js.
+  * Left out on purpose: banks, card and payment apps, payroll
+    services, tax agencies, car makers and dealers (often loans), life
+    and pet insurance, marketplaces, place names and plain English
+    words that would match the wrong lines.
+  * Supplies go to an office supplies account before a medical, dental
+    or lab supplies account; bank fees go to a service charge account
+    first.
+
+1.45.0  (2026-11-18)  Bank feed: extra help for lines with no suggestion
+-------------------------------------------------------------------------------
+  * New: For review has an Extra help switch: Off, Other clients and
+    Common merchants. It only helps lines that have no rule, no history
+    and no match, and it says how many of them it identified.
+  * Other clients: VaultBook reads the other companies on this computer
+    and suggests the account they used for the same payee or bank
+    wording, when they used it the same way at least 7 times in 10.
+    Only payee words and account names are used; nothing is saved and
+    password-protected companies are skipped.
+  * Common merchants: a built-in list of well-known US merchants (fuel,
+    meals, travel, phone, software, supplies, shipping, advertising,
+    repairs, insurance, bank fees) mapped to this company's matching
+    account. Payroll services are left out on purpose.
+  * These suggestions show a badge and the reason, and are never picked
+    by "Select them" for bulk posting: each line is added by hand.
+
+1.44.0  (2026-11-17)  Import a QuickBooks Desktop General Ledger printed to PDF
+-------------------------------------------------------------------------------
+  * New: Import from QuickBooks reads a General Ledger PDF (a real
+    printed report, not a scan) as the ledger when no ledger file is
+    added. Each text run is placed in its column by position, account
+    headings keep their sub-account path, and every account's opening
+    balance is carried in as one entry dated the last day of the year
+    before.
+  * With no chart of accounts file, the account list comes from the
+    ledger and each account's type from where it sits on the Balance
+    Sheet and Profit and Loss PDFs. An account on neither statement
+    (zero balance) is typed from its place in the ledger and listed in
+    the notes.
+  * The printed report cuts long names and memos short; the notes say
+    how many. Amounts, dates and accounts are complete.
+  * Several deposits or checks on the same day with no name are now
+    kept as separate transactions (each line is matched with the line
+    that mirrors it), for CSV ledgers as well.
+  * When the ledger PDF and a statement PDF were printed on different
+    days, the result says so next to any differences.
+  * Opening balances for a ledger that covers one fiscal year are dated
+    the last day of the year before (was: the day before the first
+    transaction).
+
+1.43.0  (2026-11-16)  QuickBooks Desktop import: ledgers with closed years
+-------------------------------------------------------------------------------
+  * Fixed: a General Ledger in which QuickBooks shows earlier years only
+    as year-end "Closing Entry" lines (the bank, card and loan lines are
+    there, their income and expense side is not) failed with thousands
+    of "does not balance" errors. The missing side is now put back from
+    each line's Split column, and the closing entries are not imported.
+  * A transaction whose missing side spans several accounts ("-SPLIT-")
+    is posted to Retained Earnings and counted in the notes. When an
+    all-dates Profit and Loss PDF is added, one entry (QB-CLOSED) brings
+    every income and expense account to its QuickBooks total; it is
+    applied only if Retained Earnings then equals the ledger exactly.
+  * Fixed: a QuickBooks account with the same name as a VaultBook
+    system account of another type ("Sales TAX PAYABLE" kept as an
+    expense) stopped the import with "Two accounts are named".
+  * The chart of accounts file carries balances as of the day it was
+    exported. When the transactions end more than 45 days earlier, the
+    differences are no longer posted as opening balances by default,
+    and the screen says which dates are involved.
+  * Statement PDFs: a name and its amount printed a point apart are now
+    read as one line, so more lines are checked. Retained Earnings on a
+    Balance Sheet PDF is compared the way QuickBooks prints it (earlier
+    years' results included).
+
+1.42.1  (2026-11-16)  Intelligence panel: answers separated by a rule, not a side stripe
+-------------------------------------------------------------------------------
+  * Look only: answers in the VaultBook Intelligence panel no longer
+    carry a coloured stripe down the left; a thin line separates them.
+
+1.42.0  (2026-11-16)  VaultBook Intelligence
+-------------------------------------------------------------------------------
+  * New: VaultBook Intelligence. The star button on the top bar (or
+    Ctrl+I) opens a panel beside any screen. Type a customer, vendor or
+    account name, or ask in plain words: how many open invoices,
+    invoices open more than 90 days, who owes us, what do we owe, how
+    many customers or vendors (with no email, 1099, inactive), income,
+    expenses or profit for a period, by month with percentages, top
+    expenses, compare with last year, why profit changed, bank
+    balances, bank feed to review, a check or invoice number, an amount.
+  * Every figure comes from the same reports as the screens, each
+    answer says how the question was read and names its source, and
+    names and document numbers in an answer are clickable.
+  * Follow-ups keep the subject ("open invoices" after a customer,
+    "and last year?" after a total). Opened on a customer, vendor or
+    account screen, it starts with that record.
+  * It only reads. A question it does not understand is answered with
+    "could not find" and the list of what it can do.
+  * Optional: in a browser that has its own on-device language model,
+    a link in the panel lets that model read questions the built-in
+    reading does not understand. The model never supplies a figure.
+
+1.41.1  (2026-11-16)  QuickBooks Online import: account type from the General Ledger order
+-------------------------------------------------------------------------------
+  * The General Ledger lists accounts in chart order (bank, receivable,
+    other assets ... equity, income, expenses). When a zero-balance
+    account is missing from the Balance Sheet and Profit and Loss, its
+    place between two known accounts in the General Ledger now decides
+    its type; the name is used only to choose within that range. The
+    import note says how each such account was typed.
+
+1.41.0  (2026-11-16)  Ctrl+P prints the real report; QuickBooks Online zero-balance accounts
+-------------------------------------------------------------------------------
+  * Ctrl+P and every report's Print button now print the actual
+    report (the same paginated document as Export to PDF: headings on
+    every page, page numbers, fitted to the paper, statement layout
+    applied) instead of a picture of the screen. The saved PDF page
+    setup is used without asking. Screens with no PDF export (forms,
+    lists, home) print as before.
+  * QuickBooks Online import: an account with a zero balance is left
+    off the Balance Sheet and Profit and Loss by QuickBooks; when the
+    Journal still posts to it (a fully paid Accounts Receivable is the
+    usual case) the import stopped. With a Balance Sheet and an
+    all-dates Profit and Loss present, such an account is now imported
+    with a type taken from its name (otherwise Other Current Asset) and
+    listed in the notes.
+
+1.40.1  (2026-11-16)  Statement layout setting always takes effect
+-------------------------------------------------------------------------------
+  * Fixed: changing Statement layout in Company Features or Settings >
+    Company did nothing when a layout had been picked on the report (or
+    in the 1.39 View menu) earlier; that earlier pick kept winning. A
+    pick on the report now lasts only until the company setting changes.
+
+1.40.0  (2026-11-16)  Twelve statement layouts: company setting, screen, print and PDF
+-------------------------------------------------------------------------------
+  * Settings > Company (and Company Features): Statement layout, 1 to
+    12, for the Balance Sheet and Profit and Loss: Classic, Clean lines,
+    Full grid, Two-sided, Banded, Formal print, Boxed sections, Ledger
+    paper, Header bars, Stepped columns, Dense, Big totals.
+  * On the report: Layout buttons for Classic, Clean lines and Full
+    grid, plus the company's layout when it is another one. The Look
+    list added to the View menu in 1.39 moved here.
+  * Export to PDF and Print now follow the layout. Two-sided prints
+    landscape with both totals on one line. Print no longer shows the
+    fold arrows.
+  * Two-sided and Stepped columns need one amount column; with columns
+    by month or a comparison they show as Classic.
+  * A total with no amount no longer shows a rule above an empty space.
+
+1.39.0  (2026-11-16)  Statement looks, two levels, account name opens ledger
+-------------------------------------------------------------------------------
+  * Balance Sheet, Profit and Loss and the other statements: the View
+    menu (top right, "Compact - 100%") has a new Look list: Classic,
+    Clean lines, Full grid, Banded, Header bars, Ledger paper, Formal
+    print. The choice is remembered and also prints.
+  * View menu: Show two levels folds every sub-group to one line.
+  * Clicking an account NAME on the Balance Sheet or Profit and Loss
+    opens that account's ledger for the report dates (amounts already
+    did).
+
+1.38.2  (2026-11-16)  QuickBooks import: due date before the document date
+-------------------------------------------------------------------------------
+  * Fixed: one invoice or bill whose QuickBooks due date is earlier than
+    its own date stopped the whole import ("The due date cannot be
+    before the transaction date"), and its payment then failed too.
+    The document date is now used as the due date and the import says
+    which documents were changed.
+
+1.38.1  (2026-11-13)  QuickBooks Desktop import: "- Other" accounts
+-------------------------------------------------------------------------------
+  * Fixed: a General Ledger that lists an account as "Name - Other" (the
+    part of an account not in its sub-accounts) stopped the whole import
+    with "not in the chart of accounts" when that account was itself a
+    sub-account. It now posts to that account.
+  * "-MULTIPLE-" in the ledger's Name column is no longer created as a
+    customer/vendor.
+  * The notice about repeated document numbers lists the first six only.
+
+1.38.0  (2026-11-13)  Send bank transactions to QuickBooks Desktop
+-------------------------------------------------------------------------------
+  * Send to QuickBooks now also sends bank transactions: checks and
+    expenses (as Checks), deposits, transfers, credit card charges and
+    credits, and journal entries. Items tab: tick "Bank transactions",
+    filter by Account, Name, dates, status and amount, tick rows, Download.
+    Months tab: ticked months now include these too.
+  * Load a QuickBooks snapshot first (connector 1 Read QuickBooks):
+    everything QuickBooks already has is matched and shown as Sent, so
+    "Not sent yet" is exactly the rest. Matching is by the connector's own
+    mark, else type, date, number and amount, and now also by date and
+    amount within the same kind of entry (a Check there and an expense
+    here; a number typed on one side only), so nothing is sent twice.
+  * Connector script: lists accounts and names the file needs that
+    QuickBooks lacks and asks once to create them; checks each entry
+    (accounts, names, lines add up, already in QuickBooks on that date for
+    that amount and account); records them after invoices and payments,
+    one at a time; each carries its VaultBook mark in the memo.
+  * Not sent yet (listed as left out when you download): bills, bill
+    payments, sales receipts, credit memos, vendor credits.
+
+1.37.1  (2026-11-13)  Fix: typing a year in a date box no longer throws the cursor out
+-------------------------------------------------------------------------------
+  * In date boxes that redraw the screen (bank export From/To, QuickBooks
+    .iif export From/To, Pay sales tax "through", payroll pay date, opening
+    balance date in Import, and the standalone payroll tool), the browser
+    reports a change after every digit of the year (0002, 0020, 0202, 2026)
+    and the screen was redrawn at the first digit, moving the cursor away.
+    The date is now kept as you type and the screen redraws when you leave
+    the box or press Enter.
+
+1.37.0  (2026-11-13)  Connector: reports and ledgers, deposit guard, gentler sending
+-------------------------------------------------------------------------------
+  * Connector menu 6 "Reports and ledgers": export straight from QuickBooks,
+    without VaultBook: one account's ledger (bank, card or any account, with
+    running balance), the general ledger, the transaction list, Profit and
+    Loss, Balance Sheet, Trial Balance, open invoices, unpaid bills. Dates:
+    this month, last month, any month you type, this quarter, this year,
+    last year, custom from-to, or all dates. Saved as .csv (opens in Excel)
+    in the folder you choose; export as many as you like in one run.
+    Nothing is written to QuickBooks.
+  * Safety: a VaultBook customer payment that QuickBooks already holds as a
+    bank Deposit (same account, date and amount) is now "Already in
+    QuickBooks" in the connector, and matched in VaultBook's month
+    comparison, so it is never recorded a second time.
+  * Sending is gentler: a short rest after each entry; the start screen says
+    to close all QuickBooks windows first (open reports recalculate after
+    every entry). If QuickBooks stops part-way the script stops cleanly,
+    marks the entry it was on, lists what was and was not recorded and what
+    to do next.
+
+1.36.0  (2026-11-13)  Dense ledger look (design review fixes)
+-------------------------------------------------------------------------------
+  A design review (25/40) found the rounded "Studio" skin undoing the dense
+  ledger look. Fixed, keeping every key, menu and route:
+  * Numbers: amounts are now as large as their labels (they were drawn
+    ~11px next to 12.6px text); totals are bold; Net Income is the heaviest
+    line of the P&L.
+  * Density: table rows 27-29px (were 37-47px); line inputs 26px; buttons
+    28px; top bar 44px; tabs 30px; side menu rows 30px; page headers and
+    cards tighter; the bottom taskbar (a copy of the tabs) is off by default.
+  * Flat controls: 3-4px corners instead of pills and 12px rounded cards; no
+    card shadows; status in tables is text (Overdue in red with "!"), not
+    pills; the dashboard shortcut circles are one row of small buttons; the
+    QuickBooks Desktop status tiles are one line; step numbers are plain.
+  * Type: one 18px page title everywhere; 13px table text and inputs;
+    capital letters kept for column headers only.
+  * Entry forms: the cursor starts in the first field; the F-key voucher
+    chips are skipped by Tab; one save bar on the right with Save & New as
+    the main button; invoices start with 3 lines and more appear as you type
+    in the last one (journal and expense too); errors put the cursor in the
+    first highlighted field, and "Try again" only shows for storage errors.
+  * Clarity: the dashboard's profit and expense figures use the app's period
+    (top bar, Alt+F2) and say which dates, so they agree with the P&L; the
+    "% change" only shows when both periods made a profit; the Invoices menu
+    item opens a page titled Invoices; forms highlight Sales or Expenses in
+    the menu; report descriptions are one line (full text on hover); "Save
+    customization" is no longer a main button; customers with nothing owed
+    have no "Receive payment"; empty Company/Email/Phone columns are hidden.
+  * Dark theme: chart colours readable on the dark surface; + New no longer
+    a bright block.
+
+1.35.0  (2026-11-13)  Payroll: post to the books and download the QuickBooks .iif
+-------------------------------------------------------------------------------
+  * Payroll > Paystubs to journal now does everything the standalone
+    Payroll to QuickBooks IIF tool does, inside VaultBook:
+      - a tick box on each pay date to include or leave it out;
+      - Entries: "One per pay date" or "One combined entry for all ticked
+        pay dates" (preview shown; dated the last pay date; lines added by
+        account and item);
+      - "Post ... to the books" posts the journal entries (or the combined
+        entry) into this company;
+      - "Download .iif for QuickBooks" writes the same entries with
+        VaultBook's account names (Parent:Child) and types, and, when
+        "Create the accounts in QuickBooks first" is ticked, the account
+        rows parents first. Pay dates already posted here can still be
+        exported, so you can do both.
+  * A combined entry counts as posted for every pay date in it, so none of
+    them can be posted twice.
+  * The choices are remembered per company on this computer.
+
+1.34.1  (2026-11-13)  Payroll to QuickBooks IIF: one combined entry
+-------------------------------------------------------------------------------
+  * New choice next to Download .iif: Entries "One per pay date" or "One
+    combined entry for all ticked pay dates". The combined entry is dated
+    the last pay date; each line adds up the same account and item (per
+    employee, or per item when summarised) across the pay dates; the memo
+    names the frequency, the number of pay dates, the first and last pay
+    date and the employees. A preview shows it before downloading.
+  * Engine: OB.paystub.mergeDrafts (tested).
+
+1.34.0  (2026-11-13)  Payroll documents: recognise everything, cross-check everything
+-------------------------------------------------------------------------------
+  * Payroll (and the standalone Payroll to QuickBooks IIF tool) now take any
+    payroll paper the client gives you, not only paystubs. Each file is
+    recognised and labelled with what it is used for:
+      - paystubs: make the payroll journal entry;
+      - EFTPS federal deposits, state withholding payments: tax paid;
+      - payroll summaries and registers, Form 941, state withholding
+        returns, state unemployment returns and wage reports: checks only;
+      - anything else: not used.
+  * Cross-check of all payroll documents, the way an accountant ties out a
+    payroll: paystubs against the register (employee by employee) and the
+    summary (month by month); each month's federal liability (income tax +
+    2 x Social Security + Medicare withheld + employer Medicare) against the
+    EFTPS deposits; Form 941 lines 2, 3, 5a, 5c+5d, 12, 13 and the balance
+    due; each state's withholding return and payments against the
+    employees whose state tax adds up to it (so VaultBook works out which
+    state each employee is in); unemployment wages and contribution; FUTA
+    0.6% of the first $7,000; employer Social Security and Medicare.
+    Differences are listed with the amount; documents not provided (a
+    month with no deposit, a state unemployment return missing) are listed
+    separately as not provided, not as errors.
+  * Filled-in PDF forms (e.g. a state return typed into the form) are now
+    read: form field values join the PDF's text.
+  * A PDF whose text gives no figures is read again with OCR.
+
+1.33.1  (2026-11-13)  Paystub to QuickBooks IIF (standalone tool)
+-------------------------------------------------------------------------------
+  * New standalone tool tools/paystub-iif (build with build.py into one
+    offline PaystubToIIF.html). Drop paystubs, the same reading and checks
+    as Payroll from paystubs, one journal entry per pay date with the memo
+    (frequency, pay date, period, employee and line), then Download .iif
+    for QuickBooks Desktop (File > Utilities > Import > IIF Files).
+  * Type the QuickBooks account name for each part of the paycheck (sub-
+    accounts with a colon). Optionally "Create these accounts in
+    QuickBooks first": the .iif then starts with account rows, parents
+    first, with the type chosen per part (expense, liability, bank).
+  * Mapping, employer tax rates and learned paystub lines are remembered in
+    the browser. Pay dates that do not tie are left out of the file.
+  * Engine: OB.paystub.toIIF (tested).
+  * Fix (QuickBooks import error "DOCNUM exceeds the maximum length of 11
+    characters"): the entry number in the .iif is now PRmmddyy (e.g.
+    PR053126); the file is plain ASCII (the period dash was not).
+
+1.33.0  (2026-11-12)  Payroll from paystubs
+-------------------------------------------------------------------------------
+  * New side-menu section Payroll (Paystubs to journal, Payroll settings).
+    Drop paystubs - a payroll-service PDF, a scan or a photo - and VaultBook
+    reads them on this computer (the PDF's text, or offline OCR for scans),
+    finds each employee's stub (printed twice per page is fine: the copies
+    are read together), and proves every figure: each column must add to
+    the stub's TOTALS and net pay must equal gross - taxes - deductions
+    (and the check amount when it can be read). A figure that could not be
+    read anywhere is worked out from the total and marked "from total".
+  * One gross-up journal entry per pay date (PR-yyyy-mm-dd): gross wages
+    and employer taxes (Social Security match, Medicare 1.45%, FUTA and
+    SUTA up to their wage base using the stub's YTD) as expenses; federal,
+    state and local withholding, Social Security, Medicare, 401(k),
+    benefits, garnishments, FUTA, SUTA and net pay as liabilities (or net
+    pay to the bank). One set of lines per employee, or summarised.
+    Weekly, bi-weekly, semi-monthly, monthly and quarterly pay periods are
+    recognised from the period dates and named in the memo.
+  * Every amount, name, date, line type and employer tax can be corrected
+    before posting. A line type chosen once is remembered for the company
+    and used on later paystubs. Already-posted pay dates are shown as
+    posted and cannot be posted twice.
+  * Payroll settings: the account for each part, Create standard payroll
+    sub-accounts, Learn from an earlier payroll entry (e.g. one already in
+    the books for January-March), FICA, FUTA and SUTA rates and bases.
+  * The stub's YTD is compared with the wages already in the books: a
+    message says how much payroll is missing before this pay date.
+
+1.32.0  (2026-11-12)  QuickBooks Desktop section: import everything, classic connector screen
+-------------------------------------------------------------------------------
+  * New side-menu section QuickBooks Desktop (Overview, Months & send,
+    Tie-out report). The overview shows the status (imported, last read,
+    sent, only in VaultBook, problems, balances tie) and the four steps in
+    order: 1 Import everything, 2 Read QuickBooks, 3 Send what is missing,
+    4 Load what happened; plus reports, the connector menu and the other
+    routes (IIF/CSV import, bank feed .iif). Send to QuickBooks moved here
+    from Banking.
+  * New: Import everything from QuickBooks. The connector's new option
+    5 Export everything reads the chart of accounts, customers, vendors,
+    employees, other names, items, classes, terms and every transaction
+    with its lines (invoices, sales receipts, credit memos, payments,
+    refunds, bills, vendor credits, bill payments, checks, card charges and
+    credits, deposits, transfers, journal entries, sales tax payments),
+    year by year. VaultBook imports the file through the usual preview
+    (into this company when empty, otherwise a new company named from the
+    file). Payments are applied to exactly the invoices and bills QuickBooks
+    applied them to; every transaction keeps its QuickBooks id, so later
+    reads match by id.
+  * New: Tie-out report (QuickBooks Desktop > Tie-out report): every
+    balance-sheet account, QuickBooks against VaultBook with differences,
+    and transaction counts per type; CSV, Excel, PDF, Print.
+  * Connector: classic full-screen console look - framed banner with
+    status line, arrow-key menu bar (or 1-5), boxed notes, coloured plan
+    badges, progress bars per transaction type, summary and next-step
+    boxes. Reviewed by a second reader; fixes applied (box keys, 32-bit
+    relaunch with all dates, one rejected query no longer stops an export,
+    characters XML cannot hold are removed from replies).
+
+1.31.0  (2026-11-12)  Read QuickBooks first: month-by-month gap, one menu script
+-------------------------------------------------------------------------------
+  * New: tools/VaultBook QuickBooks.cmd (VaultBook-QB.ps1) replaces the
+    1.30 launchers. One menu: 1 Read QuickBooks (snapshot of every
+    transaction type in the last five years, by month; nothing written),
+    2 Send, 3 Read-send-read, 4 Check only. It never searches for files:
+    it asks (Open File / folder window, or a typed path) and saves
+    snapshots and results next to the file you chose.
+  * New: Banking > Send to QuickBooks opens on a Months tab. Load the
+    snapshot and each month shows In QuickBooks, In VaultBook, Matched,
+    Only in VaultBook, Only in QuickBooks and a state (Done, Partly, Not
+    in QuickBooks, QuickBooks only). Tick months in any order; only the
+    gap is sent, plus invoices from other months that a ticked payment
+    pays. The 1.30 list is now the Items tab.
+  * Matching: transactions the script records carry their VaultBook id in
+    the memo ([VB:...]) so a later Read recognizes them exactly;
+    hand-typed entries match by type, date, number and amount. Matches
+    are remembered (Items shows them as Sent with the QuickBooks id).
+  * Script reviewed by a second reader; journal totals read from lines;
+    file windows stay in front of the console. First real Read on the
+    user's PC connected and read 200 transactions, then failed writing
+    the snapshot (Windows PowerShell ConvertTo-Json: "Argument types do
+    not match"); fixed by writing the JSON with the script's own
+    serializer and plain objects.
+
+1.30.0  (2026-11-12)  Send to QuickBooks Desktop: invoices and payments in one run
+-------------------------------------------------------------------------------
+  * New screen: Banking > Send to QuickBooks. Choose invoices, customer
+    payments or both; period; customer; status (Not sent yet by default);
+    amount range. Tick rows; totals update. Download for QuickBooks saves
+    one VaultBook-QB-<company>-<date>.json.
+  * New tools/Send to QuickBooks.cmd (runs VaultBook-QB-Send.ps1): one
+    double-click on the QuickBooks PC. Asks you to choose the VaultBook
+    file (Open File window, a typed path, or a file dragged onto the
+    .cmd; the folder is remembered), checks every item, asks
+    before creating any missing customer or item, shows the plan, asks
+    once more, then records invoices first and payments applied to their
+    invoices (including invoices sent in the same run). Writes a
+    .result.json next to the batch. "Check only (nothing written).cmd"
+    shows the plan only.
+  * Invoice lines: an item name found in QuickBooks is used; a line without
+    an item uses the QuickBooks item whose name the description starts
+    with, and the full description prints ("Radiology Services - For
+    Holiday" -> item Radiology Services). Otherwise it offers to create a
+    Service item on the line's income account.
+  * Load result file marks each item Sent (QuickBooks id, date) or Problem
+    (reason); Status: Problems lists what to fix and resend. Re-runs skip
+    items already in QuickBooks (invoice: customer + number; payment:
+    customer + date + amount + reference).
+  * Guards: invoice number max 11 characters and address lines max 41 (the
+    QuickBooks limits); invoice lines must add to the total; sales tax is
+    not sent (set the tax item in QuickBooks). The 1.28 two-step launchers
+    are removed; VaultBook-QB-Connector.ps1 still records payment-only
+    batches.
+  * Script not run here (no Windows/QuickBooks): reviewed line by line;
+    first real run on the user's PC.
+
+1.29.2  (2026-11-12)  Invoice Payment Days: income accounts on each invoice
+-------------------------------------------------------------------------------
+  * New fields (Fields button) in the Drill-down and By invoice views:
+    - Income accounts: every income account the invoice uses, with its
+      amount, one per line ("43700 Income:Fee for Professional Services
+      $50,000.00").
+    - No. of income accounts: how many the invoice uses.
+    - One column per income account used in the report, named by account
+      number and full name, with the invoice's amount; customer rows and
+      the Total add them up. The Summary view offers the per-account
+      columns too.
+  * Income and Other Income accounts count; discount lines on the same
+    account reduce it. Exports (CSV, Excel with grouping, PDF) include the
+    chosen columns.
+
+1.29.1  (2026-11-12)  Invoice Payment Days: drill-down view
+-------------------------------------------------------------------------------
+  * New standard view "Drill-down (customer > invoices)": one row per
+    customer with its totals and averages; click > to open its invoices, or
+    Expand all customers / Collapse all. One level only: each invoice row
+    shows its own payment details (first and last payment, paid in full on,
+    payment numbers, received, the payments list with dates and amounts,
+    bank account) next to days to pay, days late and status.
+  * Excel: the drill-down exports with the invoices grouped under each
+    customer (Excel row groups: +/- and the 1 2 level buttons). PDF and
+    Print show every invoice, indented under its customer.
+  * Fields for the drill-down: invoice date, due date, terms, amount,
+    first/last payment, paid in full on, number of payments, payment no.,
+    received, credits, open, days to pay, days to first payment, weighted
+    days, days late, status, paid on time %, open invoices, days open,
+    deposited to, payments received, memo.
+
+1.29.0  (2026-11-12)  Invoice Payment Days (MIS report)
+-------------------------------------------------------------------------------
+  * New report: Reports > Management (MIS) > Invoice Payment Days. When each
+    invoice was raised and when it was paid: days to pay (invoice date to
+    paid in full), days to first payment, days late (after the due date),
+    amount-weighted days, days open and past due for unpaid invoices.
+  * Three views: Summary by customer (invoices, invoiced, received, open,
+    average and weighted average days to pay, average days late, paid on
+    time %, fastest, slowest, open invoices, oldest open), By invoice (with
+    every payment's date, number and amount) and By payment (one row per
+    payment or credit applied). A glance strip shows the totals.
+  * Filters: period by invoice date or by date paid/received, status (paid,
+    partly paid, not paid), customer, and "payments up to" a date.
+  * Fields: choose and order the columns of each view; the choice is
+    remembered and used by CSV, Excel and PDF. Click a customer in the
+    summary for its invoices.
+
+1.28.0  (2026-11-12)  QuickBooks Desktop connector: payments close their invoices
+-------------------------------------------------------------------------------
+  * New: Bank feed > Export > "Connector batch for QuickBooks (.json)"
+    saves the customer payments of the chosen period (exported before or
+    not) with each invoice they pay, the amount to apply and the bank
+    account.
+  * New: tools/VaultBook-QB-Connector.ps1 (Windows, PowerShell, no install)
+    reads that file on the PC where QuickBooks Desktop is open, finds each
+    invoice by number for that customer, checks the open balance, and
+    records a Receive Payment applied to those invoices and deposited to
+    the bank account (QuickBooks SDK, qbXML 13.0). It checks only unless
+    run with -Apply, skips payments already in QuickBooks (same customer,
+    date and amount), and writes a result .csv. Drag the .json onto
+    "1 Check payments.cmd", then "2 Record payments.cmd".
+  * First run: QuickBooks Admin, single-user mode, allow access once.
+    Windows administrator rights are not needed.
+  * Bill payments are counted but not sent by the connector yet.
+
+1.27.3  (2026-11-12)  Payments to QuickBooks Desktop no longer leave invoices open
+-------------------------------------------------------------------------------
+  * Fixed: Bank feed > Export to QuickBooks Desktop (.iif) sent invoice
+    payments as deposits credited to A/R. QuickBooks records those as
+    unapplied credits, so the customer's invoices stayed open. Customer
+    payments now go as PAYMENT transactions and bill payments as BILLPMT
+    (with the check number), each with the invoices or bills it pays
+    written in its memo ("Pays invoice 1162 $340,074.75; invoice 1170
+    $30,000.00"). The "deposits to A/R" choice is removed; sending
+    payments is now the default.
+  + Payments to apply: the export shows, and downloads with the .iif, a
+    CSV listing every invoice and bill each payment pays (date, customer or
+    vendor, payment, bank, invoice no., amount). An .iif cannot link a
+    payment to an invoice; use the list to tick them in QuickBooks, or
+    import it with Transaction Pro or SaasAnt as Receive Payments.
+  + "Payments to apply for lines already exported": the same list for a
+    file you imported before, to clear invoices left open.
+  = Data format 8, unchanged.
+
+1.27.2  (2026-11-12)  Reconciliation report rebuilt
+-------------------------------------------------------------------------------
+  * The reconciliation report now reads like QuickBooks' Reconciliation
+    Detail: company, "Reconciliation Detail", "<account>, Period Ending
+    <date>"; columns Type, Date, Num, Name, Memo, Clr, Amount, Balance;
+    Beginning Balance; Cleared Transactions with Checks and Payments and
+    Deposits and Credits ("- 11 items"), each with a running balance and
+    total; Total Cleared Transactions; Cleared Balance; Uncleared
+    Transactions the same way; Register Balance as of the statement date;
+    Ending Balance (double rule); statement balance and difference; a
+    Prepared by / Reviewed by sign-off line. Credit cards use Charges and
+    Cash Advances / Payments and Credits.
+  + Summary view (QuickBooks' Reconciliation Summary): the same totals in
+    one column, plus Statement Ending Balance and Difference.
+  + Download PDF uses VaultBook's own PDF writer: portrait, column headings
+    repeated on every page, page numbers, printed date, and every figure as
+    searchable text (the old printed PDF copied totals as "063").
+    Excel and CSV give the same rows.
+  + A short at-a-glance strip on screen: beginning, cleared, statement
+    ending balance and difference, uncleared, register balance.
+  = Data format 8, unchanged (reports use the copy frozen at finish).
+
+1.27.1  (2026-11-12)  Bank feed fix
+-------------------------------------------------------------------------------
+  * Fixed: clicking a line on the Posted or Excluded tab (for example one
+    marked "Already in books") showed "Something went wrong showing this
+    page (reading 'cands')". Those lines now open the transaction they were
+    posted to; the review panel is only for lines in For review.
+  = Data format 8, unchanged.
+
+1.27.0  (2026-11-12)  Find: search all company data
+-------------------------------------------------------------------------------
+  + Find (Ctrl+F, gear menu > Tools, or "Search all company data" at the
+    bottom of the Ctrl+K command bar). Three tabs:
+    - All results: one box that reads plain words ("invoices over 5000
+      from acme may 2026", "checks this year", "dignity overdue") and
+      field:value words (memo:"cash paid", no:1162, name:, account:,
+      amount>25000, date:, is:open). Lists transactions, customers and
+      vendors (also email, phone, address, notes), accounts, products and
+      bank feed lines, and says how it read the search.
+    - Simple: type, customer or vendor, period, number, amount.
+    - Advanced: up to 12 conditions (any text, memo or line description,
+      number, name, account, type, amount of the total or of any line,
+      date, due date, class, product, open/overdue/paid, cleared,
+      imported, entered on, last changed on), match all or any, posted /
+      voided / both, any period including All dates (no two-year limit).
+  + Every result shows where it matched ("Line 2: Courier", "Amount:
+    $30,000.00", "Overdue since ..."). Sort by any column; total and count;
+    Export to CSV or Excel; Save search; Change in Advanced turns a typed
+    search into conditions you can edit.
+  * Ctrl+F opens Find everywhere except the Sales and Purchase registers,
+    where it still opens the register's filter (TallyPrime).
+  = Data format 8, unchanged. Saved searches are a browser preference.
+
+1.26.2  (2026-11-11)  One invoice paid in several deposits
+-------------------------------------------------------------------------------
+  + Split payments: when a customer pays one invoice in parts on different
+    days, the bank feed finds the other For review lines from the same
+    customer that add up, with this line, to an open invoice, and offers
+    "Part payment of Invoice 1192 with 09/23/2026 $5,250.00". Each line
+    posts a part payment of its own amount; after the first, the next
+    line matches what is left of the invoice. Same for bills.
+    Never by amount alone: the customer must be named in the bank text of
+    every line, the lines must be within 60 days of each other, and the
+    invoice must be dated before the payments.
+  + An invoice or bill number in the bank text ("Inv 1229") now decides
+    between several open items of the same amount.
+  * When several open items fit equally, the oldest is listed first and
+    none is matched automatically.
+  = Data format 8, unchanged.
+
+1.26.1  (2026-11-11)  One bank deposit against several invoices
+-------------------------------------------------------------------------------
+  + Bank feed suggests a match when one deposit pays several open invoices
+    of one customer (or one payment pays several bills of one vendor). It
+    looks at customers the bank text names, even when the name is written
+    without spaces ("Honorhealth" for HONOR HEALTH), and at invoice numbers
+    in the bank text ("1170*1162"). Earlier, only one invoice for the exact
+    amount was offered.
+  + Find match > "Match open invoices yourself": choose the customer, tick
+    any number of open invoices, and change the amount on a row to pay part
+    of it. The total and the difference update as you type; Match turns on
+    when they add up to the bank line. One payment is recorded, applied to
+    each invoice, and the bank line is cleared. Same for bills on money out.
+  * A match of several invoices is listed with each invoice number and
+    amount.
+  = Data format 8, unchanged.
+
+1.26.0  (2026-11-10)  QuickBooks Online patterns: bookmarks, gear menu, keys
+-------------------------------------------------------------------------------
+  + Bookmarks: press Ctrl+D (or the star in the top bar) on any page to keep
+    it at the top of the side menu. Edit renames, reorders and removes them.
+    Kept per company in this browser.
+  + Gear menu in the top bar (Ctrl+Alt+L): Your company, Lists, Tools and
+    Profile (compact side menu, bookmarks, keyboard shortcuts).
+  + Compact side menu (icons only), from the gear menu. Its menus open
+    beside the rail, never over it.
+  + QuickBooks Online keys as extra shortcuts (the F-keys still work):
+    Ctrl+Alt+I invoice, W check, X expense, E estimate, R receive payment,
+    C customers, V vendors, A chart of accounts, L gear menu, F search,
+    H help, / shortcut list. On a form: S save and new, D save and close,
+    M save, P print, X or C close. All are listed in F1.
+  + Bank feed: a line in For review takes a note and a corrected date
+    before you post it (the bank's own date is kept and shown). The note
+    shows under the bank text.
+  + Reports (Profit and Loss, Balance Sheet, Budget vs. Actuals): a slim
+    bar with Chart, Customize (panel on the right), Save, Print and Export;
+    Comment, Hide header, Collapse rows and Refresh are under More. The
+    Chart switch draws income and expenses (or assets, liabilities and
+    equity) per period above the report. More > Classic layout brings back
+    the QuickBooks Desktop toolbar.
+  + Business overview: Customize (show, hide and order the widgets) and
+    Privacy (hides the amounts while you share your screen).
+  + Customer and vendor pages have tabs: Transactions, Statements (open
+    bills for vendors), Details and Notes.
+  + Invoices, sales receipts, credit memos and estimates: Preview and
+    customize shows the printed form beside the form as you type.
+  * The bank feed tab is called Posted again (For review / Posted /
+    Excluded), as in QuickBooks Online today.
+  = Data format 8, unchanged. Bank lines may carry note and bankDate.
+
+1.25.1  (2026-11-10)  Register graphs, folding filters, shorter Gateway
+-------------------------------------------------------------------------------
+  + Sales Register and Purchase Register show a bar per month under the
+    table (net sales or net purchases). Each bar opens that month.
+  * The Period, Show and Filters panel on the registers is folded away.
+    Open it with "Filters and options" or Ctrl+F; it stays open while a
+    filter is on, and the button shows how many filters are on.
+  * Gateway home menu is shorter: Create, Alter, Vouchers, Day Book,
+    Banking, the main reports, Company and Quit. Chart of Accounts is under
+    Alter, Recurring and Reclassify under Vouchers, Open Invoices under
+    Display More Reports, and Features, Configure, Settings, Import from
+    QuickBooks and Company Snapshot under the new Company menu.
+  * The 12-month chart on Business overview is half the height.
+  * No "No backup yet" banner on Business overview or the Gateway; backups
+    stay in Settings and backup.
+  * Key hints (G H, G D) are no longer printed on the home tabs and the
+    side menu; the keys still work.
+  = No change to stored data (data format 8).
+
+1.25.0  (2026-11-10)  New look: light top bar, home widgets, + New menu
+-------------------------------------------------------------------------------
+  + A new look for every screen, reports and dialogs included: a white top
+    bar and side menu with icons, rounded cards and buttons on a soft grey
+    work surface. Every key, menu and route works as before; dark mode
+    follows the same look.
+  + Top bar: a search field (Ctrl+K), the current period (click it or press
+    Alt+F2 to change it) and a + New button (F10).
+  + Home has two tabs: "Get things done" is the Gateway (G H) and "Business
+    overview" is the Dashboard (G D). Business overview shows shortcuts
+    (create invoice, record expense, bank deposit, pay bills, reconcile,
+    profit and loss) and widgets: profit and loss for the last 30 days and
+    how it changed, expenses as a ring chart, bank accounts with lines to
+    review, invoices unpaid / overdue / paid / not deposited, and a task
+    list. The 12-month chart, its drill-downs and recent transactions stay.
+  + The + New menu groups every form under Customers, Vendors, and Bank and
+    accounting, shows each one's key, filters as you type ("bill", "paid",
+    "card"), moves with the arrow keys, opens with Enter, takes the F-keys
+    directly, and lists your recent entries to duplicate.
+  + The Banking menu shows how many bank lines wait for review.
+  * Bank feed: the Posted tab is now called Categorized.
+  = No change to stored data (data format 8).
+
+1.24.0  (2026-11-09)  Whole company from QuickBooks Online Excel files
+-------------------------------------------------------------------------------
+  + Create a company from QuickBooks files: on the company screen choose
+    "Create from QuickBooks files" (Alt+Q) and pick every file the client
+    sent, all at once. VaultBook names the company as the reports name it,
+    opens the import preview with the files already loaded, and posts nothing
+    until you press Import.
+  + QuickBooks Online reports in Excel (or CSV) are now read:
+      Journal ............ every transaction exactly as posted
+      Balance Sheet and
+      Profit and Loss .... what each account is (bank, loan, income, expense)
+                           and which accounts are sub-accounts
+      Trial Balance ...... the balance every account must end with; after the
+                           import VaultBook compares every account with it
+      Customer, Vendor and Employee Contact List ... names, phone, email,
+                           address (an employee is kept as a payee)
+      Account List ....... account types, when sent instead of the two
+                           statements
+      General Ledger ..... used only when there is no Journal (totals exact;
+                           entries on the same day may be combined)
+  * QuickBooks Online writes report amounts as formulas ("=1234.56") with a
+    stored value of 0, so the files used to read as all zeros. They are now
+    read as the numbers they show.
+  * The import screen takes .xlsx/.xls files, and in a company that already
+    has transactions it offers "Create a new company from these files".
+  * A QuickBooks Desktop General Ledger saved as Excel is read like the CSV.
+  = No change to stored data (data format 8).
+
+1.23.0  (2026-11-06)  Smarter bank rules, grouped matches, already-in-books, reconcile
+-------------------------------------------------------------------------------
+  + Already in your books: when a bank file is imported, lines that are
+    clearly the same as an entry you typed in yourself (same amount and a
+    close date, or the same check number) are matched to that entry instead
+    of waiting to be added again. The import preview lists them first and
+    you can switch it off; Posted marks them "Already in books" and Undo
+    unmatches any of them.
+  + Bank rules v2: several conditions (description contains / does not
+    contain / starts / ends / is exactly; amount is, under, over, between),
+    all or any, money in/out, chosen bank or card accounts, split by
+    percent and amount, payee, class, memo, priority, and Auto-add (post
+    on import without review). The editor previews which waiting lines the
+    rule catches. Older rules keep working.
+  + One bank line for several entries: a deposit of several customer
+    payments waiting in Undeposited Funds is matched in one click (the
+    Deposit is recorded for you), and several entries already in the
+    account that add up to one bank line can be matched together.
+  + Reconcile: find by amount, check number, payee or memo (Enter ticks a
+    single hit), "Only not ticked", and Finish with adjustment, which posts
+    the difference to Reconciliation Discrepancies (undo voids it).
+  + Reconciliation report for every reconciliation: beginning balance,
+    cleared items, adjustment, statement balance, uncleared items and the
+    register balance, frozen when finished; print, PDF, Excel or CSV.
+
+1.22.0  (2026-11-06)  TallyPrime-style keys, registers, one P&L, Reclassify
+-------------------------------------------------------------------------------
+  + F2 current date and Alt+F2 current period on the Gateway (also by
+    clicking them). Dates can be typed any way: june20, 0620, 620, 6/20,
+    6.20, 06-20, 6/20/25, just the day (20), t for today, +7. New entries
+    are dated on the current date; reports open on the current period.
+  + Gateway header: period, date, company and last entry are clickable.
+    Recent entries, the sidebar New button and the key-hint note are gone
+    (Alt+N still opens New).
+  + Report buttons on the right, as in TallyPrime: F2 Period, Alt+N Auto
+    column (months, quarters, years, class, customer, vendor), Alt+C New
+    column (previous year/period, $ and % change, % of income...), Ctrl+B
+    Basis of values, Alt+F5 Detailed/Condensed, F4 account where it fits.
+  + One Profit and Loss and one Balance Sheet in the menus; the old
+    variants (by month, comparison, % of income, by customer, by class, by
+    job, BS comparison) are options on the report. Old links still work.
+  + Sales Register, Purchase Register and Cash/Bank Book (Gateway >
+    Registers): month-wise debit, credit and closing balance; Enter on a
+    month for its vouchers; Alt+F5 voucher lines; filters on the side
+    (voucher type, customer/vendor, name, ledger, amount range, voucher
+    number, narration, status, class, money in/out).
+  + Reclassify Transactions (Gateway > Reclassify transactions; also in
+    Reports > For my accountant): accounts with their activity on the left,
+    the lines on the chosen account on the right; tick lines and change the
+    account and/or class in one step, with a preview, a note, history and
+    Undo. Lines that must not move (A/R, A/P, item lines' account,
+    reconciled, closed period, deposited, bank-feed matched) say why.
+  + Arrow-key row cursor on more screens: tick-box lists (deposits,
+    reconcile, pay bills...) where Space ticks, and the report list.
+  + Company list: arrow keys, Enter opens, type a name to jump, Alt+C
+    create, Alt+R restore, Del delete; the last-opened company is first.
+
+1.21.0  (2026-11-06)  Send posted bank transactions to QuickBooks
+-------------------------------------------------------------------------------
+  + Bank feed > More > Export posted transactions to QuickBooks (advanced).
+    Only transactions posted in VaultBook are sent; lines still in For
+    review stay behind.
+  + QuickBooks Desktop .iif: each transaction with its category, payee,
+    class and splits as Check, Deposit, Transfer (once for both accounts),
+    Credit Card charge or refund, plus the accounts and names it uses.
+  + QuickBooks Online: one Date/Description/Amount bank-upload file per
+    account (QuickBooks Online cannot read .iif).
+  + Choose accounts, dates (all, month, quarter, year, last 12 months,
+    custom), only not-yet-exported lines, cleared flag, lists, and how
+    invoice and bill payments are handled; each account's QuickBooks name
+    can be set and is remembered. Preview per account before download.
+  + Export history; Mark as not exported sends those lines again.
+
+1.20.0  (2026-11-06)  Bank feed
+-------------------------------------------------------------------------------
+  + Bank feed page: a tile per bank and card account (bank balance from the
+    last file vs balance in VaultBook, lines waiting), tabs For review /
+    Posted / Excluded / Imports. Imported lines are saved and nothing posts
+    on import.
+  + Each line: Match (an entry already recorded, the other side of a
+    transfer, or an open invoice or bill for that amount), Add with a
+    category, Transfer, Split with a live difference, Exclude with a reason,
+    Create rule. Every candidate is listed with its reasons.
+  + Undo a posted line (a match is unlinked; a created transaction is
+    voided), restore excluded lines, undo a whole import.
+  + Batch: select lines, set one category, post; exclude; undo; restore.
+    Keys: Up/Down, Enter, Space, A post, X exclude, Esc.
+  + Columns (check no., payee, bank balance), rows per page and row density
+    are adjustable and remembered.
+  + One import for CSV, Excel, OFX/QFX/QBO and PDF statements.
+  * Fixed: Chase-style files lost the merchant text (the Details column
+    DEBIT/CREDIT was taken as the description); rules suggested from a line
+    used that word.
+  * Fixed: an imported transfer was counted again when the other account's
+    file was imported; it is now offered as the match.
+  * Fixed: dates were always read month first; the format is detected,
+    ambiguous files are flagged and DD/MM is honoured. Text months and
+    CR/DR amounts are read.
+  * Fixed: a file that is not a bank export is refused with the reason.
+  * The running balance column is checked and gives the ending balance;
+    Reconcile opens with it and with bank-feed lines already ticked.
+  * Column layouts are remembered per account.
+
+1.19.0  (2026-11-05)  CPA audit fixes; dashboard drill-down
+-------------------------------------------------------------------------------
+  Accounting fixes from the CPA audit (CPA-01 to CPA-25), each with a test:
+  * Sales tax: a posted document keeps the rate it was posted at (Update to
+    current rate on request); credit memos use the invoice's rate; write-offs
+    reverse the tax part; discount lines follow the taxability of the line
+    above; exempt status is saved on each document; Sales Tax Return by
+    Agency has a cash-basis option.
+  * Finance charges count from the last charge date, not again from the due
+    date. Applications carry a date; aging and open balances use it.
+  * Inventory: overselling is blocked unless allowed in Features; costs are
+    recalculated automatically when an earlier document changes.
+  + Vendor refunds; apply credits and unapplied payments on Receive Payment /
+    Pay Bills; customer deposit refunds (capped at what is held).
+  + Early-payment discounts (e.g. 2% 10 Net 30) on customers, vendors,
+    invoices and bills, taken on the payment in one atomic write.
+  + Record bounced payment: the original stays, a new charge re-opens A/R,
+    with bank and customer fees.
+  + Fixed assets: Dispose (sale or scrap) with gain/loss; MACRS half-year in
+    the disposal year, mid-quarter convention and warning, separate tax
+    method, register-vs-GL reconciliation. Cash flow shows proceeds as
+    investing, depreciation added back, Undeposited Funds as cash.
+  * Reversing entries keep classes and fixed asset links and default to the
+    day after the month end.
+  + Void as of a later date: closed or reconciled periods stay as reported.
+  + Save warnings: duplicate bill or check number, unusual account, inactive
+    name or item, payment dated before the invoice (Save anyway).
+  * Controls: undoing a closed-period reconciliation needs the closing
+    password; statements reconcile in date order; spending from Undeposited
+    Funds is blocked; A/R journal entries age by their own date.
+  * Dashboard: every bar opens that month's income or expenses only; the
+    month label opens that month's P&L; Income and Expenses figures open
+    their detail.
+  * Fixed: invoice and other entry forms failed to open (a variable from the
+    sales-tax change was declared in the wrong scope).
+
+1.18.8  (2026-11-05)  One row highlight at a time
+-------------------------------------------------------------------------------
+  * The mouse and the keyboard now share a single row highlight in every
+    list and report: pointing at a row moves the highlight there; pressing
+    ↑/↓ moves it on and the row under the (still) pointer is no longer lit.
+    Moving the mouse again takes the highlight back to the pointer.
+
+1.18.7  (2026-11-05)  Drill into totals: Transaction Detail By Account
+-------------------------------------------------------------------------------
+  + New report, Transaction Detail By Account (QuickBooks Desktop layout):
+    Type, Date, Num, Name, Memo, Split, Debit, Credit, Balance, grouped by
+    section and account with a total for each and a grand TOTAL.
+  * On the Profit & Loss and Balance Sheet, click any total or computed line
+    (Total Income, Gross Profit, Net Income, TOTAL ASSETS…) to open that
+    detail; account lines still open the General Ledger for that account.
+  * Financial statements have no gridlines by default (Customize Report →
+    Gridlines turns them back on).
+  * The row under the mouse highlights and opens on click; ↑/↓ move the row
+    cursor on statements and the detail report, Enter opens.
+
+1.18.6  (2026-11-05)  No grey margins anywhere
+-------------------------------------------------------------------------------
+  * The work area is one white sheet on every screen. Invoices, bills,
+    expenses and all other entry screens run edge to edge with no boxed
+    frame; every report (A/R aging, General Ledger, and the rest) sits flat
+    like the Balance Sheet. List pages keep their thin card rules on white.
+
+1.18.5  (2026-11-05)  Cleaner unsaved-changes dialog
+-------------------------------------------------------------------------------
+  * The key hint line is gone; the letters are underlined on the buttons
+    instead: Keep editing (K), Discard changes (D), Save (S).
+
+1.18.4  (2026-11-05)  Desktop-style reports, item search, Esc to leave
+-------------------------------------------------------------------------------
+  * Balance Sheet and Profit & Loss look like QuickBooks Desktop: a row of
+    buttons (Customize Report, Comment on Report, Memorize, Print, Excel, Hide
+    Header, Collapse Rows, Refresh), inline Dates / As of / Show Columns /
+    Report Basis, centred three-line heading, time/date/basis in the top-left
+    corner, Arial 12px bold rows with grey section bands, plain white sheet.
+  * Desktop wording: Checking/Savings, TOTAL ASSETS, LIABILITIES & EQUITY,
+    Expense, Net Ordinary Income, 'Total X' lines; column heading 'Nov 5, 26'
+    or 'Jan 1 - Nov 5, 26'.
+  * Both open on fiscal year to date (Balance Sheet as of today); the
+    Statement Designer's balance sheet no longer defaults to year end.
+  * Invoice and other item lines: type part of an item's name, SKU or
+    description and pick from a short list showing price and stock on hand;
+    Enter fills description, quantity and rate. '+ Add new item' when nothing
+    matches.
+  * Esc on an entry screen closes it, even from inside a field. With unsaved
+    changes it asks Keep editing / Discard / Save: S or Enter saves, D
+    discards, K or Esc keeps editing, arrow keys move between the buttons.
+    (Esc used to open and instantly dismiss that dialog.)
+  * Home and Close buttons at the right end of the window tab strip.
+
+1.18.3  (2026-11-05)  Invoice ribbon, foldable key panel
+-------------------------------------------------------------------------------
+  * Invoice, estimate and sales order toolbar is now a ribbon: large buttons
+    for New, Save, Delete, Print and Receive Payments, two-line stacks for
+    Create a Copy / Make Recurring, QuickBooks .iif, Write Off Bad Debt and
+    Transaction Journal / Audit History. Every action is visible; the More
+    menu is gone from these screens.
+  * The function-key panel on the right folds away with its arrow (keys keep
+    working) and comes back from the slim tab at the edge. Remembered.
+
+1.18.2  (2026-11-05)  Tighter entry screens
+-------------------------------------------------------------------------------
+  * Invoice, estimate and sales order: the header row that repeated the type,
+    number and date is gone; the F-key type switch now sits in the toolbar.
+    Toolbar buttons are a single compact row (icon beside label). The header
+    takes about half the height it did.
+  * Other entry screens: the type badge (already in the page title) is dropped
+    from the strip; date and weekday on one line.
+  * Window tab strip no longer gets squeezed on long pages.
+  * Bill/expense grid: the Billable column is wide enough for its header;
+    the header fields fit one row; Print later sits next to its checkbox.
+
+1.18.1  (2026-11-05)  Design polish (Impeccable audit)
+-------------------------------------------------------------------------------
+  * Text never renders below 11px (labels, table amounts, badges, toolbar).
+  * Only the sidebar group of the current page is highlighted (Invoices,
+    Bills and Transactions used to light up three groups at once).
+  * Thick colored left stripes on banners and notes replaced by thin borders.
+  * Dashboard: flat P&L figures, wider bank-accounts card; totals panels on
+    invoice forms no longer boxed inside the form.
+  * Larger page titles. See docs/DESIGN_AUDIT.md.
+
+1.18.0  (2026-11-05)  Sales tax by agency, Pay Sales Tax, more reports
+-------------------------------------------------------------------------------
+  + Combined sales tax rates: enter the parts (state, county, city) with their
+    agencies; each sale's tax is split by agency to the cent.
+  + Sales Tax Return by Agency: taxable sales, tax collected and paid, and
+    the amount due for each agency; exempt sales shown.
+  + Pay Sales Tax (Banking): one check per agency from the sales tax
+    liability (can be printed later).
+  + Exemption certificates on tax-exempt customers (number, state, reason,
+    expiry) with a warning when missing or expired; attach the copy.
+  + Attachments on customer and vendor pages (W-9s, certificates).
+  + Reports: A/R Collections, Missing Checks, Voided/Changed Transactions
+    (from the audit trail), Cash Flow Forecast (12 weeks).
+
+1.17.0  (2026-11-05)  Sales orders, progress & batch invoicing, deposits, price levels
+-------------------------------------------------------------------------------
+  + Sales orders: customer orders that do not affect the books until
+    invoiced (QuickBooks invoice layout).
+  + Progress invoicing: Create Invoice on an estimate or sales order (or
+    Create bill on a purchase order) asks for everything left or a
+    percentage of each line. The estimate shows how much is invoiced and
+    closes when all of it is; voiding a part invoice reopens it.
+  + Batch invoicing: the same lines for many customers at once, each with
+    their own terms, sales tax and price level.
+  + Customer deposits and retainers: Receive deposit (customer page or
+    Sales) holds the money in Customer Deposits; "+ Apply deposit" on the
+    invoice uses it.
+  + Price levels: a percentage up or down on every item, or a price per item;
+    set on the customer, used when you pick an item on a sales line.
+  * Data format 8.
+
+1.16.0  (2026-11-05)  Attachments, Customer:Job, billable costs, tax lines
+-------------------------------------------------------------------------------
+  + Attachments: attach receipts, bills or contracts (up to 4 MB each) to any
+    saved transaction; kept in the company and its backups; removals are
+    recorded in the audit log.
+  + Customer:Job: a customer can have jobs ("Job of" on the customer, "+ New
+    job" on the customer page, job status). Names show as Customer:Job;
+    invoices, payments and statements work per job. Profit and Loss by Job.
+  + Billable costs: on bill, check and expense lines choose a Customer:Job and
+    tick Billable. The invoice for that customer offers "+ Billable costs";
+    each cost is billed once. Report: Unbilled Costs by Job.
+  + Tax lines: choose your return (Schedule C, 1120-S, 1065 or 1120), map
+    accounts to its lines (with suggestions), Income Tax Summary report and a
+    tax export CSV for your preparer.
+  * Data format 7; new IndexedDB store for attachments (schema version 5).
+
+1.15.0  (2026-11-05)  Inventory and fixed assets
+-------------------------------------------------------------------------------
+  + Inventory: inventory parts can track quantity on hand at average cost.
+    Bills, checks and expenses buy them into Inventory Asset (Qty and Cost
+    columns); invoices and sales receipts record cost of goods sold
+    automatically; credit memos return stock; vendor credits return to the
+    vendor. Opening quantity when you create the item. Inventory
+    Adjustment for counts, damage and revaluation. Reorder points.
+    Reports: Inventory Valuation Summary (ties to Inventory Asset) and
+    Inventory Stock Status (on hand, on purchase orders, reorder).
+  + Fixed assets: asset register with straight-line, double-declining or
+    MACRS (IRS half-year tables) depreciation; Record depreciation posts
+    one journal entry for everything due; Fixed Asset Register report.
+  * Data format 6 (automatic migration).
+
+1.14.0  (2026-11-05)  Deposits, check printing, 1099 forms, write-offs, finance charges
+-------------------------------------------------------------------------------
+  + Make Deposits (Banking): tick the customer payments and sales receipts
+    waiting in Undeposited Funds and save them as one bank deposit, so it
+    matches the bank statement. A deposited payment can't be voided or have
+    its amount changed until it is taken out of the deposit.
+  + Check printing: "Print later" on checks, bill payments and expenses;
+    Print checks prints US Letter voucher checks (amount in words, payee
+    address, two stubs) with alignment offsets, then records the check
+    numbers. "Print check" on a saved check reprints it.
+  + 1099: W-9 on file per vendor; 1099-NEC/MISC recipient copies (Copy B
+    substitute statements, PDF); 1096 totals; 1099 data CSV to copy into the
+    IRS IRIS template; problems (no TIN, no W-9, incomplete address) listed.
+  + Write off as bad debt (invoice More menu): credit memo to Bad Debt,
+    applied to the invoice.
+  + Assess finance charges (Sales): annual rate, minimum charge, grace days;
+    one finance-charge invoice per customer.
+  * Fixed: the 1099 page named an old product (StudioBooks).
+
+1.13.0  (2026-11-05)  Sales tax, estimates, purchase orders, tamper-evident audit trail
+-------------------------------------------------------------------------------
+  Built from an audit against the "Offline US Accounting Product" ER design
+  (docs/ERD_AUDIT.md).
+  + Sales tax: rates (name, agency, %, liability account; Settings › Sales
+    tax), a Tax column and sales tax choice on invoices, sales receipts,
+    credit memos and estimates; tax is worked out in exact cents on the
+    taxable lines and posted to Sales Tax Payable. Customers can be
+    tax-exempt or have their own rate. Items' Taxable flag now fills the
+    line. Printed/PDF invoices show Subtotal and Sales tax above Total;
+    .iif export writes the tax line and sales tax item. New report: Sales
+    Tax Liability (taxable / non-taxable sales, tax, collected, paid, owed).
+  + Estimates and purchase orders: documents that do not affect the books
+    (Open / Closed). "Create Invoice" / "Create bill" copies them; saving
+    closes the estimate or PO and links both. Voiding that invoice/bill
+    reopens it. Mark closed / reopen by hand.
+  + Audit trail is hash-chained (SHA-256): changing or deleting a history
+    entry is reported by Data integrity.
+  + Closing date: every change is kept in a history; optional closing date
+    password needed to move it.
+  + Credit limit warning on invoices (does not block saving).
+  * Data format 5 (automatic migration, keeps all data; IndexedDB stores
+    unchanged). app/docs/SCHEMA.txt brought up to date.
+
+1.12.1  (2026-11-04)  Invoice screen in VaultBook's own look
+-------------------------------------------------------------------------------
+  * The invoice entry screen keeps the QuickBooks Create Invoices layout but
+    now uses VaultBook's colours, type, fields and buttons, in light and dark
+    appearance (teal customer bar, VaultBook grid and totals panel). The
+    printed / PDF invoice that goes to customers is unchanged.
+
+1.12.0  (2026-11-04)  QuickBooks-style invoices and .iif export
+-------------------------------------------------------------------------------
+  + New invoice entry screen laid out like QuickBooks Desktop's Create
+    Invoices window: toolbar (Find previous/next, New, Save, Delete, Create a
+    Copy, Print, Receive Payments, QuickBooks .iif), blue CUSTOMER:JOB bar,
+    DATE / INVOICE # / BILL TO / TERMS header, striped ITEM / DESCRIPTION /
+    QTY / RATE / AMOUNT grid, CUSTOMER MESSAGE list with < Add New >, MEMO,
+    TOTAL / PAYMENTS APPLIED / BALANCE DUE, and Save & Close (Ctrl+S),
+    Save & New (Ctrl+E), Revert.
+  + Printed and PDF invoices use a classic layout: Times New Roman and Arial,
+    Date / Invoice # box, Bill To box, Description / Amount table, the
+    invoice's customer message and Total; long invoices continue on more
+    pages.
+  + Optional invoice logo (Settings and backup › Company). No logo by default.
+  + Export invoices to QuickBooks Desktop (.iif): Transactions › QuickBooks
+    .iif (pick invoices by date, customer or open only; tick any), or the
+    button on one invoice. Optionally includes the account, customer and item
+    lists. Also in Ctrl+K.
+  * No database change (data format 4). Invoices may carry a customer message;
+    the company record may carry a logo and its customer message list.
+
+1.11.0  (2026-11-04)  Export financial workbook (interactive Excel)
+-------------------------------------------------------------------------------
+  + Reports › Export financial workbook (also Ctrl+K): one .xlsx per company
+    with Dashboard, Profit & Loss, Balance Sheet, Cash Flow, Trial Balance,
+    General Ledger, Income and Expense Details, AR and AP Aging, Journal
+    Entries, Account Index, My Analysis and the original ledger data.
+  + Reports are live formulas (SUMIFS/COUNTIFS) over one data sheet, driven by
+    From/To dates on the Dashboard: change the dates in Excel and every
+    statement, ledger total and check recalculates.
+  + Drill-down with native links: statement → details → account ledger →
+    journal entry, with links back. Filters, tables, grouped rows, frozen
+    headings, conditional formats, monthly chart, print layouts.
+  + Choose fiscal year or custom dates, cash or accrual, which sheets, and
+    optional (password-free) protection of the original data. Nothing syncs
+    back to VaultBook; the file is fully editable.
+  * Excel writer: hyperlinks, defined names, tables, data validation,
+    conditional formatting, outline groups, charts, document properties and
+    compressed files (large workbooks about 13× smaller).
+  * No database change (data format 4).
+
+1.10.0  (2026-11-04)  Financial reporting: statement designer, PDF and Excel
+-------------------------------------------------------------------------------
+  + Statement designer (Reports › Statement designer): design your own profit
+    and loss or balance sheet from account rows (by type, number range, name,
+    picked accounts or "all remaining"), formula rows (margins, ratios, any
+    + − × ÷ of other rows), headings, text and blank lines; drag-and-drop or
+    Alt+↑/↓ to reorder; row styles, page breaks and highlight rules; live
+    preview with expandable groups and drill-down; a warning for accounts that
+    are on no row or on two rows. Starter templates included. Designs save to
+    My reports and export/import as versioned JSON templates (with schema).
+  + Real PDF files for every report: paper size (Letter, Legal, Tabloid, A4,
+    A3, custom), orientation, text size; headings repeat on every page with
+    page numbers. Made offline, no add-ons.
+  + Excel exports of reports: merged titles, frozen headings, print titles,
+    fit to one page wide, header/total styling. Statement and designer
+    subtotals are live formulas whose results equal VaultBook's figures.
+  + Profit and Loss compare columns: month-to-date and quarter-to-date.
+  + Report Reconciliation (For my accountant): trial balance, balance sheet,
+    profit and loss, cash flow and A/R / A/P aging tie to the ledger.
+  * Screen, PDF and Excel share one report model and one number formatter.
+  * No database change: data format stays 4; designs use the saved-reports
+    store, so backups and restores are unchanged.
+
+1.9.0  (2026-11-04)  Move a whole company from QuickBooks Desktop
+-------------------------------------------------------------------
+  + Import from QuickBooks (Gateway › Company, Alt+O, Settings › Import and
+    export, sidebar, Ctrl+K). Drop the files QuickBooks Desktop exports for a
+    company — IIF lists (chart of accounts, customers, vendors, other names,
+    terms, items, classes), the General Ledger CSV (or IIF transactions), the
+    address list TXT and optionally the P&L / Balance Sheet PDFs — check the
+    preview, and import. Every transaction is rebuilt with its contacts, lines
+    and payment applications and posted through the same checks as manual
+    entry, all at once or not at all. Afterwards every account balance is
+    compared with QuickBooks and the PDFs are re-read and compared line by line.
+  + New company option "Bring in my books from QuickBooks next".
+  + Products and services list (Masters › Product/service): name, type, SKU,
+    descriptions, price, cost, income and expense accounts. Invoices, bills,
+    checks and expenses gain a Product/service column that fills the line.
+  + Customers and vendors keep more details: contact person, alternate phone,
+    fax, website, account no., credit limit, terms name, shipping address.
+  + New reports: Open Invoices (also on the Gateway), Unpaid Bills Detail,
+    Customer and Vendor Balance Detail, Sales by Customer Summary, Sales by
+    Product/Service Summary, Deposit Detail, Check Detail, Account Listing,
+    Customer and Vendor Contact Lists. Open-item and balance-detail reports
+    show a check that they tie to A/R or A/P.
+  * Data format 4 (adds products/services and import history). Existing
+    companies upgrade automatically on open; backups from earlier versions
+    restore as before.
+
+1.8.0  (2026-10-22)  VaultBook: keyboard-first accounting workspace
+------------------------------------------------------------------
+  + New name: VaultBook (formerly OfflineBooks US). Existing books, settings and
+    backups open unchanged; backup files are now named VaultBook_*.json.
+  + Gateway of VaultBook is the home screen: company, current period, today,
+    date of last entry, alerts and recent entries on the left; a menu with
+    Masters / Transactions / Banking / Reports / Company on the right. Arrow
+    keys and Enter, or the highlighted letter. Esc returns from a sub-menu.
+  + Function keys, shown in a panel on the right (click or press):
+    F2 date/period, F3 switch company, F4 transfer, F5 expense, F6 receive
+    payment, F7 journal, F8 invoice, F9 bill, Alt+F5/F6/F8/F9 vendor credit,
+    credit memo, sales receipt, pay bills, F10 all types, F11 Company
+    Features, F12 Configure, F1 help. On a Mac hold Fn if F-keys control media.
+  + Top menus: Alt+K Company, Alt+Y Data, Alt+G Go To, Alt+O Import,
+    Alt+X Export, Alt+P Print.
+  + Registers and reports: arrow keys move a selection bar, Enter opens the
+    row, Esc goes back to the same row.
+  + Entry windows show type, number, date with weekday and the current
+    balance of the chosen customer/vendor and bank account.
+  + New compact look, light and dark. Accessibility audit: 0 issues.
+
+1.7.0  (2026-10-17)  QuickBooks-style reports, classes, budgets, 1099, report builder
+----------------------------------------------------------------------------------
+  + Profit and Loss and Balance Sheet rebuilt on the QuickBooks Online modern
+    report layout: Report period, From/To, Cash|Accrual switch, Display columns
+    by (Total, Days, Weeks, Months, Quarters, Years, Class, Customer, Vendor) and
+    Compare to (previous year, previous period, YTD, PY YTD, $ / % change, % of
+    row, % of column, % of income, % of expense). Grouped two-row headers,
+    collapsible groups at every level (a collapsed group shows its total),
+    "Total for" lines, parent/sub-account rollups, column sorting, drill-down
+    on every amount (keeps the class / customer of the column).
+  + Balance Sheet grouped like QuickBooks: Assets > Current Assets > Bank
+    Accounts / Accounts Receivable / Other Current Assets, Liabilities and
+    Equity > Liabilities > Current Liabilities > Accounts Payable / Credit Cards.
+  + Customize drawer (Data / Visual): class, customer/vendor and account-type
+    filters; active / all / non-zero rows and columns; divide by 1000, hide $,
+    -100 / 100- / (100), negatives in red, whole dollars; custom report and
+    section titles; header and footer fields and alignment; empty cells as
+    blank or dash; banded rows; gridlines. View menu: Compact / Normal / Cozy /
+    Comfort, Expand all / Collapse all, zoom 75-150%. Notes on reports.
+  + Fixed: amount column headings were left-aligned over right-aligned
+    numbers, month columns overflowed, empty periods printed 0.00.
+  + Save as: any customized report is saved by name (company data, included
+    in backups) and listed under Reports > My reports. New report shortcuts:
+    P&L by Month, P&L Comparison, P&L as % of Income, P&L by Class, P&L by
+    Customer, Balance Sheet Comparison.
+  + Classes (departments, locations, jobs) with sub-classes. Settings >
+    Company > Track classes adds a Class field to transaction headers and a
+    Class column to lines; classes flow to the ledger, reports, the General
+    Ledger drill-down and the report builder. Inactive classes can't be used
+    on new transactions.
+  + Budgets: monthly amount per income/expense account, optional class; start
+    blank, from last year's actuals or from another budget, adjust by %;
+    spreadsheet-style editor (type a yearly total to spread it). Budget vs.
+    Actuals report: Actual, Budget, Over budget, % of Budget per period.
+  + 1099: map expense accounts to 1099-NEC / 1099-MISC boxes, mark vendors and
+    tax IDs (1099 setup page). 1099 Contractor Summary and Transaction Detail
+    count bank payments (bill payments allocated to bill lines), exclude card
+    payments (1099-K), flag the filing threshold ($600 through 2025, $2,000 from
+    2026) and missing tax IDs.
+  + Custom report builder over transaction lines: columns and order, filters
+    (accounts, types, class, name, transaction types, text, amount range,
+    cleared status), group by with subtotals or summary only, sorting, title,
+    presets, Excel/CSV/print, save to My reports.
+  + Keyboard mnemonics: every button with an underlined letter is pressed with
+    Cmd (Mac) / Ctrl (Windows) + that letter — no Shift. Letters are assigned
+    per screen and per dialog so no two visible buttons share one (S̲ave ⌘S,
+    Save and ne̲w ⌘E, Cl̲ose ⌘L, Add li̲ne ⌘I, Mo̲re ⌘O, Cu̲stomize ⌘U, Print ⌘P,
+    Excel ⌘E on reports). Letters the system or browser own are never used
+    (⌘N/T/W/Q/H/M, ⌘A/C/V/X/Z, ⌘R/F/K). The "?" panel lists this screen's keys.
+  + Report screens use the window: one 40px title bar (back, title, view,
+    refresh, print, export, Customize, Save as, full screen, hide options)
+    instead of three stacked rows; report options can be hidden behind summary
+    chips (remembered); one-line report heading on screen (full heading when
+    printed); Zoom "Fit to width" (default) shrinks wide reports to fit
+    (50%-100%) and re-fits on every resize; full-screen mode hides the sidebar,
+    top bar and window tabs (Esc to leave). General Ledger, Trial Balance,
+    1099 and the builder get the same compact header.
+  + Settings > Features: one company-level place to switch Class tracking,
+    Budgets and 1099 contractors on or off. Off hides the menu items, fields
+    and reports (data is kept); opening an off feature offers to turn it on.
+  + Transaction forms re-laid out: compact title with the help line beneath,
+    header fields in a wrapping grid of sensible widths, line tables with
+    fixed column proportions (Memo and Class no longer squeezed), and the
+    Save / Save and new / Close bar pinned to the bottom of the window.
+  ! Fixed: with the taskbar shown, every page was 42px taller than the
+    window (body padding on a full-height app), hiding content behind it.
+  + Storage: company databases upgrade to layout v3 (classes, budgets,
+    reports stores) and data version 3 automatically on first open.
+  Tests: engine 39/39 in Node, in-browser self-test 44/44.
+
+1.6.0  (2026-10-16)  Company Snapshot
+-------------------------------------
+  Modeled on QuickBooks Desktop's Snapshot (Company / Payments / Customer
+  tabs; Add Content gallery; remove with X; drag panels by the header;
+  Restore Defaults; per-panel date ranges), and extended where users of that
+  feature report gaps:
+  + 19 panels across the three tabs, each with its own options (date range,
+    chart or table view, grouping, comparison mode, account filter, sorting,
+    top N, overdue-only, etc.). Numbers come from the same engine as the
+    reports; every bar, slice and row drills down to its detail.
+  + Move panels by dragging the header (with drop placeholder and auto-scroll)
+    or with the keyboard (arrow keys on the panel handle, announced to screen
+    readers). Choose 2, 3 or 4 columns.
+  + Expand any panel to full size with all of its data, and print it (QuickBooks
+    panels can only show and print their first rows).
+  + Collapse panels; Add Content gallery with live previews of your own data;
+    per-tab Restore Defaults; layouts saved per company and per tab.
+  + Small accessible SVG chart kit (grouped bars with per-bar colors, donut,
+    ranked bars) using theme tokens - correct in light and dark.
+  + Panels adapt to their own width (container queries), so 4 narrow columns
+    and phones both read well.
+  Tests: end-to-end 186/186 (adds drill-down, options and persistence, remove
+  and add via the gallery, mouse drag, keyboard move, collapse, expand,
+  column changes, restore defaults, Payments and Customer tabs); every panel
+  rendered with every option value; accessibility audit 0 issues including
+  all Snapshot tabs and the gallery, light/dark, desktop/phone.
+
+1.5.0  (2026-10-16)  Layout, table tools, save states, preferences
+-------------------------------------------------------------------
+  + Theme toggle (sun/moon) in a new top bar on every screen size; switches
+    Light/Dark instantly; "Match Windows" kept in Settings. Saved in
+    localStorage and applied before the first paint (no flash of the wrong theme).
+  + App shell: the window never scrolls. Reports, Transactions, registers,
+    Chart of accounts and Customers/Vendors fill the window; header and filters
+    stay put and one inner region scrolls (vertical and horizontal) with sticky
+    column headers. No nested/double scrollbars. Phones keep natural scrolling.
+  + Table tools for every report table and the main lists: drag (or keyboard)
+    column resizing, double-click to reset, Columns menu to hide/show, sticky
+    key column. Layouts persist per table; General Ledger sections share one
+    layout so columns align.
+  + Unsaved changes: detected by comparing with the saved state (undoing edits
+    clears it); "Unsaved changes" in the top bar and "Edited" by the title;
+    in-app dialog (Keep editing / Discard / Save) for links, Back button,
+    Close, switch company and lock; browser warning on closing the tab.
+  + Save states: Saving / Saved / Save failed (with reason and Try again) in
+    the top bar and next to the button; one save path that blocks repeated
+    clicks and Ctrl+S; a failed save posts nothing and keeps all entries.
+    Applies to transactions and company settings.
+  + Preferences: Compact/Comfortable density, sidebar collapse (top bar or
+    Ctrl+\), table layouts and theme persist across restarts. Reloading keeps
+    you on the current page.
+  Fixed (found while doing this work):
+  ! Since 1.1 the account register, Customers and Vendors list pages and the
+    opening-balance dialog were missing: a text-replacement during the 1.1
+    refactor deleted them. Clicking an account or "Customers" showed the
+    dashboard instead; "Opening balance" raised an error. Restored. Tests and
+    the accessibility audit had missed it because unknown pages silently fell
+    back to the dashboard. New tests now check that every in-app link has a
+    page and that each main page renders its own title.
+  ! A CSS edit in this cycle hid the sidebar brand layout and stopped hiding
+    the sidebar on the welcome screen; caught in screenshot review, fixed,
+    and now covered by tests.
+  - Removed an obsolete rule that disabled the sticky first column in the
+    General Ledger.
+  Result: engine 30/30, in-browser 35/35, end-to-end 170/170; accessibility
+  audit 0 issues (now also covering the General Ledger with its Columns menu,
+  the leave dialog, and the restored pages).
+
+1.4.0  (2026-10-16)  Refinement: design system, dark mode, command bar, accessibility
+------------------------------------------------------------------------------------
+Measured starting point (inspection + automated audit before any change):
+  72 hard-coded colors, 25 different font sizes, 11 long-list dropdowns without
+  search, unlimited toast stacking; axe-core audit: contrast below WCAG AA on
+  12/16 pages, 1 unlabelled control, empty table headers on 7 pages; on a
+  390 px phone 9/16 pages scrolled sideways (up to 453 px); no dark mode.
+
+  + Design system: every color is a semantic token with light and dark values
+    (all text pairs computed >= 4.5:1); 8-step type scale; radius, shadow and
+    motion tokens. Remaining literal values are intentional (print ink, SVG
+    chart labels, the VOID stamp).
+  + Dark appearance: follows Windows, or choose Light/Dark in Settings ->
+    App and storage. Printing always uses the light palette.
+  + Command bar (Ctrl+K / sidebar "Search"): actions, pages, reports,
+    customers, vendors, accounts and transactions (number, name, memo, amount)
+    in one place. 14-60 ms per keystroke with 20,000 transactions.
+  + Type-to-search now used wherever a list can be long: bank-import category
+    and payee, bank-rule category and payee, Transactions and General Ledger
+    account filters. Short fixed lists keep native pop-up menus.
+  + Suggestion lists open on intent (typing, click, Down), never just on focus
+    — they no longer cover dialog buttons.
+  + Toasts: identical messages merge with a count; at most 3 on screen.
+  + Keyboard: every list row is a real link (Tab + Enter); scrolling tables are
+    focusable regions; segmented controls use arrow keys.
+  + Phone layout: tables scroll within themselves; transaction lines become
+    stacked cards; no page scrolls sideways.
+  + Fixed: hidden screen-reader header labels widened pages on phones
+    (introduced and caught during this pass).
+  Result: axe-core audit 0 issues on 16 pages x light/dark x desktop/phone,
+  plus the open command bar, a dialog and toasts.
+  Tests: engine 30/30, in-browser self-test 35/35, end-to-end 124/124.
+
+1.3.0  (2026-10-15)  Company password protection
+-----------------------------------------------
+  + Optional password per company (Settings -> Security). Protection is real
+    encryption at rest, not just a login screen:
+      - a random 256-bit data key encrypts every stored record with AES-GCM;
+        each record has its own IV and is bound to its store and id, so records
+        can't be altered or swapped without detection;
+      - the data key is wrapped with a key derived from the password
+        (PBKDF2-HMAC-SHA256, 600,000 rounds) and separately with a one-time
+        recovery key; no password or password hash is stored;
+      - uses the browser's built-in WebCrypto (verified available on file://
+        in Chromium); no libraries.
+  + Unlock screen with password hint, recovery-key unlock (forces a new
+    password and issues a new recovery key), and growing delays after wrong
+    passwords.
+  + Lock company button, auto-lock after 5/15/30/60 minutes of inactivity.
+    Locking clears the books, dialogs and messages from the screen and memory.
+  + Change password, issue new recovery key, turn protection off (all require
+    the password; all recorded in the audit log).
+  + Backups of protected companies are encrypted; restoring one asks for the
+    password or recovery key and keeps the restored company protected.
+  + Company list marks protected companies.
+  + Storage: company databases upgrade from layout v1 to v2 (adds an
+    unencrypted "meta" store holding only the wrapped keys). Companies from
+    1.0-1.2 upgrade automatically on first open; tested.
+  + Fixed while testing: after locking and unlocking, type-to-search fields
+    stopped showing suggestions (a detached list was being reused).
+  Measured (20,000 transactions, Chromium/Linux): turning protection on 2.6 s
+  once; unlock after browser restart 1.45 s (1.1 s unprotected); saving a
+  transaction 10 ms.
+  Tests: engine 30/30, in-browser self-test 35/35 (adds raw-storage-is-
+  encrypted and 1.2 database upgrade checks), end-to-end 105/105 (adds the
+  full security flow including browser restart and auto-lock).
+
+1.2.0  (2026-10-15)  Cleaner transaction screen
+--------------------------------------------
+  + A saved transaction now shows only the form, with a one-line
+    "Created · Last changed · Version · View history" note under the title.
+  + Secondary actions moved into a "More" menu: Duplicate, Make recurring,
+    Reverse entry (journals), Transaction journal, Audit history, and Void
+    (last, separated, in red). Print / PDF stays visible on sales documents.
+  + Transaction journal (debits and credits) and Audit history open in a side
+    panel on request instead of being stacked under the form. Journal entries
+    don't offer the Transaction journal, since the form already is the journal.
+  + Audit history is shown newest first, with what changed in each edit.
+  + Journal entries that move money between a bank/card account and A/R or A/P
+    show a hint to use Receive payment / Pay bills, because a journal entry does
+    not mark invoices or bills as paid.
+  + The "how this works" help sentence is shown only on new transactions.
+  Tests: end-to-end suite now 81 checks; all pass.
+
+1.1.0  (2026-10-15)  Faster data entry
+------------------------------------
+  + Type-to-search fields for accounts (all transaction lines, journal entries)
+    and customers/vendors (form header and journal "Name" column). Matches by
+    account number, name start, word start, or anywhere in the name.
+  + "+ Add new account / customer / vendor" appears in the suggestions when the
+    typed name doesn't exist. A dialog opens prefilled with the name; after
+    saving, the new item is selected on the same line and the cursor moves to
+    the next field. The transaction being entered is never lost or re-rendered.
+    In the journal "Name" column you can add the name as a customer or a vendor.
+  + If saving the new account/contact fails (e.g. duplicate name), the dialog
+    reopens with what you typed instead of discarding it.
+  + Journal entries suggest the balancing amount on each new line.
+  + A blank line is added automatically when the last line is used.
+  + Enter moves to the next field in transaction forms (Ctrl+S saves);
+    date shortcuts t / + / -; amounts formatted to 2 decimals on leaving a field.
+  + Fixed: an empty journal entry showed "Enter amounts" in error red.
+  Tests: end-to-end suite now 74 checks (adds the type-to-search and
+  create-ledger-inside-a-journal-entry flows); all pass.
+
+1.0.0  (2026-10-15)  First release
+---------------------------------
+Phase 1 — Foundation
+  + Application shell that runs from file:// in Chrome/Edge (classic scripts, no
+    ES modules, no server, no network; strict Content-Security-Policy blocks all
+    network connections).
+  + IndexedDB storage, one database per company, versioned schema upgrades.
+  + Multiple independent companies; settings for basis, fiscal year, closing date.
+  + Customizable chart of accounts (15 account types, sub-accounts, numbering).
+  + Double-entry engine: all amounts in integer cents; every posting validated
+    and balanced; atomic multi-record writes; serialized posting queue.
+  + Journal entries, opening balances, void with audit history, journal reversal.
+  + Full JSON backup with checksum; validated restore (as new company or replace).
+
+Phase 2 — Bookkeeping
+  + Invoices, sales receipts, customer payments, credit memos, customer refunds.
+  + Bills, bill payments, vendor credits, expenses, checks, credit card credits.
+  + Deposits and transfers.
+  + Partial payments, unapplied credits, open balances, overpayment prevention.
+  + Customer/vendor management with balances and printable customer statements.
+  + Account registers with running balance and cleared/reconciled status.
+  + Printable invoices, sales receipts and credit memos (Save as PDF).
+
+Phase 3 — Reports and banking
+  + Profit and Loss (month/quarter/year columns, vs. previous year), Balance
+    Sheet (comparisons), Cash Flow (indirect), Trial Balance, General Ledger,
+    Journal, A/R and A/P aging, customer/vendor balances, expense detail,
+    expenses by vendor, transaction list. Accrual and true cash basis.
+  + Drill-down from report amounts to the general ledger and transactions.
+  + Bank CSV import with column mapping, rules, duplicate and match detection.
+  + Bank reconciliation with persistent ticks, history and undo.
+  + Recurring transactions (confirm-before-post, idempotent).
+  + CSV exports and native Excel .xlsx exports (built-in writer, no libraries).
+  + Dashboard: P&L, 12-month chart, bank balances, A/R, A/P, overdue items,
+    backup and recurring reminders.
+
+Phase 4 — Testing and hardening
+  + Fixed: two simultaneous submissions of the same payment could both pass
+    validation. Validation + save now run as one serialized step, and every
+    form carries a one-time token so a resubmission cannot post twice.
+  + Fixed: creating a company without sample data failed to open it.
+  + Fixed: display issues found in screenshot review (KPI figure sizes, report
+    label column width, duplicate "Equity" heading, sidebar button styles).
+  + Data integrity checker (Settings -> Data integrity).
+
+Verified test results for this build
+  Engine suite in Node.js .............................. 27 / 27 passed
+  Self-test in Chromium over file:// (real IndexedDB) .. 30 / 30 passed
+  End-to-end UI test in Chromium over file:// .......... 62 / 62 passed (74 / 74 in 1.1.0), 0 JS errors
+    includes the 5 required checks:
+     1. cash sale = Debit Cash 1,000 / Credit Sales 1,000
+     2. invoice 1,000 - payment 400 = 600 receivable; revenue counted once
+     3. bill 300 - payment 100 = 200 payable; expense counted once
+     4. transfer 500 leaves total cash unchanged; no income/expense
+     5. data persists after closing and reopening the browser
+    plus reports, Excel/CSV export, backup, restore, tampered-backup rejection,
+    CSV import + re-import duplicate skip, rules, reconciliation.
+  Scale test, 20,054 transactions in IndexedDB (Chromium, Linux test machine):
+    posting 20,000 imported rows ............ about 2.1 s
+    close browser, reopen, load, dashboard .. about 1.1 s
+    P&L by year 0.36 s, Balance Sheet (12 columns) 0.15 s, Cash Flow 0.07 s,
+    Trial Balance 0.08 s, full General Ledger 1.3 s, integrity check 0.3 s.
+  Times on your PC will differ.
+
+
+KNOWN LIMITATIONS
+-----------------
+Storage
+  - Books live in this browser profile's IndexedDB, not in the app folder.
+    Clearing site data, InPrivate/Incognito windows, a different browser, or a
+    different Windows user means the data is not visible. Regular backups are
+    essential. Browsers can evict storage under severe disk pressure unless
+    persistent storage is granted (Settings -> Storage and about).
+  - In Chrome/Edge all pages opened from file:// share one storage origin.
+    Other local HTML files you open could, in principle, read this data.
+  - Only one browser tab should edit a company at a time. A second tab does not
+    see changes made in the first until reloaded.
+
+Features not included
+  - Inventory/items with quantity on hand, payroll, sales tax calculation and
+    filing, 1099 e-filing, locations as a separate dimension, multi-currency,
+    online bank feeds, emailing invoices, attachments, users/permissions.
+
+Password protection
+  - Forgotten password + lost recovery key = data cannot be recovered.
+  - Company names remain visible in the company list.
+  - Protects data at rest only: not while the company is unlocked, and not
+    against malware on the PC. One password per company; no user roles.
+  - The in-app delay after wrong passwords only slows guessing in this app;
+    against someone who copies the files, the protection is the password's
+    strength plus 600,000 PBKDF2 rounds. Use a long password.
+  - Auto-lock discards unsaved form entries.
+
+Company Snapshot
+  - Snapshot layouts are display preferences stored in this browser (not in
+    the company data or backups), so they don't move to another PC with a
+    backup restore.
+  - Panels are not resizable in height or width beyond the column choice;
+    use Expand for the full view.
+  - The Customer tab summarizes customers only (no vendor snapshot).
+
+Layout and tables
+  - In a long General Ledger the column headers stay visible, but the account
+    name above each section scrolls away.
+  - Column layouts are matched by header text; reports whose columns change
+    (e.g. P&L by month) keep a separate layout per column mode.
+  - Preferences live in this browser's localStorage, which Chrome/Edge share
+    between all locally opened HTML files.
+  - On phones, tables scroll sideways but headers are not sticky.
+
+Design and accessibility
+  - Verified with automated tools (axe-core) and keyboard-driven tests, not
+    yet with a full manual screen-reader session (Narrator/NVDA) or by users
+    with disabilities.
+  - The phone layout is usable but the app is designed for Windows desktops;
+    there is no installable mobile app.
+  - Spacing values are rem-based and consistent in practice but not all
+    expressed as tokens yet.
+
+Behaviour to be aware of
+  - PDF output uses the browser's print dialog ("Save as PDF"); there is no
+    built-in PDF generator.
+  - Cash basis: payments are allocated proportionally across the lines of the
+    invoice/bill they pay. Unapplied payments and journal entries to A/R or A/P
+    stay on the balance sheet. Payments applied to credit memos/vendor credits
+    are not re-allocated.
+  - Reports show up to 5,000-6,000 lines on screen; exports include all lines.
+  - Reconciliation ticks are saved as "cleared" immediately; there is no separate
+    draft. Voiding or editing a reconciled transaction requires undoing the
+    reconciliation first (only the most recent reconciliation can be undone).
+  - The data integrity check verifies the books; it cannot repair them. If it
+    reports problems, restore a backup.
+  - Visual design uses fonts included with Windows 11 (Segoe UI, Bahnschrift).
+    During development it was checked with substitute fonts on Linux; the exact
+    appearance on Windows was not screenshot-verified.
+  - Automated testing used Chromium (the engine behind Chrome and Edge) over
+    file://. The app was not run on a physical Windows 11 machine during
+    development.

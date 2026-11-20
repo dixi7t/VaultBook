@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob: data: http://127.0.0.1:47321; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>VaultBook</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171c26'/%3E%3Ctext x='16' y='21.5' font-family='Segoe UI,Arial' font-size='14' font-weight='700' fill='%23f4c95d' text-anchor='middle'%3EVB%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/windows.css">
+<link rel="stylesheet" href="css/reports.css">
+<link rel="stylesheet" href="css/nav.css">
+<link rel="stylesheet" href="css/vault.css">
+<link rel="stylesheet" href="css/studio.css">
+<script>/* apply saved appearance before first paint (no flash of the wrong theme) */
+try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'), d = document.documentElement;
+  if (p.theme === 'light' || p.theme === 'dark') d.dataset.theme = p.theme;
+  if (p.density === 'compact') d.dataset.density = 'compact';
+  if (p.sidebarCollapsed !== false) d.classList.add('sidebar-collapsed');
+  if (p.navCompact) d.classList.add('nav-compact'); } catch (e) {}</script>
+</head>
+<body class="no-company">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation" data-testid="sidebar">
+    <div class="brand">
+      <div class="logo-mark small" aria-hidden="true">VB</div>
+      <div class="brand-text"><strong id="company-name" data-testid="sidebar-company-name">VaultBook</strong><span id="company-basis"></span></div>
+    </div>
+    <button class="search-btn" id="btn-search" aria-keyshortcuts="Control+K" data-testid="sidebar-search-btn"><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 13l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Search or command</span><kbd>Ctrl K</kbd></button>
+    <nav class="nav" data-testid="sidebar-nav">
+      <a href="#/gateway" data-testid="nav-gateway"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="M7 7.5h6M7 10h6M7 12.5h4"/></svg><span>Gateway</span><kbd class="nb-kbd">G H</kbd></a>
+      <a href="#/dashboard" data-testid="nav-dashboard"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="4" rx="1.5"/><rect x="11" y="9" width="6" height="8" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/></svg><span>Dashboard</span></a>
+      <a href="#/calendar" data-testid="nav-calendar"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="1.5"/><path d="M3 8.5h14M7 3v3M13 3v3M6.5 11.5h2M11.5 11.5h2M6.5 14h2"/></svg><span>Calendar</span></a>
+      <a href="#/snapshot" data-testid="nav-snapshot"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16.5h14"/><path d="M5.5 13.5V9M10 13.5V5M14.5 13.5v-6"/></svg><span>Company Snapshot</span></a>
+      <div class="nav-group">Banking</div>
+      <a href="#/accounts" data-also="register" data-testid="nav-accounts"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8l7-4.5L17 8"/><path d="M4.5 8.5v6M8 8.5v6M12 8.5v6M15.5 8.5v6M3 16.5h14"/></svg><span>Chart of accounts</span></a>
+      <a href="#/pdfimport" data-testid="nav-pdfimport"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 17.5h8a1.5 1.5 0 0 0 1.5-1.5V6.5z"/><path d="M11.5 2.5v4h4M7.5 11h5M7.5 14h3"/></svg><span>Import statement</span><em class="nav-tag">PDF</em></a>
+      <a href="#/bankfeed" data-also="import" data-testid="nav-bankfeed"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M3.5 13.5v2a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg><span>Bank feed</span></a>
+      <a href="#/close" data-testid="nav-close"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 7.5l1.2 1.2L10.5 6.5M7 12l1.2 1.2 2.3-2.2M12.5 8h1.5M12.5 12.5h1.5"/></svg><span>Close the books</span></a>
+      <a href="#/reconcile" data-testid="nav-reconcile"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M6.8 10.2l2.2 2.2 4.2-4.6"/></svg><span>Reconcile</span></a>
+      <a href="#/rules" data-testid="nav-rules"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h9M3.5 14.5h5"/><circle cx="15" cy="13.5" r="2.5"/></svg><span>Bank rules</span></a>
+      <div class="nav-group">QuickBooks Desktop</div>
+      <a href="#/qbd" data-also="qbd" data-testid="nav-qbd"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7.5h10.5M12 5l2.5 2.5L12 10"/><path d="M16 12.5H5.5M8 10l-2.5 2.5L8 15"/></svg><span>Overview</span></a>
+      <a href="#/qbsend?tab=months" data-also="qbsend" data-testid="nav-qbsend"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10h11M10.5 6l4 4-4 4"/><path d="M16.5 4.5v11"/></svg><span>Months &amp; send</span></a>
+      <a href="#/qbd/update" data-testid="nav-qbd-update"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8A6 6 0 0 0 4.7 6.2M4.5 12a6 6 0 0 0 10.8 1.8"/><path d="M15.8 3.8V8h-4.2M4.2 16.2V12h4.2"/></svg><span>Update QuickBooks</span></a>
+      <a href="#/qbd/tieout" data-testid="nav-qbd-tieout"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16V9M8 16V5M12 16v-6M16 16V7"/></svg><span>Tie-out report</span></a>
+      <div class="nav-group">Sales</div>
+      <a href="#/customers" data-also="contact statement" data-testid="nav-customers"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.2"/><path d="M3.8 16.5c.9-3 3.3-4.6 6.2-4.6s5.3 1.6 6.2 4.6"/></svg><span>Customers</span></a>
+      <a href="#/transactions?type=invoice" data-testid="nav-invoices"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.8h10v14.4l-2.5-1.5-2.5 1.5-2.5-1.5L5 17.2z"/><path d="M7.5 7h5M7.5 10h5"/></svg><span>Invoices</span></a>
+      <a href="#/items" data-testid="nav-items"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 6.5L10 3l6.5 3.5v7L10 17l-6.5-3.5z"/><path d="M3.5 6.5L10 10l6.5-3.5M10 10v7"/></svg><span>Products &amp; services</span></a>
+      <div class="nav-group">Expenses</div>
+      <a href="#/vendors" data-testid="nav-vendors"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8.5l1.2-4.5h11.6L17 8.5"/><path d="M3 8.5c0 1.3 1 2.2 2.3 2.2S7.6 9.8 7.6 8.5c0 1.3 1 2.2 2.4 2.2s2.4-.9 2.4-2.2c0 1.3 1 2.2 2.3 2.2S17 9.8 17 8.5"/><path d="M4.5 10.5v6h11v-6"/></svg><span>Vendors</span></a>
+      <a href="#/transactions?type=bill" data-testid="nav-bills"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="11" rx="2"/><path d="M3 8.5h14M6 12.5h3"/></svg><span>Bills</span></a>
+      <a href="#/1099" data-feature="1099" data-testid="nav-1099"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="2.8" width="13" height="14.4" rx="1.8"/><path d="M6.5 7h7M6.5 10h7M6.5 13h4"/></svg><span>1099 setup</span></a>
+      <div class="nav-group">Payroll</div>
+      <a href="#/payroll" data-also="payroll" data-testid="nav-payroll"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="3" width="13" height="14" rx="2"/><path d="M6.5 7h7M6.5 10h7M6.5 13h4"/></svg><span>Paystubs to journal</span></a>
+      <a href="#/payroll?tab=settings" data-testid="nav-payroll-settings"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2M5 5l1.4 1.4M13.6 13.6L15 15M5 15l1.4-1.4M13.6 6.4L15 5"/></svg><span>Payroll settings</span></a>
+      <div class="nav-group">Books</div>
+      <a href="#/transactions" data-also="txn print" data-testid="nav-transactions"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h10.5M11.5 3l3 3-3 3"/><path d="M16 14H5.5M8.5 11l-3 3 3 3"/></svg><span>Transactions</span></a>
+      <a href="#/recurring" data-testid="nav-recurring"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8A6 6 0 0 0 4.7 6.2M4.5 12a6 6 0 0 0 10.8 1.8"/><path d="M4.5 3v3.5H8M15.5 17v-3.5H12"/></svg><span>Recurring</span></a>
+      <a href="#/reclassify" data-testid="nav-reclassify"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h10l-3-3M16 13H6l3 3"/></svg><span>Reclassify</span></a>
+      <a href="#/paste" data-testid="nav-paste"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="11" height="13" rx="1.5"/><path d="M8 4V3h5v1M8 8.5h5M8 11.5h5M8 14.5h3"/></svg><span>Paste entries</span></a>
+      <a href="#/docs" data-testid="nav-docs"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H8l1.5 1.5h6A1.5 1.5 0 0 1 17 8v6.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z"/><path d="M7 11h6"/></svg><span>Doc Center</span></a>
+      <a href="#/classes" data-feature="classes" data-testid="nav-classes"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5V4a1 1 0 0 1 1-1h5.5l7.5 7.5-6.5 6.5z"/><circle cx="6.8" cy="6.8" r="1.3"/></svg><span>Classes</span></a>
+      <a href="#/budgets" data-also="budget" data-feature="budgets" data-testid="nav-budgets"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16.5h14"/><path d="M5 13.5v-3M9 13.5V7M13 13.5V9.5M17 4l-4.5 3L9 4.5 3.5 8"/></svg><span>Budgets</span></a>
+      <a href="#/vreg/sales" data-also="vreg" data-testid="nav-registers"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 8h14M7.5 8v8.5M3 12.3h14"/></svg><span>Registers</span></a>
+      <a href="#/reports" data-also="report builder" data-testid="nav-reports"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7h-7z"/><path d="M12.5 2.8A5 5 0 0 1 17.2 7.5H12.5z"/></svg><span>Reports</span></a>
+      <a href="#/migrate" data-testid="nav-migrate"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h10l-3-3M17 14H7l3 3"/></svg><span>Import from QuickBooks</span></a>
+      <a href="#/settings" data-testid="nav-settings"><svg class="ni" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/></svg><span>Settings and backup</span></a>
+    </nav>
+    <button class="btn ghost switch-btn" id="btn-lock" hidden title="Lock this company now" data-testid="sidebar-lock-btn">🔒 Lock company</button>
+    <button class="btn ghost switch-btn" id="btn-switch" data-testid="sidebar-switch-company-btn">Switch company</button>
+  </aside>
+  <div class="content">
+    <header class="topbar" data-testid="topbar">
+      <button class="icon-btn" id="nav-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Hide sidebar" title="Hide sidebar" data-testid="topbar-nav-toggle">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.6"/></svg></button>
+      <div class="vb-brand" aria-hidden="true"><span class="vb-mark">VB</span><span class="vb-name">VaultBook</span></div>
+      <div class="topbar-title" id="topbar-title" data-testid="topbar-title"></div>
+      <nav class="cmdbar" id="cmdbar" aria-label="Command menus" data-testid="cmdbar">
+        <button type="button" data-menu="K" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Alt+K"><u>K</u><i>:</i>Company</button>
+        <button type="button" data-menu="Y" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Alt+Y"><u>Y</u><i>:</i>Data</button>
+        <button type="button" data-menu="G" class="cmd-goto" aria-keyshortcuts="Alt+G"><u>G</u><i>:</i>Go To</button>
+        <button type="button" data-menu="O" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Alt+O"><u>O</u><i>:</i>Import</button>
+        <button type="button" data-menu="X" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Alt+X"><u>X</u><i>:</i>Export</button>
+        <button type="button" data-menu="P" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Alt+P"><u>P</u><i>:</i>Print</button>
+        <button type="button" data-menu="H" aria-keyshortcuts="F1"><u>F1</u><i>:</i>Help</button>
+      </nav>
+      <div class="save-status" id="save-status" role="status" aria-live="polite" data-testid="topbar-save-status"></div>
+      <button class="topbar-search" id="top-search" aria-label="Search (Ctrl+K)" title="Search (Ctrl+K)" data-testid="topbar-search-btn">
+        <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="ts-label">Search, create, go to… (amounts, names, numbers)</span><kbd>Ctrl K</kbd></button>
+      <button type="button" class="icon-btn vi-btn" id="vi-btn" aria-expanded="false" aria-keyshortcuts="Control+I" title="VaultBook Intelligence: ask about your books (Ctrl+I)" aria-label="VaultBook Intelligence (Ctrl+I)" data-testid="topbar-intel">
+        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M10 2.5l1.7 4.8 4.8 1.7-4.8 1.7L10 15.5l-1.7-4.8L3.5 9l4.8-1.7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.5 13.5v3M14 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button type="button" class="st-period" id="st-period" title="Change the period (Alt+F2)" data-testid="topbar-period"><span id="st-period-text">Period</span><kbd>Alt+F2</kbd></button>
+      <button type="button" class="icon-btn st-bmbtn" id="st-bmbtn" aria-pressed="false" aria-keyshortcuts="Control+D" title="Bookmark this page (Ctrl+D)" aria-label="Bookmark this page (Ctrl+D)" data-testid="topbar-bookmark"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7z"/></svg></button>
+      <button type="button" class="st-new" id="st-new" aria-haspopup="dialog" aria-keyshortcuts="F10" title="Create anything (F10)" data-testid="topbar-new">+ New</button>
+      <button type="button" class="icon-btn" id="st-gear" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="Control+Alt+L" title="Settings, lists and tools (Ctrl+Alt+L)" aria-label="Settings, lists and tools" data-testid="topbar-gear"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/></svg></button>
+      <button class="icon-btn" id="btn-shortcuts" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" data-testid="topbar-shortcuts-btn">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 8.5h1M8 8.5h1M11 8.5h1M14 8.5h1M6.5 11.8h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button class="icon-btn theme-toggle" id="theme-toggle" aria-label="Switch to dark appearance" title="Switch to dark appearance" data-testid="topbar-theme-toggle">
+        <svg class="i-moon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <svg class="i-sun" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 1.8v2M10 16.2v2M1.8 10h2M16.2 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></g></svg></button>
+    </header>
+    <div class="workarea">
+    <main id="main" tabindex="-1" data-testid="main-content">
+      <div class="page"><p class="muted">Loading…</p>
+        <noscript><div class="banner danger">JavaScript is turned off. VaultBook needs JavaScript enabled in Chrome or Edge.</div></noscript>
+      </div>
+    </main>
+    <aside class="fkeys" id="fkeys" aria-label="Function keys for this screen" data-testid="fkeys" hidden></aside>
+    </div>
+  </div>
+</div>
+<div id="toasts" aria-live="polite" data-testid="toasts"></div>
+
+<!-- Classic scripts (not ES modules) so the app runs from file:// without a server. -->
+<script src="js/prefs.js"></script>
+<script src="js/util.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/crypto.js"></script>
+<script src="js/ledger.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/statements.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/xlsx.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/report-model.js"></script>
+<script src="js/recon-report.js"></script>
+<script src="js/paydays.js"></script>
+<script src="js/qbsend.js"></script>
+<script src="js/qbsync.js"></script>
+<script src="js/qbfull.js"></script>
+<script src="js/qbupdate.js"></script>
+<script src="js/paystub.js"></script>
+<script src="js/paydocs.js"></script>
+<script src="js/invoice-layout.js"></script>
+<script src="js/designer.js"></script>
+<script src="js/workbook.js"></script>
+<script src="js/importer.js"></script>
+<script src="js/qbimport.js"></script>
+<script src="js/paste.js"></script>
+<script src="js/qbexport.js"></script>
+<script src="js/business.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/bankfeed.js"></script>
+<script src="js/bankplus.js"></script>
+<script src="js/registers.js"></script>
+<script src="js/reclass.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/doccenter.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/sales.js"></script>
+<script src="js/taxreports.js"></script>
+<script src="js/db.js"></script>
+<script src="js/sample.js"></script>
+<script src="js/ui-core.js"></script>
+<script src="js/ui-hotkeys.js"></script>
+<script src="js/ui-combo.js"></script>
+<script src="js/ui-pages.js"></script>
+<script src="js/ui-forms.js"></script>
+<script src="js/ui-business.js"></script>
+<script src="js/ui-banking.js"></script>
+<script src="js/ui-bankfeed.js"></script>
+<script src="js/ui-statement.js"></script>
+<script src="js/ui-reports.js"></script>
+<script src="js/ui-statements.js"></script>
+<script src="js/ui-planning.js"></script>
+<script src="js/ui-items.js"></script>
+<script src="js/ui-migrate.js"></script>
+<script src="js/ui-builder.js"></script>
+<script src="js/ui-designer.js"></script>
+<script src="js/ui-charts.js"></script>
+<script src="js/ui-snapshot.js"></script>
+<script src="js/ui-settings.js"></script>
+<script src="js/ui-security.js"></script>
+<script src="js/ui-palette.js"></script>
+<script src="js/ui-shortcuts.js"></script>
+<script src="js/ui-keys.js"></script>
+<script src="js/ui-gateway.js"></script>
+<script src="js/ui-tally.js"></script>
+<script src="js/ui-reclass.js"></script>
+<script src="js/ui-config.js"></script>
+<script src="js/ui-entry.js"></script>
+<script src="js/ui-tables.js"></script>
+<script src="js/ui-windows.js"></script>
+<script src="js/ui-menubar.js"></script>
+<script src="js/ui-flyout.js"></script>
+<script src="js/ui-studio.js"></script>
+<script src="js/ui-nav.js"></script>
+<script src="js/find.js"></script>
+<script src="js/merchants.js"></script>
+<script src="js/hints.js"></script>
+<script src="js/close.js"></script>
+<script src="js/ui-close.js"></script>
+<script src="js/ui-paste.js"></script>
+<script src="js/ui-docs.js"></script>
+<script src="js/ui-calendar.js"></script>
+<script src="js/intel.js"></script>
+<script src="js/ui-intel.js"></script>
+<script src="js/ui-find.js"></script>
+<script src="js/ui-qbsend.js"></script>
+<script src="js/ui-qbd.js"></script>
+<script src="js/ui-qbupdate.js"></script>
+<script src="js/ui-payroll.js"></script>
+<script>OB.ui.start(); OB.windows.init();</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OfflineBooks US — Self-test</title>
+<link rel="stylesheet" href="../css/app.css">
+<style>
+  body { background: var(--desk); }
+  .wrap { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+  #results li { padding: .35rem .2rem; border-bottom: 1px solid var(--rule); list-style: none; }
+  #results { padding: 0; }
+  .pass { color: var(--accent-ink); } .fail { color: var(--red-ink); }
+  pre { white-space: pre-wrap; font-size: .8rem; background: var(--red-wash); padding: .5rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>OfflineBooks US — self-test</h1>
+  <p class="muted">Runs the accounting engine test suite in this browser, plus IndexedDB tests on temporary databases that are deleted afterwards. Your company data is not touched.</p>
+  <div id="summary" class="banner info">Running…</div>
+  <ul id="results"></ul>
+</div>
+<script src="../js/util.js"></script>
+<script src="../js/schema.js"></script>
+<script src="../js/crypto.js"></script>
+<script src="../js/ledger.js"></script>
+<script src="../js/reports.js"></script>
+<script src="../js/statements.js"></script>
+<script src="../js/backup.js"></script>
+<script src="../js/xlsx.js"></script>
+<script src="../js/pdf.js"></script>
+<script src="../js/report-model.js"></script>
+<script src="../js/invoice-layout.js"></script>
+<script src="../js/designer.js"></script>
+<script src="../js/workbook.js"></script>
+<script src="../js/importer.js"></script>
+<script src="../js/db.js"></script>
+<script src="../js/sample.js"></script>
+<script src="../js/qbimport.js"></script>
+<script src="../js/paste.js"></script>
+<script src="../js/qbexport.js"></script>
+<script src="../js/business.js"></script>
+<script src="../js/inventory.js"></script>
+<script src="../js/bankfeed.js"></script>
+<script src="../js/bankplus.js"></script>
+<script src="../js/registers.js"></script>
+<script src="../js/reclass.js"></script>
+<script src="../js/find.js"></script>
+<script src="../js/recon-report.js"></script>
+<script src="../js/paydays.js"></script>
+<script src="../js/qbsend.js"></script>
+<script src="../js/qbsync.js"></script>
+<script src="../js/qbfull.js"></script>
+<script src="../js/qbupdate.js"></script>
+<script src="../js/paystub.js"></script>
+<script src="../js/paydocs.js"></script>
+<script src="../js/merchants.js"></script>
+<script src="../js/hints.js"></script>
+<script src="../js/close.js"></script>
+<script src="../js/projects.js"></script>
+<script src="../js/doccenter.js"></script>
+<script src="../js/calendar.js"></script>
+<script src="../js/sales.js"></script>
+<script src="../js/taxreports.js"></script>
+<script src="engine.tests.js"></script>
+<script src="cpa.tests.js"></script>
+<script src="bankfeed.tests.js"></script>
+<script src="tally.tests.js"></script>
+<script src="bankplus.tests.js"></script>
+<script src="qbo.tests.js"></script>
+<script src="studio.tests.js"></script>
+<script src="find.tests.js"></script>
+<script src="mis.tests.js"></script>
+<script src="qbsend.tests.js"></script>
+<script src="qbsync.tests.js"></script>
+<script src="qbfull.tests.js"></script>
+<script src="paystub.tests.js"></script>
+<script src="paydocs.tests.js"></script>
+<script src="hints.tests.js"></script>
+<script src="sheets.tests.js"></script>
+<script src="paste.tests.js"></script>
+<script src="docs.tests.js"></script>
+<script src="calendar.tests.js"></script>
+<script src="close.tests.js"></script>
+<script src="qbupdate.tests.js"></script>
+<script>
+(function () {
+  'use strict';
+  var U = OB.util, T = OB.tests;
+  function eq(a, b, m) { if (a !== b) throw new Error((m || 'Expected equal') + ': expected ' + JSON.stringify(b) + ', got ' + JSON.stringify(a)); }
+  function del(name) { return new Promise(function (r) { var q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = function () { r(); }; }); }
+
+  T.push({ name: 'IndexedDB: company data persists across a close and reopen (browser restart equivalent)', fn: function () {
+    var id = 'selftest_' + U.uid(), book, adapter;
+    return OB.db.openCompanyAdapter(id).then(function (ad) {
+      adapter = ad;
+      var data = { company: Object.assign(OB.schema.newCompany({ name: 'IDB Test' }), { id: id }), accounts: OB.schema.defaultAccounts(), contacts: [], transactions: [], rules: [], recurring: [], reconciliations: [], audit: [] };
+      var ops = [{ store: 'company', value: data.company }].concat(data.accounts.map(function (a) { return { store: 'accounts', value: a }; }));
+      return ad.putMany(ops).then(function () { book = new OB.Book(ad, data); });
+    }).then(function () {
+      var acc = function (n) { return book.accounts.find(function (a) { return a.name === n; }).id; };
+      return book.saveContact({ kind: 'customer', name: 'Persist' }).then(function (c) {
+        return book.saveTransaction({ type: 'invoice', date: '2025-01-01', contactId: c.id, lines: [{ accountId: acc('Sales'), amount: '1000' }] });
+      }).then(function (inv) {
+        return book.saveTransaction({ type: 'payment', date: '2025-01-02', contactId: inv.contactId, accountId: acc('Checking'), amount: '400', applications: [{ txnId: inv.id, amount: '400' }] });
+      });
+    }).then(function () {
+      adapter.close();
+      return OB.db.openCompanyAdapter(id);
+    }).then(function (ad2) {
+      return ad2.loadAll().then(function (data) {
+        var b2 = OB.Book.fromData(ad2, data);
+        eq(b2.transactions.length, 2); eq(b2.accountBalance(b2.sys('AR').id), 60000, 'A/R after reload');
+        eq(b2.checkIntegrity().issues.length, 0);
+        ad2.close();
+      });
+    }).then(function () { return del(OB.db.dbName(id)); });
+  } });
+
+  T.push({ name: 'IndexedDB: a failed multi-record write is rolled back completely', fn: function () {
+    var id = 'selftest_' + U.uid();
+    return OB.db.openCompanyAdapter(id).then(function (ad) {
+      // second op is invalid (no id key) — the whole transaction must abort
+      return ad.putMany([{ store: 'accounts', value: { id: 'a1', name: 'x' } }, { store: 'accounts', value: { name: 'no key' } }]).then(function () { throw new Error('should have failed'); }, function () {
+        return ad.loadAll().then(function (d) { eq(d.accounts.length, 0, 'nothing written'); ad.close(); });
+      });
+    }).then(function () { return del(OB.db.dbName(id)); });
+  } });
+
+  T.push({ name: 'IndexedDB: a protected company stores no readable data and needs the key to load', fn: function () {
+    var id = 'selftest_' + U.uid(), r;
+    return OB.sec.setup('Selftest-Pass-1').then(function (x) {
+      r = x;
+      return OB.db.openCompanyAdapter(id, r.dek);
+    }).then(function (ad) {
+      var co = Object.assign(OB.schema.newCompany({ name: 'Hidden Name Co' }), { id: id });
+      var acc = { id: 'a1', name: 'Secret Bank 9876', type: 'bank', system: '', active: true };
+      return ad.putMany([{ store: 'company', value: co }, { store: 'accounts', value: acc }, { store: 'meta', value: r.security }]).then(function () { ad.close(); });
+    }).then(function () {
+      return new Promise(function (res, rej) {   // read raw IndexedDB records, bypassing the app
+        var q = indexedDB.open(OB.db.dbName(id));
+        q.onsuccess = function () { var tx = q.result.transaction(['company', 'accounts'], 'readonly'), out = [];
+          tx.objectStore('company').getAll().onsuccess = function (e) { out = out.concat(e.target.result); };
+          tx.objectStore('accounts').getAll().onsuccess = function (e) { out = out.concat(e.target.result); };
+          tx.oncomplete = function () { q.result.close(); res(out); }; };
+        q.onerror = rej;
+      });
+    }).then(function (raw) {
+      var text = raw.map(function (x) { return JSON.stringify(x) + new TextDecoder().decode(x.enc.ct); }).join(' ');
+      if (text.indexOf('Hidden Name') >= 0 || text.indexOf('Secret Bank') >= 0) throw new Error('plaintext found in IndexedDB');
+      if (!raw.every(function (x) { return x.enc && !x.name; })) throw new Error('record not encrypted');
+      return OB.db.openCompanyAdapter(id).then(function (ad) { return ad.loadAll().then(function () { throw new Error('loaded without key'); }, function (e) { if (e.code !== 'LOCKED') throw e; ad.close(); }); });
+    }).then(function () { return OB.db.openCompanyAdapter(id, r.dek); }).then(function (ad) {
+      return ad.loadAll().then(function (d) { eq(d.company.name, 'Hidden Name Co'); eq(d.accounts[0].name, 'Secret Bank 9876'); ad.close(); });
+    }).then(function () { return del(OB.db.dbName(id)); });
+  } });
+
+  T.push({ name: 'Upgrade: a company database created by version 1.0–1.2 opens with all data intact', fn: function () {
+    var id = 'selftest_' + U.uid(), name = OB.db.dbName(id);
+    var co = Object.assign(OB.schema.newCompany({ name: 'Old Version Co' }), { id: id });
+    var accts = OB.schema.defaultAccounts();
+    return new Promise(function (res, rej) {   // build the exact v1 layout the old app used
+      var q = indexedDB.open(name, 1);
+      q.onupgradeneeded = function () { var db = q.result;
+        ['company', 'accounts', 'contacts', 'rules', 'recurring', 'reconciliations', 'audit'].forEach(function (s) { db.createObjectStore(s, { keyPath: 'id' }); });
+        var t = db.createObjectStore('transactions', { keyPath: 'id' }); t.createIndex('date', 'date'); t.createIndex('type', 'type'); };
+      q.onsuccess = function () { var db = q.result, tx = db.transaction(['company', 'accounts'], 'readwrite');
+        tx.objectStore('company').put(co); accts.forEach(function (a) { tx.objectStore('accounts').put(a); });
+        tx.oncomplete = function () { db.close(); res(); }; tx.onerror = rej; };
+      q.onerror = rej;
+    }).then(function () { return OB.db.loadCompany(id); }).then(function (book) {
+      eq(book.company.name, 'Old Version Co'); eq(book.accounts.length, accts.length); eq(book.security, null);
+      var cash = book.accounts.find(function (a) { return a.name === 'Checking'; }).id, sales = book.accounts.find(function (a) { return a.name === 'Sales'; }).id;
+      return book.saveTransaction({ type: 'deposit', date: '2025-01-01', accountId: cash, lines: [{ accountId: sales, amount: '10' }] }).then(function () {
+        if (!book.adapter.db.objectStoreNames.contains('meta')) throw new Error('meta store not added');
+        book.adapter.close();
+      });
+    }).then(function () { return OB.db.deleteCompany(id); })   // also removes it from the company list
+      .then(function () { return OB.db.listCompanies(); }).then(function (l) { if (l.some(function (c) { return c.id === id; })) throw new Error('test company left in list'); });
+  } });
+
+  T.push({ name: 'Sample data posts cleanly and every report ties out', fn: function () {
+    return OB.Book.create(new OB.MemoryAdapter(), { name: 'Sample' }).then(function (b) {
+      return OB.sample.populate(b, '2025-06-15').then(function () {
+        var i = b.checkIntegrity(); eq(i.issues.length, 0, i.issues.join('; '));
+        var bs = OB.reports.balanceSheet(b, { asOf: '2025-06-15' }); if (!bs.balanced) throw new Error('BS not balanced');
+        var cf = OB.reports.cashFlow(b, { from: '2025-01-01', to: '2025-06-15' }); if (!cf.reconciles) throw new Error('CF does not reconcile');
+        var ag = OB.reports.aging(b, { kind: 'customer', asOf: '2025-06-15' }); eq(ag.total, ag.accountBalance);
+      });
+    });
+  } });
+
+  var ul = document.getElementById('results'), pass = 0, fail = 0;
+  OB.runTests(function (r) {
+    var li = document.createElement('li');
+    if (r.ok) { pass++; li.innerHTML = '<span class="pass">✓</span> ' + U.esc(r.name) + ' <span class="muted">(' + r.ms + ' ms' + (r.info ? ' — ' + U.esc(r.info) : '') + ')</span>'; }
+    else { fail++; li.innerHTML = '<span class="fail">✗ ' + U.esc(r.name) + '</span><pre>' + U.esc(r.error) + '</pre>'; }
+    ul.appendChild(li);
+  }).then(function () {
+    var s = document.getElementById('summary');
+    s.className = 'banner ' + (fail ? 'danger' : 'ok');
+    s.textContent = pass + ' passed, ' + fail + ' failed';
+    document.title = (fail ? 'FAIL ' : 'PASS ') + pass + '/' + (pass + fail);
+    window.__testResult = { pass: pass, fail: fail };
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payroll to QuickBooks IIF</title>
+<!-- Standalone, offline. Built by build.py, which inlines VaultBook's paystub engine, the PDF reader and the OCR engine. -->
+<style>
+  :root { --ink: #1d2433; --muted: #5d6779; --line: #d9dee7; --bg: #f5f6f8; --card: #fff; --accent: #0b5f55; --ok: #067647; --bad: #b42318; --warn: #a15c07; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 0 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } h3 { font-size: 14px; margin: 14px 0 6px; }
+  p.lead { color: var(--muted); margin: 0 0 18px; max-width: 75ch; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px; border: 2px dashed var(--line); border-radius: 12px; background: var(--card); text-align: center; cursor: pointer; margin-bottom: 14px; }
+  .drop.over { border-color: var(--accent); background: #eef6f4; }
+  .muted { color: var(--muted); } .small { font-size: 12.5px; } .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); }
+  button, .btn { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; } button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: inherit; }
+  table { border-collapse: collapse; width: 100%; } th, td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); } td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--ink); }
+  .stubs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 12px; }
+  .stub { border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; }
+  .stub-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .amt { width: 7.5rem; text-align: right; font-variant-numeric: tabular-nums; } .name { font-weight: 700; min-width: 11rem; }
+  .badge { font-size: 11.5px; padding: 2px 8px; border-radius: 99px; background: #eef1f5; } .badge.ok { background: #e7f5ee; } .badge.bad { background: #fdecea; }
+  .map td:first-child { width: 34%; } .map input { width: 100%; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; } .row label { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
+  .bar { position: sticky; bottom: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 -4px 16px rgba(0,0,0,.05); }
+  ul.issues { margin: 6px 0 0; padding-left: 18px; color: var(--bad); }
+  details summary { cursor: pointer; font-weight: 600; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: s .8s linear infinite; vertical-align: -2px; }
+  @keyframes s { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Payroll to QuickBooks IIF</h1>
+  <p class="lead">Drop paystubs and any other payroll documents the client gave you (payroll summaries and registers, EFTPS deposits, Form 941, state withholding and unemployment returns and payments). The tool reads them on this computer, checks that every paystub adds up, cross-checks all the documents against each other, builds one payroll journal entry for each pay date, and gives you an .iif file to import into QuickBooks Desktop (File › Utilities › Import › IIF Files). Nothing leaves this computer.</p>
+
+  <label class="drop" id="drop"><input type="file" id="file" multiple accept=".pdf,.png,.jpg,.jpeg" hidden>
+    <strong>Drop paystubs and payroll documents here</strong> <span class="btn">Choose files…</span>
+    <span class="muted small">Scans use offline OCR, a few seconds a page.</span></label>
+  <div id="status"></div>
+  <details class="card" id="crosscheck" open hidden><summary><h2 style="display:inline">Cross-check of all payroll documents <span class="badge" id="cc-count"></span></h2></summary><div id="cc-body"></div><p><button id="cleardocs">Remove the other documents</button></p></details>
+  <div id="groups"></div>
+
+  <details class="card" id="settings-card" open>
+    <summary>QuickBooks accounts and employer taxes</summary>
+    <p class="muted small">Type the account names exactly as they are in QuickBooks (use a colon for sub-accounts, e.g. <em>Payroll Liabilities:Federal Withholding</em>). Several parts can share one account. Saved in this browser for next time.</p>
+    <table class="map" id="map"></table>
+    <h3>Employer taxes (not printed on paystubs)</h3>
+    <div class="row">
+      <label><span><input type="checkbox" id="fica"> Employer Social Security and Medicare (1.45%)</span></label>
+      <label>FUTA rate %<input id="futa-r" size="6"></label><label>FUTA wage base<input id="futa-b" size="8"></label>
+      <label>SUTA rate %<input id="suta-r" size="6" placeholder="your state rate"></label><label>SUTA wage base<input id="suta-b" size="8"></label>
+      <label>Journal lines<select id="detail"><option value="employee">One set per employee</option><option value="summary">Summarised per account</option></select></label>
+    </div>
+    <h3>Paystub lines the tool has learned</h3><div id="learned" class="small"></div>
+  </details>
+
+  <div class="bar">
+    <label><input type="checkbox" id="create"> Create these accounts in QuickBooks first (adds account rows to the .iif)</label>
+    <label>Entries <select id="merge"><option value="">One per pay date</option><option value="1">One combined entry for all ticked pay dates</option></select></label>
+    <span class="muted small" id="bar-note"></span>
+    <button class="primary" id="download" disabled>Download .iif</button>
+  </div>
+</main>
+
+<!--INLINE:js/util.js-->
+<script>window.OB = window.OB || {}; OB.Book = OB.Book || function () {};</script>
+<!--INLINE:js/paystub.js-->
+<!--INLINE:js/paydocs.js-->
+<!--INLINE:js/vendor/pdf.min.js-->
+<!--INLINE:js/vendor/pdf-worker-src.js-->
+<!--INLINE:js/vendor/tesseract.min.js-->
+<!--INLINE:js/vendor/tesseract-worker-src.js-->
+<!--INLINE:js/vendor/tesseract-core-src.js-->
+<!--INLINE:js/vendor/eng-traineddata.js-->
+<!--INLINE:js/vendor/statement-engine.js-->
+<script>
+(function () {
+  'use strict';
+  var P = OB.paystub, U = OB.util, $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var money = function (c) { return c == null ? '' : (c / 100).toFixed(2); };
+  var show = function (c) { return U.fmt(c || 0, { symbol: true }); };
+  var parseMoney = function (v) { var s = String(v || '').replace(/[$,\s]/g, ''); if (!s) return null; var n = parseFloat(s); return isFinite(n) ? Math.round(n * 100) : null; };
+  var CATS = [['wages', 'Gross wages'], ['reimb', 'Reimbursement (no tax)'], ['subtotal', 'Subtotal (ignore)'], ['ee_ss', 'Social Security withheld'], ['ee_medicare', 'Medicare withheld'], ['fed', 'Federal income tax'], ['state', 'State income tax'], ['local', 'Local tax'], ['otherTax', 'Other employee tax (SDI…)'], ['retirement', '401(k) / retirement'], ['benefits', 'Health / benefits'], ['garnish', 'Garnishment'], ['otherDed', 'Other deduction']];
+  var TYPES = [['EXP', 'Expense'], ['OCLIAB', 'Other current liability'], ['BANK', 'Bank']];
+  var DEF_NAMES = { wages: 'Payroll Expenses:Wages', taxExpense: 'Payroll Expenses:Payroll Taxes', fed: 'Payroll Liabilities:Federal Withholding', ss: 'Payroll Liabilities:Social Security', medicare: 'Payroll Liabilities:Medicare',
+    state: 'Payroll Liabilities:State Withholding', local: 'Payroll Liabilities:Local Tax', otherTax: 'Payroll Liabilities:Other Employee Taxes', retirement: 'Payroll Liabilities:401k', benefits: 'Payroll Liabilities:Health Insurance',
+    garnish: 'Payroll Liabilities:Garnishments', otherDed: 'Payroll Liabilities:Other Deductions', futa: 'Payroll Liabilities:FUTA', suta: 'Payroll Liabilities:SUTA', net: 'Payroll Liabilities:Net Pay Clearing' };
+  var KEY = 'paystub-iif.v1';
+  var S = (function () { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+  S.names = Object.assign({}, DEF_NAMES, S.names); S.types = S.types || {}; S.labels = S.labels || {}; S.employer = S.employer || U.clone(P.DEFAULTS.employer); S.detail = S.detail || 'employee'; if (S.create === undefined) S.create = true; S.merge = !!S.merge;
+  var save = function () { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private window: settings last this visit only */ } };
+  var typeOf = function (slot) { return S.types[slot] || (/^(wages|taxExpense)$/.test(slot) ? 'EXP' : 'OCLIAB'); };
+  var stubs = [], docs = [], files = [], busy = '', skip = {};
+  var css = document.createElement('style'); css.textContent = OB.paydocs.CSS; document.head.appendChild(css);
+
+  // The engine's journal() checks accounts against a book; here an account is simply the QuickBooks name typed above.
+  var book = function () { var by = {}; P.SLOTS.forEach(function (s) { var n = (S.names[s[0]] || '').trim(); if (n) by[n] = { id: n, name: n }; }); return { accounts: [], accById: by, posted: function () { return []; } }; };
+  var settings = function () { var acc = {}; P.SLOTS.forEach(function (s) { acc[s[0]] = (S.names[s[0]] || '').trim(); }); return { accounts: acc, employer: S.employer, detail: S.detail, labels: S.labels }; };
+  var groups = function () { var g = {}; stubs.forEach(function (s) { (g[s.payDate || ''] = g[s.payDate || ''] || []).push(s); }); return Object.keys(g).sort().map(function (d) { return { date: d, stubs: g[d], j: P.journal(book(), g[d], settings()) }; }); };
+
+  function renderSettings() {
+    $('#map').innerHTML = '<thead><tr><th>Part of the paycheck</th><th>QuickBooks account name</th><th>Type (only used when creating)</th></tr></thead><tbody>' + P.SLOTS.map(function (s) {
+      return '<tr><td>' + esc(s[1]) + '</td><td><input data-name="' + s[0] + '" value="' + esc(S.names[s[0]]) + '" list="acct-list" aria-label="' + esc(s[1]) + ' account"></td><td><select data-type="' + s[0] + '" aria-label="' + esc(s[1]) + ' type">' +
+        TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (typeOf(s[0]) === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select></td></tr>';
+    }).join('') + '</tbody><datalist id="acct-list">' + Object.keys(book().accById).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>';
+    var E = S.employer; $('#fica').checked = !!E.fica; $('#futa-r').value = E.futa.rate || ''; $('#futa-b').value = E.futa.base || ''; $('#suta-r').value = E.suta.rate || ''; $('#suta-b').value = E.suta.base || ''; $('#detail').value = S.detail; $('#create').checked = S.create; $('#merge').value = S.merge ? '1' : '';
+    var L = Object.keys(S.labels).sort();
+    $('#learned').innerHTML = L.length ? L.map(function (k) { return esc(k) + ' → ' + esc((CATS.find(function (c) { return c[0] === S.labels[k]; }) || [0, S.labels[k]])[1]) + ' <button data-forget="' + esc(k) + '">Forget</button>'; }).join(' &nbsp; ') : '<span class="muted">None yet. When a paystub has a line the tool does not know, choose what it is once and it is remembered.</span>';
+  }
+
+  function render() {
+    $('#status').innerHTML = (busy ? '<p><span class="spin"></span> ' + esc(busy) + '</p>' : '') + (files.length ? '<p class="muted small">' + files.map(function (f) { return esc(f.name) + ': ' + esc(f.note); }).join(' · ') + '</p>' : '');
+    var cc = $('#crosscheck'); cc.hidden = !docs.length;
+    if (docs.length) { var R = OB.paydocs.reconcile([OB.paydocs.stubDoc(stubs, 'Paystubs')].concat(docs)); $('#cc-count').textContent = R.counts.ok + ' agree · ' + R.counts.diff + ' differ · ' + R.counts.missing + ' not provided'; $('#cc-body').innerHTML = OB.paydocs.reportHTML(R); }
+    var G = groups(), R0 = G.filter(function (g) { return !g.j.errors.length && !skip[g.date]; });
+    var combined = S.merge && R0.length > 1 ? P.mergeDrafts(R0.map(function (g) { return g.j.draft; })) : null;
+    $('#groups').innerHTML = (combined ? '<section class="card" id="combined"><h2>Combined entry <span class="badge ok">' + R0.length + ' pay dates</span></h2><p class="muted small">Memo: ' + esc(combined.memo) + '<br>Dated ' + esc(U.fmtDate(combined.date)) + ' (the last pay date). Each line adds up the same account and item across the pay dates; untick a pay date below to leave it out.</p>' + jeTable(combined) + '</section>' : '') + G.map(function (g) {
+      var bad = g.j.errors.length, freq = g.stubs.map(function (s) { return s.frequency; }).filter(Boolean)[0], s0 = g.stubs[0];
+      return '<section class="card"><h2><label><input type="checkbox" data-skip="' + esc(g.date) + '"' + (skip[g.date] || bad ? '' : ' checked') + (bad ? ' disabled' : '') + '> Pay date ' + (g.date ? esc(U.fmtDate(g.date)) : '<span class="bad">not read</span>') + '</label>' +
+        (freq ? ' <span class="badge">' + esc(freq) + '</span>' : '') + ' <span class="badge ' + (bad ? 'bad">Needs attention' : 'ok">Ready') + '</span> <span class="muted small">' + (s0.periodFrom ? 'Period ' + esc(U.fmtDate(s0.periodFrom)) + ' – ' + esc(U.fmtDate(s0.periodTo)) + ' · ' : '') + g.stubs.length + ' employee' + (g.stubs.length === 1 ? '' : 's') + '</span></h2>' +
+        '<div class="stubs">' + g.stubs.map(function (s) { return stubCard(s, g.j.employer[s.key] || {}); }).join('') + '</div>' +
+        '<h3>Journal entry ' + esc(g.j.draft.number) + '</h3><p class="muted small">Memo: ' + esc(g.j.draft.memo) + '</p>' + jeTable(g.j.draft) +
+        (bad ? '<ul class="issues">' + g.j.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>' : '') +
+        '<p><button data-remove="' + esc(g.date) + '">Remove this pay date</button></p></section>';
+    }).join('');
+    var ready = G.filter(function (g) { return !g.j.errors.length && !skip[g.date]; });
+    $('#download').disabled = !ready.length;
+    $('#bar-note').textContent = G.length ? ready.length + ' of ' + G.length + ' pay date' + (G.length === 1 ? '' : 's') + ' ready' + (G.length > ready.length ? ' (the others need attention or are unticked)' : '') : 'Drop paystubs to begin.';
+  }
+  function jeTable(d) {
+    var dr = U.sum(d.jlines, function (l) { return l.debit || 0; }), cr = U.sum(d.jlines, function (l) { return l.credit || 0; });
+    return '<table><thead><tr><th>QuickBooks account</th><th>Memo</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>' +
+      d.jlines.map(function (l) { return '<tr><td>' + (l.accountId ? esc(l.accountId) : '<span class="bad">type the account below</span>') + '</td><td>' + esc(l.memo) + '</td><td class="num">' + (l.debit ? show(l.debit) : '') + '</td><td class="num">' + (l.credit ? show(l.credit) : '') + '</td></tr>'; }).join('') +
+      '<tr class="total"><td colspan="2">Total</td><td class="num">' + show(dr) + '</td><td class="num">' + show(cr) + '</td></tr></tbody></table>';
+  }
+  function stubCard(s, er) {
+    var k = esc(s.key), T = s.totals;
+    return '<div class="stub"><div class="stub-h"><input class="name" data-emp="' + k + '" value="' + esc(s.employee) + '" aria-label="Employee name"> <input type="date" data-date="' + k + '" value="' + esc(s.payDate || '') + '" aria-label="Pay date"> ' +
+      (s.issues.length ? '<span class="bad">✗ ' + s.issues.length + ' to fix</span>' : '<span class="ok">✓ Every figure ties' + (s.copies > 1 ? ' (' + s.copies + ' copies read)' : '') + '</span>') + '</div>' +
+      '<table><thead><tr><th>On the stub</th><th>What it is</th><th class="num">Current</th><th class="num">YTD</th></tr></thead><tbody>' +
+      s.lines.map(function (l, i) { return '<tr' + (l.subtotal ? ' class="muted"' : '') + '><td>' + esc(l.label) + (l.inferred ? ' <span class="badge" title="Not readable on the stub; worked out from the total">from total</span>' : '') + '</td><td><select data-cat="' + k + '|' + i + '">' + (l.category ? '' : '<option value="">Choose…</option>') +
+        CATS.map(function (c) { return '<option value="' + c[0] + '"' + (l.category === c[0] ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></td><td class="num"><input class="amt" data-amt="' + k + '|' + i + '" value="' + money(l.current) + '"' + (l.subtotal ? ' disabled' : '') + '></td><td class="num muted">' + (l.ytd == null ? '' : show(l.ytd)) + '</td></tr>'; }).join('') +
+      '<tr class="total"><td colspan="2">Net pay</td><td class="num"><input class="amt" data-net="' + k + '" value="' + money(T.net) + '"></td><td class="num muted">' + (T.netYtd == null ? '' : show(T.netYtd)) + '</td></tr></tbody></table>' +
+      (s.issues.length ? '<ul class="issues small">' + s.issues.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      '<p class="small muted">Employer taxes: ' + [['er_ss', 'Social Security'], ['er_medicare', 'Medicare'], ['futa', 'FUTA'], ['suta', 'SUTA']].map(function (x) { return x[1] + ' <input class="amt" data-er="' + k + '|' + x[0] + '" value="' + money(er[x[0]] || 0) + '">'; }).join(' ') + '</p></div>';
+  }
+
+  var find = function (k) { return stubs.find(function (s) { return s.key === k; }); };
+  document.addEventListener('change', function (e) {
+    var t = e.target, d = t.dataset, s;
+    if (d.amt) { var a = d.amt.split('|'); s = find(a[0]); s.lines[+a[1]].current = parseMoney(t.value); s.lines[+a[1]].inferred = false; P.retotal(s); }
+    else if (d.net) { s = find(d.net); s.totals.net = parseMoney(t.value); s.issues = P.check(s); }
+    else if (d.er) { var b = d.er.split('|'); s = find(b[0]); s.employerOverride = Object.assign({}, s.employerOverride); s.employerOverride[b[1]] = parseMoney(t.value) || 0; }
+    else if (d.emp) { s = find(d.emp); s.employee = t.value.trim(); s.issues = P.check(s); }
+    else if (d.date) { s = find(d.date); s.payDate = t.value; s.issues = P.check(s); if (document.activeElement === t) { if (!t._w) { t._w = 1; t.addEventListener('blur', function () { setTimeout(render, 180); }); } return; } }   // typing the year: redraw when the box is left
+    else if (d.cat) { var c = d.cat.split('|'), l = (s = find(c[0])).lines[+c[1]]; l.category = t.value || null; l.subtotal = t.value === 'subtotal'; l.section = P.SECTION_OF[t.value] || l.section; P.retotal(s); if (t.value) { S.labels[P.canon(l.label)] = t.value; save(); renderSettings(); } }
+    else if (d.skip !== undefined) { skip[d.skip] = !t.checked; }
+    else if (d.name) { S.names[d.name] = t.value; save(); }
+    else if (d.type) { S.types[d.type] = t.value; save(); }
+    else if (t.id === 'fica' || /^(futa|suta)-/.test(t.id)) { S.employer = { fica: $('#fica').checked, futa: { rate: $('#futa-r').value.trim(), base: $('#futa-b').value.trim() }, suta: { rate: $('#suta-r').value.trim(), base: $('#suta-b').value.trim() } }; save(); }
+    else if (t.id === 'detail') { S.detail = t.value; save(); }
+    else if (t.id === 'create') { S.create = t.checked; save(); return; }
+    else if (t.id === 'merge') { S.merge = !!t.value; save(); }
+    else return;
+    render();
+  });
+  document.addEventListener('click', function (e) {
+    var d = e.target.dataset || {};
+    if (d.remove !== undefined) { stubs = stubs.filter(function (s) { return (s.payDate || '') !== d.remove; }); render(); }
+    if (e.target.id === 'cleardocs') { docs = []; render(); }
+    if (d.forget !== undefined) { delete S.labels[d.forget]; save(); renderSettings(); }
+  });
+
+  async function read(list) {
+    var E = window.OBStatement;
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i], note = '';
+      try {
+        busy = 'Reading ' + f.name + '…'; render();
+        var got = await OB.paydocs.readFile(f, E, { labels: S.labels }, function (t) { busy = String(t); var x = $('#status p'); if (x) x.lastChild.textContent = ' ' + busy; }), doc = got.doc;
+        docs = docs.filter(function (x) { return x.name !== f.name; });
+        if (doc.kind === 'paystubs') doc.stubs.forEach(function (s) { stubs = stubs.filter(function (x) { return x.key !== s.key; }).concat([s]); }); else docs.push(doc);
+        note = doc.kind === 'paystubs' ? doc.stubs.length + ' stub' + (doc.stubs.length === 1 ? '' : 's') + ' (' + got.how + ')' : doc.label + (doc.state ? ' ' + doc.state : '') + (doc.period ? ' ' + doc.period : '') + ' (' + got.how + ')';
+      } catch (err) { note = 'could not be read: ' + err.message; }
+      files = files.filter(function (x) { return x.name !== f.name; }).concat([{ name: f.name, note: note }]);
+    }
+    busy = ''; render();
+  }
+  var drop = $('#drop');
+  $('#file').addEventListener('change', function (e) { var l = [].slice.call(e.target.files); e.target.value = ''; if (l.length) read(l); });
+  drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+  drop.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('over'); var l = [].slice.call(e.dataTransfer.files); if (l.length) read(l); });
+
+  $('#download').addEventListener('click', function () {
+    var G = groups().filter(function (g) { return !g.j.errors.length && !skip[g.date]; }), types = {};
+    P.SLOTS.forEach(function (s) { var n = (S.names[s[0]] || '').trim(); if (n && !types[n]) types[n] = typeOf(s[0]); });
+    var drafts = G.map(function (g) { return g.j.draft; }), merged = S.merge && drafts.length > 1;
+    var iif = P.toIIF(merged ? [P.mergeDrafts(drafts)] : drafts, { create: S.create, types: types });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([iif], { type: 'text/plain' }));
+    a.download = 'Payroll JE ' + G[0].date + (G.length > 1 ? ' to ' + G[G.length - 1].date : '') + (merged ? ' combined' : '') + '.iif'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  window.PaystubIIF = { state: function () { return { stubs: stubs, S: S }; } };   // for the developer test
+  renderSettings(); render();
+})();
+</script>
+</body>
+</html>

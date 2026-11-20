@@ -1,0 +1,45 @@
+"""VaultBook Intelligence panel: python3 tests/dev/intel_ui.py /abs/path/app/index.html"""
+import asyncio, sys, tempfile
+from playwright.async_api import async_playwright
+APP = sys.argv[1]; res = []
+def check(ok, msg, info=''):
+    res.append(ok); print(('  ok   ' if ok else '  FAIL ') + msg + ('' if ok else '  -> ' + str(info)))
+async def main():
+    async with async_playwright() as p:
+        ctx = await p.chromium.launch_persistent_context(tempfile.mkdtemp(), viewport={'width': 1500, 'height': 900})
+        pg = ctx.pages[0]; ev = pg.evaluate; errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto('file://' + APP); await pg.wait_for_selector('#newco')
+        await pg.fill('#newco input[name=name]', 'Intel Co'); await pg.locator('#newco input[name=sample]').check()
+        await pg.click('#newco button[type=submit]'); await pg.wait_for_function('OB.ui.book && OB.ui.book.transactions.length > 10', timeout=30000)
+        w0 = await ev("document.getElementById('main').getBoundingClientRect().width")
+        await pg.click('#vi-btn'); await pg.wait_for_selector('#vi:not([hidden])')
+        w1 = await ev("document.getElementById('main').getBoundingClientRect().width")
+        check(await ev("document.activeElement.id") == 'vi-input' and w0 - w1 > 300, 'The button opens the panel beside the screen with the cursor in the question box', (w0, w1))
+        async def ask(q):
+            await pg.fill('#vi-input', q); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(250)
+            return await ev("(() => { const a = [...document.querySelectorAll('[data-testid=vi-answer]')].pop(); return a ? a.innerText : ''; })()")
+        t = await ask('how many open invoices are there?')
+        n = await ev("(() => { let n = 0; OB.reports.aging(OB.ui.book, { kind: 'customer', asOf: OB.util.today() }).rows.forEach(r => r.docs.forEach(d => { if (d.t.type === 'invoice' && d.open > 0) n++; })); return n; })()")
+        check(('%d open invoice' % n) in t and 'Source: Open Invoices' in t, 'How many open invoices: the count equals the aging report and the source is named', t[:200])
+        t = await ask('give me percentage of income for each month'); check('share of the total' in t and '100.0%' in t, 'Income by month shows each month and its share', t[:160])
+        t = await ask('how many vendors are there ?'); check(('%d vendor' % await ev("OB.ui.book.contacts.filter(c => c.kind === 'vendor').length")) in t, 'How many vendors', t[:120])
+        t = await ask('Harbor Dental'); check('Harbor Dental Group is an active customer' in t, 'A name opens the record summary', t[:160])
+        await pg.click('[data-testid=vi-answer]:last-of-type [data-ask^="open invoices for"]'); await pg.wait_for_timeout(250)
+        t = await ev("[...document.querySelectorAll('[data-testid=vi-answer]')].pop().innerText"); check('for Harbor Dental Group' in t, 'The follow-up button keeps the customer', t[:160])
+        await pg.click('[data-testid=vi-answer]:last-of-type table a'); await pg.wait_for_timeout(600)
+        check('#/txn/' in await ev('location.hash') and await ev("!document.getElementById('vi').hidden"), 'A document number in an answer opens it; the panel stays open')
+        t = await ask('zzqq wobble'); check('could not find' in t, 'An unknown question says so and makes nothing up', t[:120])
+        await ev("location.hash = '#/contact/' + OB.ui.book.contacts.find(c => c.name === 'Pinecrest HOA').id"); await pg.wait_for_timeout(600)
+        await pg.click('#vi-clear'); await pg.wait_for_timeout(150)
+        check('Pinecrest HOA' in await ev("document.getElementById('vi-about').innerText"), 'On a customer screen the panel knows which customer is open')
+        t = await ask('open invoices'); check('for Pinecrest HOA' in t, 'and a bare question is about that customer', t[:160])
+        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(150)
+        check(await ev("document.getElementById('vi').hidden && document.activeElement.id === 'vi-btn'"), 'Esc closes the panel and returns to its button')
+        await pg.keyboard.press('Control+i'); await pg.wait_for_timeout(150); check(await ev("!document.getElementById('vi').hidden"), 'Ctrl+I opens it again')
+        check(await ev("!!self.LanguageModel || document.getElementById('vi-model').hidden"), 'Nothing about a language model is shown unless the browser has one')
+        print('     on-device model here:', await ev("self.LanguageModel ? 'present' : 'absent'"), '|', await ev("document.getElementById('vi-model').innerText"))
+        check(not errs, 'No script errors', errs[:3])
+        await pg.locator('body').screenshot(path='/tmp/qf/intel.png')
+        await ctx.close()
+    print('\n%d passed, %d failed' % (sum(res), len(res) - sum(res)))
+asyncio.run(main())

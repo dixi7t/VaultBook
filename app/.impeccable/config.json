@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "app/css/studio.css"
+        ],
+        "createdAt": "2026-11-10T20:50:34.910Z",
+        "reason": "assistant decision: flagged lines are underline tabs (window tabs, .tabs, bank feed tabs) with border-radius 0, matching the G1/G2 designs the user chose"
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+"","Type","Date","Num","Adj","Name","Memo","Split","Debit","Credit","Balance"
+"Operating Bank",,,,,,,,,,""
+,"Deposit","01/02/2025",,,,"Owner contribution","Owner Capital",5000.00,"",5000.00
+,"Check","01/05/2025",,,"Transfer to CD","Move to CD","Savings CD","",2000.00,3000.00
+,"Check","01/10/2025","101",,"Landlord LLC","January rent","Rent","",400.00,2600.00
+,"Check","01/10/2025","101",,"Landlord LLC","January rent","Rent","",400.00,2200.00
+,"Payment","01/15/2025","Inv 1001",,"Acme Clinic",,"Accounts Receivable",3000.00,"",5200.00
+,"Deposit","01/20/2025",,,"Beta Health, LLC","Retainer","Customer Deposits",1000.00,"",6200.00
+,"Bill Pmt -Check","02/01/2025","102",,"Dr. Smith Consulting",,"Accounts Payable","",800.00,5400.00
+,"Check","02/03/2025","103",,"Dr. Smith Consulting","Supplies and subcontract","-SPLIT-","",225.00,5175.00
+,"Payment","02/20/2025","INV 1002 & 1003",,"Beta Health, LLC",,"Accounts Receivable",2200.00,"",7375.00
+"Total Operating Bank",,,,,,,,11200.00,3825.00,7375.00
+"Savings CD",,,,,,,,,,""
+,"Check","01/05/2025",,,"Transfer to CD","Move to CD","Operating Bank",2000.00,"",2000.00
+"Total Savings CD",,,,,,,,2000.00,0.00,2000.00
+"Accounts Receivable",,,,,,,,,,""
+,"Invoice","01/16/2025","1001",,"Acme Clinic",,"Consulting",3000.00,"",3000.00
+,"Payment","01/15/2025","Inv 1001",,"Acme Clinic",,"Operating Bank","",3000.00,0.00
+,"Invoice","02/10/2025","1002",,"Beta Health, LLC",,"-SPLIT-",2200.00,"",2200.00
+,"Invoice","02/12/2025","1003",,"Acme Clinic",,"Consulting",1500.00,"",3700.00
+,"Payment","02/20/2025","INV 1002 & 1003",,"Beta Health, LLC",,"Operating Bank","",2200.00,1500.00
+,"General Journal","03/31/2025","J-1","*","Acme Clinic","Write-off adj","Consulting","",300.00,1200.00
+"Total Accounts Receivable",,,,,,,,6700.00,5500.00,1200.00
+"Accounts Payable",,,,,,,,,,""
+,"Bill","01/25/2025","B-77",,"Dr. Smith Consulting","Subcontract","Subcontractors","",1000.00,-1000.00
+,"Bill Pmt -Check","02/01/2025","102",,"Dr. Smith Consulting",,"Operating Bank",800.00,"",-200.00
+"Total Accounts Payable",,,,,,,,800.00,1000.00,-200.00
+"Customer Deposits",,,,,,,,,,""
+,"Deposit","01/20/2025",,,"Beta Health, LLC","Retainer","Operating Bank","",1000.00,-1000.00
+"Total Customer Deposits",,,,,,,,0.00,1000.00,-1000.00
+"Owner Capital",,,,,,,,,,""
+,"Deposit","01/02/2025",,,,"Owner contribution","Operating Bank","",5000.00,-5000.00
+"Total Owner Capital",,,,,,,,0.00,5000.00,-5000.00
+"Income",,,,,,,,,,""
+"Consulting",,,,,,,,,,""
+,"Invoice","01/16/2025","1001",,"Acme Clinic","Consulting hours","Accounts Receivable","",3000.00,-3000.00
+,"Invoice","02/10/2025","1002",,"Beta Health, LLC","Consulting hours","Accounts Receivable","",1700.00,-4700.00
+,"Invoice","02/12/2025","1003",,"Acme Clinic","Consulting hours","Accounts Receivable","",1500.00,-6200.00
+,"General Journal","03/31/2025","J-1","*",,"Reclass","Accounts Receivable",300.00,"",-5900.00
+"Total Consulting",,,,,,,,300.00,6200.00,-5900.00
+"Licensing",,,,,,,,,,""
+,"Invoice","02/10/2025","1002",,"Beta Health, LLC","License fee","Accounts Receivable","",500.00,-500.00
+"Total Licensing",,,,,,,,0.00,500.00,-500.00
+"Total Income",,,,,,,,0.00,7000.00,-7000.00
+"Subcontractors",,,,,,,,,,""
+,"Bill","01/25/2025","B-77",,"Dr. Smith Consulting","Subcontract","Accounts Payable",1000.00,"",1000.00
+,"Check","02/03/2025","103",,"Dr. Smith Consulting","Subcontract supplies","Operating Bank",200.00,"",1200.00
+"Total Subcontractors",,,,,,,,1200.00,0.00,1200.00
+"Rent",,,,,,,,,,""
+,"Check","01/10/2025","101",,"Landlord LLC","January rent","Operating Bank",400.00,"",400.00
+,"Check","01/10/2025","101",,"Landlord LLC","January rent","Operating Bank",400.00,"",800.00
+"Total Rent",,,,,,,,800.00,0.00,800.00
+"Office Supplies",,,,,,,,,,""
+,"Check","02/03/2025","103",,"Dr. Smith Consulting","Paper","Operating Bank",25.00,"",25.00
+"Total Office Supplies",,,,,,,,25.00,0.00,25.00
+"TOTAL",,,,,,,,0,0,0
