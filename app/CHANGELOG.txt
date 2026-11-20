@@ -1,6 +1,14 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.55.2  (2026-11-20)  No black band at the bottom on iPhone
+-------------------------------------------------------------------------------
+  * When VaultBook was added to the Home Screen, a black band could cover
+    the bottom of the screen and the tab bar sat too high. The app no
+    longer draws under the status bar (status bar style "default"), so iOS
+    gives it the full height; the status bar takes the page colour in light
+    and dark. Remove the Home Screen icon and add it again to pick this up.
+
 1.55.1  (2026-11-20)  Version numbers
 -------------------------------------------------------------------------------
   * Every change now ships as its own version: a git tag (v1.55.1) and a

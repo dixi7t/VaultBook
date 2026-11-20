@@ -4,10 +4,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#171c26">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default"><!-- not black-translucent: iOS can move a translucent Home Screen app up under the status bar without making it taller, leaving a black band at the bottom -->
 <meta name="apple-mobile-web-app-title" content="VaultBook">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -217,7 +218,7 @@ try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'
 <div id="toasts" aria-live="polite" data-testid="toasts"></div>
 
 <!-- Classic scripts (not ES modules) so the app runs from file:// without a server. -->
-<script src="js/app.b39100c295.js"></script>
+<script src="js/app.75e474aa79.js"></script>
 <script>VBGate.ready.then(function () { OB.ui.start(); OB.windows.init(); });</script>
 </body>
 </html>

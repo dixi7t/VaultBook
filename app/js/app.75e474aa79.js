@@ -345,7 +345,7 @@
   var OB = root.OB = root.OB || {};
   var S = OB.schema = {};
 
-  S.APP_VERSION = '1.55.1';
+  S.APP_VERSION = '1.55.2';
   S.DATA_VERSION = 8;        // company data schema version (see migrations below)
   S.BACKUP_FORMAT = 'OfflineBooksUS-Backup';
 
