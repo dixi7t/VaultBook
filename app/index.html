@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171c26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VaultBook">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob: data: http://127.0.0.1:47321; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>VaultBook</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171c26'/%3E%3Ctext x='16' y='21.5' font-family='Segoe UI,Arial' font-size='14' font-weight='700' fill='%23f4c95d' text-anchor='middle'%3EVB%3C/text%3E%3C/svg%3E">
@@ -13,6 +20,7 @@
 <link rel="stylesheet" href="css/nav.css">
 <link rel="stylesheet" href="css/vault.css">
 <link rel="stylesheet" href="css/studio.css">
+<link rel="stylesheet" href="css/mobile.css">
 <script>/* apply saved appearance before first paint (no flash of the wrong theme) */
 try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'), d = document.documentElement;
   if (p.theme === 'light' || p.theme === 'dark') d.dataset.theme = p.theme;
@@ -204,6 +212,7 @@ try { var p = JSON.parse(localStorage.getItem('OfflineBooksUS.prefs.v1') || '{}'
 <script src="js/ui-qbd.js"></script>
 <script src="js/ui-qbupdate.js"></script>
 <script src="js/ui-payroll.js"></script>
+<script src="js/ui-mobile.js"></script>
 <script>OB.ui.start(); OB.windows.init();</script>
 </body>
 </html>

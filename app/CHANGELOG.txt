@@ -1,6 +1,29 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.52.0  (2026-11-20)  iPhone and iPad
+-------------------------------------------------------------------------------
+  * On a phone VaultBook opens its own mobile screens with a tab bar at the
+    bottom: Home (cash in bank, this month's money in and spending, top
+    spending, overdue invoices and bills, accounts, recent entries),
+    Activity (every entry, searchable, filtered by money in, money out,
+    transfers, sales or bills), Reports (this month, last month, this year,
+    last year; where the money went and came from; net worth) and More
+    (every screen in the app, grouped as in the side menu).
+  * The + button records an expense, income or transfer in a few taps with
+    a large amount field. It saves through the same checks and double
+    entry as the full forms; a new payee is added as a vendor or customer.
+    Every other transaction type (invoice, bill, payment, check, journal
+    entry...) and the bank file and statement imports are on the same sheet.
+  * Classic screens still open on a phone; Gateway and Dashboard are under
+    More. On iPad the full layout stays, with larger touch targets.
+  * Touch screens hide keyboard-only hints and the function-key panel (turn
+    it back on in Customize). Fields no longer make iPhone zoom in.
+  * Add to Home Screen: VaultBook opens full screen like an app and works
+    offline. On iPhone and iPad this also stops Safari from clearing your
+    books after weeks without use. Keep downloading backups.
+  * View and Window menus: hide or show the window tabs.
+
 1.51.0  (2026-11-20)  Menu bar and toolbar at the top, new colours
 -------------------------------------------------------------------------------
   * A menu bar runs across the top: File, Edit, View, Lists, Company,
