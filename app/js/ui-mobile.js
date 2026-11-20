@@ -168,7 +168,7 @@
       });
       const total = items.length; items = items.slice(0, shown);
       let html = '', month = '';
-      items.forEach((t) => { const m = t.date.slice(0, 7); if (m !== month) { month = m; html += `<h3 class="m-month">${esc(monthName(t.date))}</h3>`; } html += row(t); });
+      items.forEach((t) => { const m = t.date.slice(0, 7); if (m !== month) { month = m; html += `<h2 class="m-month">${esc(monthName(t.date))}</h2>`; } html += row(t); });
       list.innerHTML = (html || '<p class="m-empty">No matching entries.</p>') + (total > shown ? `<button type="button" class="m-btn ghost m-more-btn" id="m-more">Show more (${total - shown} left)</button>` : '');
       const more = list.querySelector('#m-more'); if (more) more.addEventListener('click', () => { shown += 100; draw(); });
     };

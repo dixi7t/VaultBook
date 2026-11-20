@@ -23,6 +23,15 @@ VaultBook (formerly OfflineBooks US) — Changelog
     offline. On iPhone and iPad this also stops Safari from clearing your
     books after weeks without use. Keep downloading backups.
   * View and Window menus: hide or show the window tabs.
+  * Accessibility audit (Impeccable method, light and dark): every text and
+    control on iPhone and iPad screens now meets WCAG AA contrast (4.5:1).
+    Links use Apple's Action Blue #0066CC (light) and #409CFF (dark); filled
+    buttons use #0066CC / #0071E3 so white text passes; money in is
+    #1E7B34; badges #D70015; tab labels and the selected tab are readable.
+    Today's date in the calendar, the overdue legend in dark mode and the
+    logo preview label were fixed too. Activity month headings are now h2.
+  * The offline cache now always checks for a newer file, so an update
+    shows at once instead of after the browser's own cache expires.
   * Passcode screen before VaultBook opens on the hosted site (iPhone-style
     keypad; keyboard digits, Backspace and Enter also work). It stays open
     until the tab or app is closed. Five wrong tries pause entry for a

@@ -8,32 +8,32 @@
   --bg: #f2f2f7; --surface: #ffffff; --surface-2: #f2f2f7; --surface-hover: #e5e5ea;
   --line: #d1d1d6; --line-subtle: #e5e5ea; --line-strong: #c7c7cc;
   --text: #000000; --text-2: #3c3c43; --text-3: #6c6c70;
-  --accent: #007aff; --accent-hover: #0062cc; --accent-strong: #0040dd; --accent-soft: #e5f1ff; --accent-wash: #e5f1ff; --on-accent: #ffffff;
+  --accent: #0066cc; --accent-hover: #0058b0; --accent-strong: #0040dd; --accent-soft: #e5f1ff; --accent-wash: #e5f1ff; --on-accent: #ffffff;
   --danger: #d70015; --danger-soft: #ffe5e7; --danger-line: #ffb3b9;
   --warning: #c93400; --warning-soft: #fff1e0; --warning-line: #ffcf99;
   --info-soft: #e5f1ff; --info-line: #b3d7ff; --success-line: #b7e4c4;
   --sidebar: #ffffff; --sidebar-2: #f2f2f7; --sidebar-line: #e5e5ea; --sidebar-text: #000000; --sidebar-text-dim: #6c6c70;
-  --sidebar-active: #e5f1ff; --sidebar-active-text: #0040dd; --on-sidebar: #007aff;
-  --st-top: #f9f9f9; --st-top-text: #000000; --st-top-dim: #6c6c70; --st-top-hover: #e5e5ea; --st-top-line: #d1d1d6; --st-hot: #007aff;
-  --vb-chrome: #007aff; --vb-chrome-2: #0062cc; --vb-chrome-3: #0040dd; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #e5f1ff;
-  --vb-panel: #ffffff; --vb-panel-line: #e5e5ea; --vb-field: #ffffff; --vb-field-line: #007aff; --vb-key-text: #000000;
+  --sidebar-active: #e5f1ff; --sidebar-active-text: #0040dd; --on-sidebar: #0066cc;
+  --st-top: #f9f9f9; --st-top-text: #000000; --st-top-dim: #6c6c70; --st-top-hover: #e5e5ea; --st-top-line: #d1d1d6; --st-hot: #0066cc;
+  --vb-chrome: #0066cc; --vb-chrome-2: #0058b0; --vb-chrome-3: #0040dd; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #e5f1ff;
+  --vb-panel: #ffffff; --vb-panel-line: #e5e5ea; --vb-field: #ffffff; --vb-field-line: #0066cc; --vb-key-text: #000000;
   --toast-bg: #1c1c1e; --toast-error-bg: #d70015; --scrim: rgba(0, 0, 0, .4);
   --radius-s: 8px; --radius: 10px; --radius-m: 10px; --radius-l: 12px;
   --shadow-1: none;
   --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
   --fig: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  --ring: 0 0 0 3px rgba(0, 122, 255, .45);
+  --ring: 0 0 0 3px rgba(0, 102, 204, .45);
   /* iOS-only roles */
   --ios-fill: rgba(118, 118, 128, .12); --ios-fill-2: rgba(118, 118, 128, .2); --ios-sep: rgba(60, 60, 67, .29); --ios-chev: #c4c4c7;
-  --ios-bar: rgba(249, 249, 249, .82); --ios-seg-on: #ffffff; --ios-gray: #8e8e93; --ios-badge: #ff3b30;
-  --m-in: #248a3d; --m-out: var(--text);
+  --ios-bar: rgba(249, 249, 249, .82); --ios-seg-on: #ffffff; --ios-gray: #6c6c70; --ios-badge: #d70015; --ios-btn: #0066cc;
+  --m-in: #1e7b34; --m-out: var(--text);
 }
 :root.m-touch[data-theme="dark"], :root.m-phone[data-theme="dark"] {
   color-scheme: dark;
   --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-hover: #3a3a3c;
   --line: #38383a; --line-subtle: #2c2c2e; --line-strong: #48484a;
   --text: #ffffff; --text-2: #d1d1d6; --text-3: #98989f;
-  --accent: #0a84ff; --accent-hover: #409cff; --accent-strong: #409cff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
+  --accent: #409cff; --accent-hover: #6cb4ff; --accent-strong: #6cb4ff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
   --danger: #ff453a; --danger-soft: #3b1210; --danger-line: #6e211c; --warning: #ff9f0a; --warning-soft: #33240a; --warning-line: #6b4a14;
   --info-soft: #0e2a4d; --info-line: #1d4a80; --success-line: #1f5e33;
   --sidebar: #1c1c1e; --sidebar-2: #2c2c2e; --sidebar-line: #38383a; --sidebar-text: #ffffff; --sidebar-text-dim: #98989f;
@@ -43,7 +43,7 @@
   --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #0a84ff; --vb-key-text: #ffffff;
   --toast-bg: #2c2c2e; --toast-error-bg: #ff453a;
   --ios-fill: rgba(118, 118, 128, .24); --ios-fill-2: rgba(118, 118, 128, .32); --ios-sep: rgba(84, 84, 88, .65); --ios-chev: #5a5a5f;
-  --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #8e8e93; --ios-badge: #ff453a;
+  --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #0071e3;
   --m-in: #30d158;
 }
 @media (prefers-color-scheme: dark) {
@@ -52,7 +52,7 @@
     --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-hover: #3a3a3c;
     --line: #38383a; --line-subtle: #2c2c2e; --line-strong: #48484a;
     --text: #ffffff; --text-2: #d1d1d6; --text-3: #98989f;
-    --accent: #0a84ff; --accent-hover: #409cff; --accent-strong: #409cff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
+    --accent: #409cff; --accent-hover: #6cb4ff; --accent-strong: #6cb4ff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
     --danger: #ff453a; --danger-soft: #3b1210; --danger-line: #6e211c; --warning: #ff9f0a; --warning-soft: #33240a; --warning-line: #6b4a14;
     --info-soft: #0e2a4d; --info-line: #1d4a80; --success-line: #1f5e33;
     --sidebar: #1c1c1e; --sidebar-2: #2c2c2e; --sidebar-line: #38383a; --sidebar-text: #ffffff; --sidebar-text-dim: #98989f;
@@ -62,7 +62,7 @@
     --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #0a84ff; --vb-key-text: #ffffff;
     --toast-bg: #2c2c2e; --toast-error-bg: #ff453a;
     --ios-fill: rgba(118, 118, 128, .24); --ios-fill-2: rgba(118, 118, 128, .32); --ios-sep: rgba(84, 84, 88, .65); --ios-chev: #5a5a5f;
-    --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #8e8e93; --ios-badge: #ff453a;
+    --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #0071e3;
     --m-in: #30d158;
   }
 }
@@ -104,12 +104,19 @@ html.m-touch .rb-move .btn { min-width: 36px; min-height: 36px; }               
 html.m-touch main code { font-size: 13px; }                                              /* Find help */
 html.m-touch main th span { font-size: max(11px, 1em); }                                 /* report sort marks */
 html.m-touch main :is(td, th) .btn { min-height: 32px; }
+/* filled blue controls across the app use the button blue: white text stays at 4.5:1 or better in light and dark */
+:root.m-touch :is(.btn.primary, .st-new, .vbg-go), :root.m-phone :is(.btn.primary, .st-new) { background: var(--ios-btn); border-color: var(--ios-btn); color: #fff; }
 /* text links (report drill-downs, Back, Details): a taller hit area with no change to the layout */
 html.m-touch main a[href]:not(.btn):not(.m-btn):not(.m-q):not(.m-tile):not(.m-tx):not(.m-acct):not(.m-row-link):not(.m-bar):not(.vr-bar):not(.m-back) {
   padding-top: 9px; padding-bottom: 9px; margin-top: -9px; margin-bottom: -9px; }
 html.m-touch main :is(td, th) a[href]:not(.btn) { display: inline-block; padding-left: 8px; padding-right: 8px; margin-left: -8px; margin-right: -8px; min-width: 28px; text-align: inherit; }
 html.m-touch .m-card-h a, html.m-touch main .rb-cols a { padding: 10px 8px; margin: -10px -8px; }
 html.m-touch .cal-bal { font-size: 11px; }
+/* contrast (audited in light and dark): today's date, overdue legend, the white logo preview */
+html.m-touch .cal-cell.today .cal-n { background: var(--ios-btn); color: #fff; }
+html.m-touch .st-inv-legend .over { color: var(--warning); }
+html.m-touch .logo-preview { color: #3c3c43; }
+html.m-touch .logo-preview .muted { color: #6c6c70; }
 /* iPad chrome: the menu bar scrolls sideways instead of widening the page; command bar and toolbar labels at touch size */
 html.m-touch .mbar { height: auto; min-height: 44px; flex-wrap: wrap; row-gap: 0; }   /* wraps rather than widening the page; drop-downs stay unclipped */
 html.m-touch .mbar .mb-top { padding: 10px 9px; }
@@ -134,7 +141,8 @@ html.m-phone body:not(.no-company) .m-tabbar {
 .m-tabs { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--m-tab-h); border-radius: 31px; padding: 0 4px; }
 .m-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ios-gray); text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: .01em; border-radius: 27px; margin: 4px 0; }
 .m-tabs a svg { width: 25px; height: 25px; }
-.m-tabs a[aria-current="page"] { color: var(--accent); background: var(--ios-fill); }
+.m-tabs a { transition: none; }   /* the selected colour changes at once (the app-wide link colour fade is not wanted here) */
+.m-tabs a[aria-current="page"] { color: var(--accent-strong); background: var(--ios-fill); }
 .m-tab-badge { position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: var(--ios-badge); color: #fff; font-style: normal; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .m-tab-add { flex: none; width: var(--m-tab-h); height: var(--m-tab-h); border-radius: 50%; display: grid; place-items: center; color: var(--accent); padding: 0; cursor: pointer; }
 .m-tab-add svg { width: 28px; height: 28px; stroke-width: 2.2; }
@@ -186,7 +194,7 @@ html.m-phone .drawer, html.m-phone .modal, html.m-phone dialog { max-width: 100v
 
 .m-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .m-q { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 2px 10px; border-radius: 12px; background: var(--surface); border: 0; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 500; font-family: inherit; cursor: pointer; }
-.m-q svg { width: 22px; height: 22px; padding: 9px; box-sizing: content-box; border-radius: 50%; background: var(--accent); color: #fff; stroke-width: 2.2; }
+.m-q svg { width: 22px; height: 22px; padding: 9px; box-sizing: content-box; border-radius: 50%; background: var(--ios-btn); color: #fff; stroke-width: 2.2; }
 .m-q:active, .m-tx:active, .m-row-link:active, .m-acct:active { background: var(--surface-hover); }
 
 .m-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -220,7 +228,7 @@ b.out { color: var(--text); }
 .m-tx-amt small { display: block; font-size: 13px; color: var(--text-3); }
 #m-list { background: var(--surface); border-radius: 12px; padding: 0 16px; }
 .m-row-link > span { flex: 1; min-width: 0; }
-.m-row-link > svg:first-child, .m-row-link > svg.ni { flex: none; width: 22px; height: 22px; padding: 5px; box-sizing: content-box; border-radius: 7px; background: var(--accent); color: #fff; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.m-row-link > svg:first-child, .m-row-link > svg.ni { flex: none; width: 22px; height: 22px; padding: 5px; box-sizing: content-box; border-radius: 7px; background: var(--ios-btn); color: #fff; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .m-row-link > svg:last-child:not(:first-child) { flex: none; width: 14px; height: 14px; color: var(--ios-chev); stroke-width: 2.6; }
 .m-menu { padding-top: 4px; padding-bottom: 4px; }
 .m-alerts { padding-top: 4px; padding-bottom: 4px; }
@@ -243,7 +251,7 @@ b.out { color: var(--text); }
 .m-chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; }
 .m-chips::-webkit-scrollbar { display: none; }
 .m-chips > * { flex: none; padding: 7px 14px; border-radius: 999px; border: 0; background: var(--surface); color: var(--text); font: inherit; font-size: 15px; text-decoration: none; white-space: nowrap; cursor: pointer; }
-.m-chips > [aria-selected="true"] { background: var(--accent); color: #fff; }
+.m-chips > [aria-selected="true"] { background: var(--ios-btn); color: #fff; }
 /* segmented control */
 .m-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 2px; border-radius: 9px; background: var(--ios-fill); }
 .m-seg2 { grid-template-columns: repeat(2, 1fr); }
@@ -271,7 +279,7 @@ b.out { color: var(--text); }
 /* buttons: filled capsule for the main action, gray for the rest, plain text for minor ones */
 .m-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--ios-fill); color: var(--accent); font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; width: 100%; text-decoration: none; box-sizing: border-box; }
 .m-btn svg { width: 20px; height: 20px; stroke-width: 2.2; }
-.m-btn.primary { background: var(--accent); color: #fff; }
+.m-btn.primary { background: var(--ios-btn); color: #fff; }
 .m-btn.ghost { background: transparent; }
 .m-btn.small { min-height: 34px; width: auto; padding: 0 14px; font-size: 15px; }
 .m-btn.warn { color: var(--accent); }
@@ -290,7 +298,7 @@ b.out { color: var(--text); }
 .m-sheet h2 { margin: 2px 0; font-size: 20px; font-weight: 700; text-align: center; }
 .m-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .m-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 4px 12px; border-radius: 12px; background: var(--surface); color: var(--text); text-decoration: none; font-size: 13px; text-align: center; }
-.m-tile svg { width: 22px; height: 22px; padding: 8px; box-sizing: content-box; border-radius: 50%; background: var(--accent); color: #fff; stroke-width: 2; }
+.m-tile svg { width: 22px; height: 22px; padding: 8px; box-sizing: content-box; border-radius: 50%; background: var(--ios-btn); color: #fff; stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) { .m-sheet, .m-sheet-wrap { transition: none; } }
 
 /* ---------- Bank feed ---------- */
@@ -357,3 +365,5 @@ b.out { color: var(--text); }
   .st-new { min-height: 40px; padding-left: 16px; padding-right: 16px; border-radius: 999px; }
 }
 @media print { .m-tabbar, .m-sheet-wrap { display: none !important; } }
+/* keyboard focus (iPad keyboards): the ring sits outside filled blue controls so it never blends into them */
+:is(.m-page, .m-tabbar, .m-sheet) :focus-visible { outline-offset: 3px; }
