@@ -23,6 +23,11 @@ VaultBook (formerly OfflineBooks US) — Changelog
     offline. On iPhone and iPad this also stops Safari from clearing your
     books after weeks without use. Keep downloading backups.
   * View and Window menus: hide or show the window tabs.
+  * Faster start: the published page loads one script and one stylesheet
+    instead of 99 files (built by app/tools/build-site.py from the new
+    source page app/index.src.html). Their names carry a content hash, so
+    the offline copy serves them instantly on later visits and a phone only
+    downloads what changed after an update.
   * Accessibility audit (Impeccable method, light and dark): every text and
     control on iPhone and iPad screens now meets WCAG AA contrast (4.5:1).
     Links use Apple's Action Blue #0066CC (light) and #409CFF (dark); filled

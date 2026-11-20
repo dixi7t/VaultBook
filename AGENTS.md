@@ -1,7 +1,7 @@
 # VaultBook (formerly OfflineBooks US) — Permanent AI Coding Instructions
 
 > Product name is **VaultBook** (DEC-006). Where this file says "OfflineBooks US", read VaultBook. Storage identifiers in code keep the OfflineBooksUS names — never rename them.
-> Layout: application in `app/` (open `app/index.html`); governance docs in `docs/`. Tests: `node app/tests/run-node.js`; `python3 app/tests/dev/e2e_playwright.py "$PWD/app/index.html"`; a11y: see `docs/AUDIT_BASELINE.md` §3.
+> Layout: application in `app/` (open `app/index.html`); governance docs in `docs/`. `app/index.html` is GENERATED: edit `app/index.src.html` (it loads every source file and runs as-is), then run `python3 app/tools/build-site.py` to rebuild `index.html` and its hashed bundles before committing; `python3 app/tools/build-site.py --check` fails when they are stale. Tests: `node app/tests/run-node.js`; `python3 app/tests/dev/e2e_playwright.py "$PWD/app/index.html"`; a11y: see `docs/AUDIT_BASELINE.md` §3.
 
 ## Mission
 Upgrade the existing OfflineBooks US application into a polished, keyboard-first US accounting system inspired by Tally Prime's interaction principles. Preserve the existing application and improve it incrementally; do not rebuild from scratch without explicit approval.
