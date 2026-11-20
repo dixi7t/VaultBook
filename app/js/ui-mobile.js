@@ -329,7 +329,8 @@
    * Statement lines typed or pasted here go to the account's For review list through Book.importBankLines (the same
    * duplicate check as a bank file); review posts each through Book.postBankLine (rules, history, matching). */
   const FEED = { bank: 1, cc: 1, oca: 1 };
-  const feedAccts = () => b().sortedAccounts((a) => FEED[a.type] && a.active !== false && !(a.type === 'oca' && a.system));
+  // same accounts as the desktop bank feed: banks and cards, and another current asset only once it has bank lines
+  const feedAccts = () => b().sortedAccounts((a) => FEED[a.type] && a.active !== false && (a.type !== 'oca' || (!a.system && b().bankLines.some((l) => l.accountId === a.id && l.status !== 'removed'))));
   const isCard = (id) => accType(id) === 'cc';
   const draftKey = (acct) => 'vbFeedDraft:' + (b().company.id || '') + ':' + acct;
   const loadDraft = (acct) => { try { return JSON.parse(localStorage.getItem(draftKey(acct)) || '[]'); } catch (e) { return []; } };

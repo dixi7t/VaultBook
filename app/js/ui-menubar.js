@@ -18,14 +18,20 @@
     W.setLayout(map[W.layout] || (tabsOff() ? 'tabs' : 'off'));
   };
   const tabsItem = () => [tabsOff() ? 'Show the window tabs' : 'Hide the window tabs', toggleTabs];
+  /* the icon toolbar and the function-key panel can each be hidden from View, for a calmer screen */
+  const tbOff = () => OB.prefs.get('toolbar') === false;
+  const applyTb = () => document.documentElement.classList.toggle('toolbar-off', tbOff());
+  applyTb();
+  const tbItem = () => [tbOff() ? 'Show the toolbar' : 'Hide the toolbar', () => { OB.prefs.set('toolbar', tbOff()); applyTb(); }];
+  const fkItem = () => [UI.fkeysVisible && !UI.fkeysVisible() ? 'Show the function-key panel' : 'Hide the function-key panel', () => { OB.prefs.set('fkeys', !(UI.fkeysVisible && UI.fkeysVisible())); if (UI.applyFkeys) UI.applyFkeys(); }];
   const SEP = null;
   /* [label, href or function, shortcut shown] */
   const MENUS = {
-    File: () => [['Open or switch company', click('btn-switch')], SEP, ['Backup and restore', '#/settings'], ['Import from QuickBooks', '#/migrate'], ['Import statement', '#/pdfimport'],
+    File: () => [['Open or switch company', click('btn-switch')], SEP, ['Backup and restore', '#/settings?tab=backup'], ['Import from QuickBooks', '#/migrate'], ['Import statement', '#/pdfimport'],
       ['Import', cmd('O'), 'Alt+O'], ['Export', cmd('X'), 'Alt+X'], SEP, ['Print', cmd('P'), 'Alt+P'], SEP, ['Lock company', $('btn-lock').hidden ? '' : click('btn-lock')], ['Settings', '#/settings']],
     Edit: () => [['Search or go to', () => UI.openPalette(), 'Ctrl+K'], ['Find transactions', '#/find'], SEP, ['Change the period', click('st-period'), 'Alt+F2'], ['New', click('st-new'), 'F10']],
     View: () => [['Home', '#/dashboard'], ['Gateway', '#/gateway'], ['Calendar', '#/calendar'], ['Company Snapshot', '#/snapshot'], SEP,
-      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], tabsItem(), [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
+      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], tabsItem(), tbItem(), fkItem(), [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
     Lists: () => [['Chart of accounts', '#/accounts'], ['Products & services', '#/items'], ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Classes', '#/classes'], SEP, ['Recurring', '#/recurring'], ['Bank rules', '#/rules']],
     Company: () => [['Calendar', '#/calendar'], ['Doc Center', '#/docs'], ['Budgets', '#/budgets'], SEP, ['Company Snapshot', '#/snapshot'], ['Lists and settings', () => UI.gearMenu && UI.gearMenu(), 'Ctrl+Alt+L']],
     Customers: () => [['Customers', '#/customers'], ['Invoices', '#/transactions?type=invoice'], SEP, ['Create invoice', '#/txn/new?type=invoice', 'F8'], ['Receive payment', '#/txn/new?type=payment'],
@@ -93,10 +99,10 @@
   /* ---------- icon toolbar ---------- */
   const TOOLS = [['Home', '#/dashboard'], ['Calendar', '#/calendar'], SEP, ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Payroll', '#/payroll'], SEP,
     ['Bank feed', '#/bankfeed'], ['Reconcile', '#/reconcile'], ['Close books', '#/close'], ['Reports', '#/reports'], SEP, ['Paste entries', '#/paste'], ['Docs', '#/docs'], ['Snapshot', '#/snapshot'], SEP,
-    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings']];
+    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings?tab=backup']];
   const tb = document.createElement('div');
   tb.id = 'tbar'; tb.className = 'tbar'; tb.setAttribute('role', 'toolbar'); tb.setAttribute('aria-label', 'Main toolbar'); tb.dataset.testid = 'toolbar';
-  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg');
+  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg');
     return `<a href="${x[1]}">${s ? s.outerHTML : ''}<span>${x[0]}</span></a>`; }).join('');
   topbar.insertBefore(tb, topbar.firstChild);
   const name = (h) => h.slice(2).split(/[/?]/)[0];

@@ -75,7 +75,7 @@
   K.add({ id: 'salesReceipt', key: 'Alt+F8', label: 'Sales receipt', group: 'Create', ctx: ALL, run: newTxn('salesReceipt') });
   K.add({ id: 'bill', key: 'F9', label: 'Bill', group: 'Create', ctx: ALL, run: newTxn('bill') });
   K.add({ id: 'payBills', key: 'Alt+F9', label: 'Pay bills', group: 'Create', ctx: ALL, run: newTxn('billPayment') });
-  K.add({ id: 'otherTxn', key: 'F10', label: 'All transaction types', group: 'Create', ctx: ALL, run: () => UI.newMenu() });
+  K.add({ id: 'otherTxn', key: 'F10', label: 'Create anything', group: 'Create', ctx: ALL, run: () => UI.newMenu() });
   K.add({ id: 'features', key: 'F11', label: 'Features', group: 'Company', ctx: ALL, run: () => UI.openFeatures() });
   K.add({ id: 'configure', key: 'F12', label: 'Configure', group: 'Company', ctx: ALL, run: () => UI.openConfigure() });
   K.add({ id: 'goto', key: 'Alt+G', label: 'Go To', group: 'General', ctx: ALL, panel: false, run: () => UI.openPalette() });
@@ -275,6 +275,7 @@
     m._items = items;
     const r = (btn || document.querySelector('.cmdbar') || document.body).getBoundingClientRect();
     m.style.left = Math.max(6, Math.min(r.left, innerWidth - 270)) + 'px'; m.style.top = (r.bottom + 2) + 'px';
+    m._prev = document.activeElement && !(document.activeElement.closest && document.activeElement.closest('.cmdbar')) ? document.activeElement : null;   // Esc goes back here, not to the hidden bar
     m.hidden = false; if (btn) btn.setAttribute('aria-expanded', 'true');
     const first = m.querySelector('button'); if (first) first.focus();
   }
@@ -293,7 +294,7 @@
     else if (e.key === 'ArrowUp') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
     else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
     else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const b = document.querySelector(`.cmdbar [data-menu="${m.dataset.for}"]`); closeMenus(); if (b) b.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const back = m._prev; closeMenus(); if (back && back.isConnected && back.focus) back.focus(); }
     else if (e.key === 'Tab') closeMenus();
   });
   window.addEventListener('hashchange', closeMenus);

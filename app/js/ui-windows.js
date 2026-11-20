@@ -33,7 +33,7 @@
     transactions: '<path d="M4 6h10.5M11.5 3l3 3-3 3"/><path d="M16 14H5.5M8.5 11l-3 3 3 3"/>',
     recurring: '<path d="M15.5 8A6 6 0 0 0 4.7 6.2M4.5 12a6 6 0 0 0 10.8 1.8"/><path d="M4.5 3v3.5H8M15.5 17v-3.5H12"/>',
     reports: '<path d="M10 3a7 7 0 1 0 7 7h-7z"/><path d="M12.5 2.8A5 5 0 0 1 17.2 7.5H12.5z"/>',
-    settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/>',
+    settings: '<g transform="scale(.8333)" stroke-width="1.9" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>',
     txn: '<rect x="4" y="3" width="12" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/>',
     default: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/>'
   };
@@ -61,7 +61,11 @@
   /* ---------- Helpers ---------- */
   const makeId = () => 'w' + Math.random().toString(36).slice(2, 9);
   const hashOf = (w) => w.hash || '#/gateway';
-  const findByHash = (hash) => WM.list.find((w) => w.hash === hash);
+  // one tab per page: #/settings?tab=backup reuses the Settings tab, #/gateway?m=vouchers the Gateway tab
+  // (only one-level pages: #/txn/new?type=bill never reuses a new-invoice tab)
+  const basePath = (h) => { const p = String(h || '').split('?')[0]; return /^#\/[^/]+$/.test(p) ? p : String(h || ''); };
+  const findByHash = (hash) => WM.list.find((w) => w.hash === hash) || WM.list.find((w) => basePath(w.hash) === basePath(hash));
+  const MAX_RESTORED = 10;   // tabs brought back after a reload: the Gateway, the active tab and the most recent others
   const findById = (id) => WM.list.find((w) => w.id === id);
   /* Unsaved-changes protection (BUG-002): a window action that leaves or re-renders the
      active view goes through UI.confirmLeave first, like any other navigation. Windows are
@@ -88,6 +92,7 @@
     hash = hash || '#/gateway';
     let w = findByHash(hash);
     const r = UI.parseHash.call ? parseHashLocal(hash) : parseHashLocal(hash);
+    if (w) w.hash = hash;
     if (!w) {
       w = {
         id: makeId(),
@@ -343,6 +348,7 @@
   function syncFromHash() {
     const hash = location.hash && location.hash !== '#/' ? location.hash : '#/gateway';
     let w = findByHash(hash);
+    if (w) w.hash = hash;
     if (!w) {
       // Opened from sidebar / direct nav — replace the active tab's hash (so sidebar nav doesn't flood tabs)
       // unless the active tab is pinned, then open a new tab.
@@ -432,9 +438,12 @@
     const data = load();
     if (data && data.list.length) {
       WM.list = data.list.map((w) => ({ ...w, id: w.id || makeId() }));
+      // drop duplicates of one page (older versions opened a new tab for each Settings or Gateway section)
+      WM.list = WM.list.filter((w, i, a) => a.findIndex((x) => basePath(x.hash) === basePath(w.hash)) === i || w.id === data.activeId);
+      if (WM.list.length > MAX_RESTORED) WM.list = WM.list.filter((w, i, a) => w.pinned || w.id === data.activeId || i >= a.length - (MAX_RESTORED - 2));
       WM.activeId = data.activeId && findById(data.activeId) ? data.activeId : WM.list[0].id;
       // ensure dashboard pinned entry exists first
-      if (!WM.list.some((w) => w.hash === '#/gateway' && w.pinned)) {
+      if (!WM.list.some((w) => basePath(w.hash) === '#/gateway' && w.pinned)) {
         WM.list.unshift({ id: makeId(), hash: '#/gateway', title: 'Gateway', iconKey: 'gateway', pinned: true });
       }
     } else {

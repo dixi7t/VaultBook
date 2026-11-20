@@ -2,30 +2,31 @@
  * Follows Apple's Human Interface Guidelines: system colors and grouped backgrounds, the system font, inset grouped
  * lists, a floating tab bar that only navigates, capsule buttons, sheets with a grabber. Desktop is not affected. */
 
-/* ---------- iOS tokens: applied to the whole app on phones and touch screens ---------- */
+/* ---------- iOS tokens: applied to the whole app on phones and touch screens ----------
+ * iOS layout and controls, VaultBook's own blue (the desktop accent), so both read as one product. */
 :root.m-touch, :root.m-phone {
   color-scheme: light;
   --bg: #f2f2f7; --surface: #ffffff; --surface-2: #f2f2f7; --surface-hover: #e5e5ea;
   --line: #d1d1d6; --line-subtle: #e5e5ea; --line-strong: #c7c7cc;
   --text: #000000; --text-2: #3c3c43; --text-3: #6c6c70;
-  --accent: #0066cc; --accent-hover: #0058b0; --accent-strong: #0040dd; --accent-soft: #e5f1ff; --accent-wash: #e5f1ff; --on-accent: #ffffff;
+  --accent: #2452c7; --accent-hover: #1f47ad; --accent-strong: #1d3f9c; --accent-soft: #e4ebfb; --accent-wash: #e4ebfb; --on-accent: #ffffff;
   --danger: #d70015; --danger-soft: #ffe5e7; --danger-line: #ffb3b9;
   --warning: #c93400; --warning-soft: #fff1e0; --warning-line: #ffcf99;
-  --info-soft: #e5f1ff; --info-line: #b3d7ff; --success-line: #b7e4c4;
+  --info-soft: #e4ebfb; --info-line: #b3d7ff; --success-line: #b7e4c4;
   --sidebar: #ffffff; --sidebar-2: #f2f2f7; --sidebar-line: #e5e5ea; --sidebar-text: #000000; --sidebar-text-dim: #6c6c70;
-  --sidebar-active: #e5f1ff; --sidebar-active-text: #0040dd; --on-sidebar: #0066cc;
-  --st-top: #f9f9f9; --st-top-text: #000000; --st-top-dim: #6c6c70; --st-top-hover: #e5e5ea; --st-top-line: #d1d1d6; --st-hot: #0066cc;
-  --vb-chrome: #0066cc; --vb-chrome-2: #0058b0; --vb-chrome-3: #0040dd; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #e5f1ff;
-  --vb-panel: #ffffff; --vb-panel-line: #e5e5ea; --vb-field: #ffffff; --vb-field-line: #0066cc; --vb-key-text: #000000;
+  --sidebar-active: #e4ebfb; --sidebar-active-text: #1d3f9c; --on-sidebar: #2452c7;
+  --st-top: #f9f9f9; --st-top-text: #000000; --st-top-dim: #6c6c70; --st-top-hover: #e5e5ea; --st-top-line: #d1d1d6; --st-hot: #2452c7;
+  --vb-chrome: #2452c7; --vb-chrome-2: #1f47ad; --vb-chrome-3: #1d3f9c; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #e4ebfb;
+  --vb-panel: #ffffff; --vb-panel-line: #e5e5ea; --vb-field: #ffffff; --vb-field-line: #2452c7; --vb-key-text: #000000;
   --toast-bg: #1c1c1e; --toast-error-bg: #d70015; --scrim: rgba(0, 0, 0, .4);
   --radius-s: 8px; --radius: 10px; --radius-m: 10px; --radius-l: 12px;
   --shadow-1: none;
   --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
   --fig: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  --ring: 0 0 0 3px rgba(0, 102, 204, .45);
+  --ring: 0 0 0 3px rgba(36, 82, 199, .45);
   /* iOS-only roles */
   --ios-fill: rgba(118, 118, 128, .12); --ios-fill-2: rgba(118, 118, 128, .2); --ios-sep: rgba(60, 60, 67, .29); --ios-chev: #c4c4c7;
-  --ios-bar: rgba(249, 249, 249, .82); --ios-seg-on: #ffffff; --ios-gray: #6c6c70; --ios-badge: #d70015; --ios-btn: #0066cc;
+  --ios-bar: rgba(249, 249, 249, .82); --ios-seg-on: #ffffff; --ios-gray: #6c6c70; --ios-badge: #d70015; --ios-btn: #2452c7;
   --m-in: #1e7b34; --m-out: var(--text);
 }
 :root.m-touch[data-theme="dark"], :root.m-phone[data-theme="dark"] {
@@ -33,17 +34,17 @@
   --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-hover: #3a3a3c;
   --line: #38383a; --line-subtle: #2c2c2e; --line-strong: #48484a;
   --text: #ffffff; --text-2: #d1d1d6; --text-3: #98989f;
-  --accent: #409cff; --accent-hover: #6cb4ff; --accent-strong: #6cb4ff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
+  --accent: #7fa2f5; --accent-hover: #9db8fa; --accent-strong: #b9cdff; --accent-soft: #1a2a52; --accent-wash: #1a2a52; --on-accent: #0b1530;
   --danger: #ff453a; --danger-soft: #3b1210; --danger-line: #6e211c; --warning: #ff9f0a; --warning-soft: #33240a; --warning-line: #6b4a14;
-  --info-soft: #0e2a4d; --info-line: #1d4a80; --success-line: #1f5e33;
+  --info-soft: #1a2a52; --info-line: #2c4580; --success-line: #1f5e33;
   --sidebar: #1c1c1e; --sidebar-2: #2c2c2e; --sidebar-line: #38383a; --sidebar-text: #ffffff; --sidebar-text-dim: #98989f;
-  --sidebar-active: #0e2a4d; --sidebar-active-text: #409cff; --on-sidebar: #409cff;
-  --st-top: #161618; --st-top-text: #ffffff; --st-top-dim: #98989f; --st-top-hover: #2c2c2e; --st-top-line: #38383a; --st-hot: #0a84ff;
-  --vb-chrome: #0a84ff; --vb-chrome-2: #0a84ff; --vb-chrome-3: #409cff; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #d1d1d6;
-  --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #0a84ff; --vb-key-text: #ffffff;
+  --sidebar-active: #1a2a52; --sidebar-active-text: #9db8fa; --on-sidebar: #7fa2f5;
+  --st-top: #161618; --st-top-text: #ffffff; --st-top-dim: #98989f; --st-top-hover: #2c2c2e; --st-top-line: #38383a; --st-hot: #7fa2f5;
+  --vb-chrome: #3460d6; --vb-chrome-2: #3460d6; --vb-chrome-3: #7fa2f5; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #d1d1d6;
+  --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #7fa2f5; --vb-key-text: #ffffff;
   --toast-bg: #2c2c2e; --toast-error-bg: #ff453a;
   --ios-fill: rgba(118, 118, 128, .24); --ios-fill-2: rgba(118, 118, 128, .32); --ios-sep: rgba(84, 84, 88, .65); --ios-chev: #5a5a5f;
-  --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #0071e3;
+  --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #3460d6;
   --m-in: #30d158;
 }
 @media (prefers-color-scheme: dark) {
@@ -52,17 +53,17 @@
     --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-hover: #3a3a3c;
     --line: #38383a; --line-subtle: #2c2c2e; --line-strong: #48484a;
     --text: #ffffff; --text-2: #d1d1d6; --text-3: #98989f;
-    --accent: #409cff; --accent-hover: #6cb4ff; --accent-strong: #6cb4ff; --accent-soft: #0e2a4d; --accent-wash: #0e2a4d; --on-accent: #ffffff;
+    --accent: #7fa2f5; --accent-hover: #9db8fa; --accent-strong: #b9cdff; --accent-soft: #1a2a52; --accent-wash: #1a2a52; --on-accent: #0b1530;
     --danger: #ff453a; --danger-soft: #3b1210; --danger-line: #6e211c; --warning: #ff9f0a; --warning-soft: #33240a; --warning-line: #6b4a14;
-    --info-soft: #0e2a4d; --info-line: #1d4a80; --success-line: #1f5e33;
+    --info-soft: #1a2a52; --info-line: #2c4580; --success-line: #1f5e33;
     --sidebar: #1c1c1e; --sidebar-2: #2c2c2e; --sidebar-line: #38383a; --sidebar-text: #ffffff; --sidebar-text-dim: #98989f;
-    --sidebar-active: #0e2a4d; --sidebar-active-text: #409cff; --on-sidebar: #409cff;
-    --st-top: #161618; --st-top-text: #ffffff; --st-top-dim: #98989f; --st-top-hover: #2c2c2e; --st-top-line: #38383a; --st-hot: #0a84ff;
-    --vb-chrome: #0a84ff; --vb-chrome-2: #0a84ff; --vb-chrome-3: #409cff; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #d1d1d6;
-    --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #0a84ff; --vb-key-text: #ffffff;
+    --sidebar-active: #1a2a52; --sidebar-active-text: #9db8fa; --on-sidebar: #7fa2f5;
+    --st-top: #161618; --st-top-text: #ffffff; --st-top-dim: #98989f; --st-top-hover: #2c2c2e; --st-top-line: #38383a; --st-hot: #7fa2f5;
+    --vb-chrome: #3460d6; --vb-chrome-2: #3460d6; --vb-chrome-3: #7fa2f5; --vb-on-chrome: #ffffff; --vb-on-chrome-dim: #d1d1d6;
+    --vb-panel: #1c1c1e; --vb-panel-line: #38383a; --vb-field: #1c1c1e; --vb-field-line: #7fa2f5; --vb-key-text: #ffffff;
     --toast-bg: #2c2c2e; --toast-error-bg: #ff453a;
     --ios-fill: rgba(118, 118, 128, .24); --ios-fill-2: rgba(118, 118, 128, .32); --ios-sep: rgba(84, 84, 88, .65); --ios-chev: #5a5a5f;
-    --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #0071e3;
+    --ios-bar: rgba(30, 30, 32, .78); --ios-seg-on: #636366; --ios-gray: #98989f; --ios-badge: #d70015; --ios-btn: #3460d6;
     --m-in: #30d158;
   }
 }
@@ -150,6 +151,8 @@ html.m-phone body:not(.no-company) .m-tabbar {
 
 html.m-phone body:not(.no-company) main#main { padding-bottom: calc(var(--m-tab-h) + var(--m-safe-b) + 28px); }
 html.m-phone body:not(.no-company) #toasts { bottom: calc(var(--m-tab-h) + var(--m-safe-b) + 20px); }
+/* save bars that stick to the bottom sit above the floating tab bar, not under it */
+html.m-phone body:not(.no-company) :is(.txform .form-actions, .qbi-actions, .pr-bar) { bottom: calc(var(--m-tab-h) + var(--m-safe-b) + 14px); }
 html.m-phone .window-tabs, html.m-phone .window-taskbar, html.m-phone .cmdbar, html.m-phone .fkeys, html.m-phone .fk-show,
 html.m-phone #st-gear, html.m-phone #nav-toggle, html.m-phone .st-period, html.m-phone #btn-shortcuts { display: none !important; }
 html.m-phone body:not(.no-company) .sidebar { display: none; }
@@ -161,6 +164,13 @@ html.m-phone .topbar-title { font-weight: 600; overflow: hidden; text-overflow: 
 html.m-phone .page { padding-left: 16px; padding-right: 16px; }
 html.m-phone table.data { min-width: 0; }
 html.m-phone .table-wrap, html.m-phone .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* one row that scrolls sideways: Settings tabs and the transaction-type keys never wrap into a stack */
+html.m-phone .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.m-phone .tabs::-webkit-scrollbar { display: none; }
+html.m-phone .tabs > a { flex: none; white-space: nowrap; }
+html.m-phone .vch-switch { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+html.m-phone .vch-switch::-webkit-scrollbar { display: none; }
+html.m-phone .vch-switch .vch-k { flex: none; white-space: nowrap; }
 html.m-phone .bf-accts > *, html.m-phone .bf-acct { min-width: 0; width: 100%; }
 html.m-phone .drawer, html.m-phone .modal, html.m-phone dialog { max-width: 100vw; }
 

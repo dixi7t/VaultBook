@@ -377,6 +377,7 @@
     var c = U.clone(this.company);
     ['name', 'legalName', 'ein', 'address', 'email', 'phone'].forEach(function (k) { if (input[k] !== undefined) c[k] = String(input[k]); });
     if (!String(c.name).trim()) return Promise.reject(LedgerError('Company name is required.', 'name'));
+    if (input.name !== undefined && String(c.name).length > 120) return Promise.reject(LedgerError('Keep the company name to 120 characters or fewer.', 'name'));
     if (input.basis) c.basis = input.basis === 'cash' ? 'cash' : 'accrual';
     if (input.fiscalYearStartMonth) {
       var m = +input.fiscalYearStartMonth; if (m < 1 || m > 12) return Promise.reject(LedgerError('Invalid fiscal year start month.'));

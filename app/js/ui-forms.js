@@ -104,7 +104,7 @@
     let updateRate = false; // CPA-02: "Update to current rate" was chosen
     const readOnly = existing && existing.status === 'void';
     const clientToken = U.uid('form');
-    const title = (existing ? '' : 'New ') + def.label + (existing && existing.number ? ' ' + existing.number : '');
+    const title = def.label + (existing && existing.number ? ' ' + existing.number : '');   // same title rule as the invoice form
     const isApply = !!def.applies;
     const amountType = def.special && d.type !== 'journal';
     const headTypes = S.HEAD_ACCOUNT_TYPES[d.type];
@@ -127,7 +127,9 @@
     }
     const locked = readOnly || (existing && existing.splits.some((s) => s.cleared === 'R'));
 
-    const headField = headTypes ? `<label class="field"><span>${HEAD_LABEL[d.type] || 'Account'}</span><select name="accountId" required>${UI.accountOptions(d.accountId, (a) => headTypes.indexOf(a.type) >= 0)}</select></label>` : '';
+    // money is deposited to a bank or Undeposited Funds, not to Inventory Asset or Prepaid Expenses (a saved choice stays listed)
+    const headOk = (a) => headTypes.indexOf(a.type) >= 0 && (a.type !== 'oca' || a.system === 'UNDEP' || a.id === d.accountId || (b.bankLines || []).some((l) => l.accountId === a.id));   // an asset used like a bank (PayPal clearing) has bank lines
+    const headField = headTypes ? `<label class="field"><span>${HEAD_LABEL[d.type] || 'Account'}</span><select name="accountId" required>${UI.accountOptions(d.accountId, headOk)}</select></label>` : '';
     const contactLabel = contactKind === 'customer' ? 'Customer' : contactKind === 'vendor' ? 'Vendor' : 'Payee';
     const contactField = contactKind ? `<label class="field"><span>${contactLabel}${contactKind === 'any' ? ' (optional)' : ''}</span>
       ${UI.comboHtml('contact', contactKind === 'any' ? 'any' : contactKind, d.contactId, 'name="contactId"', { placeholder: 'Type a ' + contactLabel.toLowerCase() + ' name…', label: contactLabel })}</label>` : '';
@@ -173,9 +175,7 @@
           ${existing && def.nonPosting && existing.status === 'open' ? `<button type="button" class="btn primary" data-act="convert" data-testid="convert">Create ${esc(S.TXN_TYPES[def.convertsTo].label.toLowerCase())}</button>` : ''}
           ${existing && def.nonPosting && existing.status !== 'void' ? `<button type="button" class="btn" data-act="docstatus" data-to="${existing.status === 'open' ? 'closed' : 'open'}">${existing.status === 'open' ? 'Mark as closed' : 'Reopen'}</button>` : ''}${existing && existing.status === 'posted' && d.type === 'invoice' ? `<button type="button" class="btn" id="tx-iif-one" data-testid="iif-one" data-id="${esc(existing.id)}">QuickBooks .iif</button>` : ''}
           ${existing ? moreMenu(existing, locked) : ''}
-          <button type="button" class="btn ghost" data-act="close" data-key="l,o">Close</button>
-          ${!locked ? `<button type="submit" class="btn${existing ? ' primary' : ''}" data-after="view" data-key="s">${existing ? 'Save changes' : 'Save'}</button>
-            ${!existing ? '<button type="submit" class="btn primary" data-after="new" data-key="e,d">Save &amp; New</button>' : ''}` : ''}
+          ${saveButtons(existing, locked)}
         </div>
       </form>
       ${existing ? relatedHtml(existing) : ''}`, existing ? { html: meta } : '');
@@ -218,6 +218,10 @@
     let creditState = {}; // CPA-06: credit txnId -> { use: string amount, target: txnId }
     let discState = {}; // CPA-13: document id -> true when the early-payment discount is taken
     (d.applications || []).forEach((a) => { appState[a.txnId] = U.fmtPlain(a.amount); });
+    // A new payment applies the amount typed to the oldest open documents, as QuickBooks does,
+    // until the user picks or types applications themselves.
+    const AUTO_APPLY = !existing && (d.type === 'payment' || d.type === 'billPayment');
+    let manualApply = false;
 
     /* ---- gather draft from form ---- */
     function gather() {
@@ -412,6 +416,16 @@
       });
       renderApply(); renderCredits(); updateTotals();
     }
+    /** Spread the typed amount over the open documents, oldest first. Leaves the amount field alone. */
+    function applyTyped() {
+      let remaining = safeC(g('amount').value) || 0;
+      appState = {};
+      b.openDocs(d.type, g('contactId').value, '').forEach((t) => {
+        const a = Math.min(b.openBalance(t) - creditUse(t.id), remaining);
+        if (a > 0) { appState[t.id] = U.fmtPlain(a); remaining -= a; }
+      });
+      renderApply();
+    }
 
     /* ---- events ---- */
     // choosing a product/service fills the line: account, description, rate (and amount when a quantity is known)
@@ -450,7 +464,8 @@
         const st = creditState[t.dataset.crUse] = creditState[t.dataset.crUse] || { use: '', target: (form.querySelector(`[data-cr-target="${t.dataset.crUse}"]`) || {}).value || '' };
         st.use = t.value; const cb = form.querySelector(`[data-cr-pick="${t.dataset.crUse}"]`); if (cb) cb.checked = !!safeC(t.value);
       }
-      if (t.name === 'amount') t.dataset.touched = '1';
+      if (t.name === 'amount') { t.dataset.touched = '1'; if (AUTO_APPLY && !manualApply && g('contactId').value) applyTyped(); }
+      if (t.dataset.app && e.isTrusted) manualApply = true;
       if (t.dataset.f === 'debit' && t.value) t.closest('tr').querySelector('[data-f="credit"]').value = '';
       if (t.dataset.f === 'credit' && t.value) t.closest('tr').querySelector('[data-f="debit"]').value = '';
       updateTotals();
@@ -478,7 +493,9 @@
         const addr = el.querySelector('#qbi-addr'); if (addr) addr.innerHTML = billToHtml(c);
         if (g('taxId') && c) { const tid = UI.defaultTaxFor(c); if ([...g('taxId').options].some((o) => o.value === tid)) g('taxId').value = tid; }
         billBtn();
-        appState = {}; renderApply(); updateTotals();
+        appState = {}; manualApply = false;
+        if (AUTO_APPLY && g('amount').dataset.touched) applyTyped(); else renderApply();
+        updateTotals();
       }
       if (t.dataset.f === 'taxable' || t.name === 'taxId') updateTotals();
       // "Print later": the check gets its number when printed (Print checks), so the number field is cleared
@@ -501,12 +518,14 @@
       }
       if (t.dataset.disc) {
         // taking the discount: the payment applies the rest of the open balance
+        manualApply = true;
         if (t.checked) discState[t.dataset.disc] = true; else delete discState[t.dataset.disc];
         const inp = form.querySelector(`[data-app="${t.dataset.disc}"]`), dv = b.discountAvailable(t.dataset.disc, g('date').value).amount;
         if (inp && t.checked) { inp.value = U.fmtPlain(Math.max(0, +inp.dataset.open - dv)); inp.dispatchEvent(new Event('input', { bubbles: true })); }
         UI.dirty = true;
       }
       if (t.dataset.pick) {
+        manualApply = true;
         const inp = form.querySelector(`[data-app="${t.dataset.pick}"]`);
         if (t.checked) {
           let open = +inp.dataset.open;
@@ -613,6 +632,12 @@
       if (errs.length) { showErrors(errs); UI.setStatus('failed', hadField ? 'Fix the highlighted fields.' : 'Fix the problems listed at the top.'); return Promise.resolve(false); }
       const dups = existing ? [] : b.findDuplicates(norm);
       const warns = b.warnings(Object.assign({}, norm, { id: existing ? existing.id : '' }), existing); // CPA-15–18, CPA-08
+      // money left unapplied while documents are still open becomes a credit: say so before saving
+      if (AUTO_APPLY && g('amount')) {
+        const left = (safeC(g('amount').value) || 0) - appliedSum();
+        const openLeft = U.sum(b.openDocs(d.type, g('contactId').value, ''), (t) => b.openBalance(t) - (safeC(appState[t.id]) || 0));
+        if (left > 0 && openLeft > 0) warns.push({ message: `${U.fmt(left, { symbol: true })} is not applied to any ${d.type === 'payment' ? 'invoice' : 'bill'}. It will be kept as a credit on ${(b.contactById[g('contactId').value] || {}).name ? b.contactById[g('contactId').value].name + '’s' : 'this ' + contactKind + '’s'} account.` });
+      }
       const dupHtml = dups.length ? `<p>A ${esc(def.label.toLowerCase())} with the same date, amount${norm.contactId ? ' and name' : ''} already exists:</p><ul>${dups.slice(0, 5).map((x) => `<li>${UI.txnLink(x)} — ${U.fmtDate(x.date)} — ${U.fmt(x.total, { symbol: true })}</li>`).join('')}</ul>` : '';
       const warnHtml = warns.length ? `<ul data-testid="save-warnings">${warns.map((w) => `<li>${esc(w.message)}</li>`).join('')}</ul>` : '';
       const go = dups.length || warns.length ? UI.confirm(dups.length ? 'Possible duplicate' : 'Check before saving', `${dupHtml}${warnHtml}<p>Save this one anyway?</p>`, { ok: 'Save anyway' }) : Promise.resolve(true);
@@ -806,7 +831,7 @@
       <div class="qbi-bar"><div class="qbi-cust">${contactField.replace('<span>Customer</span>', '<span>Customer:Job</span>')}</div>${classField ? `<div class="qbi-cls">${classField.replace(/<span>Class[^<]*<\/span>/, '<span>CLASS</span>')}</div>` : ''}</div>
       <div class="qbi-sheet">
         <div class="qbi-head">
-          <div class="qbi-title"><h1>${esc(def.label)}</h1>${existing ? '<a href="#" data-meta="history">See History</a>' : ''}${existing ? ` <span class="qbi-status">${UI.statusBadge(existing)}</span>` : ''}</div>
+          <div class="qbi-title"><h1>${esc(def.label + (existing && existing.number ? ' ' + existing.number : ''))}</h1>${existing ? '<a href="#" data-meta="history">See History</a>' : ''}${existing ? ` <span class="qbi-status">${UI.statusBadge(existing)}</span>` : ''}</div>
           <div class="qbi-fields">
             <label class="qbi-f"><span>DATE</span><input type="date" name="date" value="${esc(d.date)}" required></label>
             <label class="qbi-f"><span>${esc(def.label.toUpperCase())} #</span><input name="number" value="${esc(d.number || '')}" maxlength="30" placeholder="Auto"></label>
@@ -833,11 +858,22 @@
         </div>
         <div class="qbi-actions">
           <span class="form-status" aria-live="off"></span><span class="spacer"></span>
-          ${!locked ? `<button type="submit" class="btn" data-after="close" data-key="s">Save &amp; Close</button><button type="submit" class="btn primary" data-after="new" data-key="e,d">Save &amp; New</button><button type="button" class="btn" data-act="revert">Revert</button>` : `<button type="button" class="btn" data-act="close" data-key="l,o">Close</button>`}
+          ${saveButtons(existing, locked)}
         </div>
       </div>
       </fieldset>
     </form>`;
+  }
+
+  /** The same save buttons, in the same order, on every transaction form:
+   *  Close · Clear (new) or Revert (saved) · Save · Save & New. The primary button is Save & New on a new form
+   *  and Save changes on a saved one. */
+  function saveButtons(existing, locked) {
+    const close = '<button type="button" class="btn ghost" data-act="close" data-key="l,o">Close</button>';
+    if (locked) return close;
+    return close + `<button type="button" class="btn" data-act="revert">${existing ? 'Revert' : 'Clear'}</button>`
+      + `<button type="submit" class="btn${existing ? ' primary' : ''}" data-after="view" data-key="s">${existing ? 'Save changes' : 'Save'}</button>`
+      + `<button type="submit" class="btn${existing ? '' : ' primary'}" data-after="new" data-key="e,d">Save &amp; New</button>`;
   }
 
   function relatedHtml(t) {

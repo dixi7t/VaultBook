@@ -24,11 +24,11 @@
     return {
       root: { title: 'Gateway of VaultBook', sections: [
         { caption: 'Masters', items: [
-          { label: 'Create', hot: 'c', sub: 'create' },
-          { label: 'Alter', hot: 'a', sub: 'alter' }] },
+          { label: 'Create', hot: 'c', sub: 'create', hint: 'new accounts, customers, items' },
+          { label: 'Alter', hot: 'a', sub: 'alter', hint: 'change accounts, customers, items' }] },
         { caption: 'Transactions', items: [
-          { label: 'Vouchers', hot: 'v', sub: 'vouchers' },
-          { label: 'Day Book', hot: 'k', run: go('#/transactions') }] },
+          { label: 'Vouchers', hot: 'v', sub: 'vouchers', hint: 'enter invoices, bills, payments' },
+          { label: 'Day Book', hot: 'k', run: go('#/transactions'), hint: 'every transaction, by date' }] },
         { caption: 'Banking', items: [
           { label: 'Banking', hot: 'n', sub: 'banking' }] },
         { caption: 'Reports', items: [
@@ -156,7 +156,7 @@
       <div class="gw-menu-wrap"><nav class="gw-menu" aria-label="${esc(menu.title)}" data-menu="${key}">
         <div class="gw-title">${key === 'root' ? '' : '<span class="gw-crumb">Gateway ›</span> '}${esc(menu.title)}</div>
         <div role="menu" aria-label="${esc(menu.title)}">${menu.sections.map((s) => `<div class="gw-sec" role="group" aria-label="${esc(s.caption)}"><div class="gw-cap">${esc(s.caption)}</div>
-          ${s.items.map((it) => { const i = flat.indexOf(it); return `<button type="button" role="menuitem" class="gw-item" data-i="${i}" tabindex="-1"${it.hotKey ? ` aria-keyshortcuts="${esc(it.hotKey.toUpperCase())}"` : ''}><span class="gw-l">${labelHtml(it)}${it.sub ? ' <span class="gw-more" aria-hidden="true">›</span>' : ''}</span>${it.key ? `<kbd>${esc(UI.keys ? UI.keys.display(it.key) : it.key)}</kbd>` : ''}</button>`; }).join('')}</div>`).join('')}
+          ${s.items.map((it) => { const i = flat.indexOf(it); return `<button type="button" role="menuitem" class="gw-item" data-i="${i}" tabindex="-1"${it.hotKey ? ` aria-keyshortcuts="${esc(it.hotKey.toUpperCase())}"` : ''}><span class="gw-l">${labelHtml(it)}${it.hint ? ` <span class="gw-hint">${esc(it.hint)}</span>` : ''}${it.sub ? ' <span class="gw-more" aria-hidden="true">›</span>' : ''}</span>${it.key ? `<kbd>${esc(UI.keys ? UI.keys.display(it.key) : it.key)}</kbd>` : ''}</button>`; }).join('')}</div>`).join('')}
         </div>${key !== 'root' ? '<button type="button" class="gw-back" data-back>Esc · Back to Gateway</button>' : ''}</nav></div>
     </div></div>`;
     const items = [...el.querySelectorAll('.gw-item')];

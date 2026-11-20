@@ -33,6 +33,7 @@ html[data-window-layout="both"] .app, html[data-window-layout="taskbar"] .app { 
 .sb-f { display: flex; flex-direction: column; gap: .18rem; font-size: var(--fs-caption); color: var(--text-2); font-weight: 600; }
 .sb-f > span { white-space: nowrap; }
 .sb-f select, .sb-f input, .sb-f .sb-select { min-width: 7.5rem; font-weight: 400; padding-top: .3rem; padding-bottom: .3rem; font-size: var(--fs-callout); }
+.sb-f select { padding-right: 2rem; text-overflow: ellipsis; }   /* the text stops before the arrow */
 .sb-f input[type=date] { min-width: 8rem; }
 .sb-f .sb-select { min-width: 10rem; }
 .sb-f .seg button { padding: .24rem .75rem; }
@@ -145,7 +146,7 @@ table.sb-table td.c-good { color: var(--success); font-weight: 650; }
 .sb-report.d-compact table.sb-table td { padding-top: .26rem; padding-bottom: .26rem; }
 
 /* ---------- Customize drawer ---------- */
-.sb-drawer-back { position: fixed; inset: 0; background: var(--scrim); z-index: 46; display: flex; justify-content: flex-end; }
+.sb-drawer-back { position: fixed; inset: 0; background: var(--scrim); z-index: 141; display: flex; justify-content: flex-end; }
 .sb-drawer { width: min(400px, 100%); height: 100%; background: var(--surface); box-shadow: var(--shadow-3); display: flex; flex-direction: column; animation: drawer-in .18s ease-out; }
 .sb-drawer > header { display: flex; align-items: center; justify-content: center; position: relative; padding: 1rem 1.2rem .6rem; }
 .sb-drawer > header h2 { margin: 0; font-size: var(--fs-headline); }

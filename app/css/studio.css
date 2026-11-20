@@ -48,7 +48,7 @@
   --st-card-shadow: none; --ring: 0 0 0 2px rgba(127, 162, 245, .6); } }
 
 /* ---------- 1.51.0 menu bar (File ... Help) and icon toolbar ---------- */
-.no-company .mbar, .no-company .tbar { display: none; }
+.no-company .mbar, .no-company .tbar, .no-company .topbar > .tbar, .no-company #vi-btn, .no-company #st-bmbtn { display: none; }   /* no company yet: nothing to go to or ask about */
 .mbar { position: relative; z-index: 70; flex: none; display: flex; align-items: center; gap: 1px; height: 30px; padding: 0 .5rem; background: var(--surface); border-bottom: 1px solid var(--line); font-size: .86rem; }
 .mb-item { position: relative; }
 .mb-top { height: 24px; padding: 0 .55rem; border: 0; border-radius: 3px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
@@ -70,7 +70,8 @@
 /* the K/Y/O/X/P menus are now under File; the bar stays in the page (out of sight) so its Alt keys and menus keep working */
 .st-period kbd { display: none; }
 .topbar .cmdbar { position: absolute; left: .5rem; top: 0; width: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
-@media (max-width: 760px) { .mbar, .topbar > .tbar { display: none; } }   /* phones keep the slide-in side menu */
+@media (max-width: 760px) { .mbar, .topbar > .tbar { display: none; } }
+.toolbar-off .topbar > .tbar { display: none; }   /* View › Hide the toolbar */   /* phones keep the slide-in side menu */
 
 /* ---------- top bar: white, search field, period, + New ---------- */
 .topbar { height: 54px; padding: 0 .75rem 0 .5rem; gap: .5rem; background: var(--st-top); color: var(--st-top-text); border-bottom: 1px solid var(--st-top-line); }
@@ -112,6 +113,9 @@
 .cmd-menu { border-radius: 4px; padding: 6px; border-color: var(--line); }
 .cmd-menu button { border-radius: 3px; padding: .45rem .7rem; }
 .save-status { color: var(--text-3); }
+/* the save pill has a fixed slot on desktop, so toolbar buttons never drop out when it appears */
+@media (min-width: 761px) { .topbar .save-status { flex: 0 0 9.5rem; max-width: 9.5rem; justify-content: center; text-overflow: ellipsis; }
+  .topbar .save-status:empty { display: inline-flex; visibility: hidden; } }
 
 /* window tabs and taskbar: light strip */
 .window-tabs { background: var(--st-top) !important; border-bottom: 1px solid var(--st-top-line) !important; min-height: 30px; padding: 0 .5rem; }
@@ -122,6 +126,7 @@
 .window-tabs .win-ctl { background: transparent; }
 .window-tabs .win-ctl-b { color: var(--text-2); border-radius: 4px; }
 .window-tabs .win-ctl-b:hover, .window-tabs .win-ctl-b:focus-visible { background: var(--st-top-hover); border-color: var(--line); }
+.window-tabs .win-ctl-b:focus-visible, .win-close:focus-visible, .win-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .window-taskbar { background: var(--st-top) !important; border-top-color: var(--st-top-line) !important; }
 
 /* ---------- side menu: A's white rail with icons ---------- */
@@ -378,6 +383,7 @@ table.statement th { text-transform: uppercase; letter-spacing: .03em; font-weig
 .st-gear-pop h3 { margin: 0 0 .35rem; padding: 0 .5rem; font-size: max(11px, .74rem); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3, var(--text-2)); }
 .st-gear-pop a, .st-gear-pop button { display: block; width: 100%; text-align: left; padding: .45rem .5rem; border: 0; border-radius: 3px; background: none; color: var(--text); font: inherit; font-size: .9rem; text-decoration: none; cursor: pointer; }
 .st-gear-pop a:hover, .st-gear-pop button:hover, .st-gear-pop a:focus-visible, .st-gear-pop button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.st-gear-pop a:focus-visible, .st-gear-pop button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 760px) { .st-gear-pop { grid-template-columns: 1fr 1fr; } }
 
 @media (min-width: 761px) {
@@ -697,3 +703,7 @@ table.sb-table tr.r-grand td, table.sb-table tr.r-grand-bs td { font-size: 1.08e
 .vi-form input { flex: 1; min-width: 0; height: 30px; }
 @media (max-width: 1100px) { .vi { position: fixed; right: 0; top: 44px; bottom: 0; z-index: 30; width: min(380px, 100vw); } }
 @media print { .vi { display: none !important; } }
+/* dashboard: first steps for a new company */
+.st-setup { list-style: none; margin: 0; padding: 0; }
+.st-setup li.done .st-task span { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.st-setup li.done .st-task b { color: var(--accent); }

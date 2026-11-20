@@ -247,7 +247,7 @@
       const list = b.attachmentsFor(ownerId);
       sec.innerHTML = `<div class="card-head"><h2>Attachments${list.length ? ' (' + list.length + ')' : ''}</h2><span><a class="btn small ghost" href="#/docs">Doc Center</a> <label class="btn small">Attach file…<input type="file" data-testid="attach-file" hidden multiple></label></span></div>
         ${list.length ? `<table class="data compact"><tbody>${list.map((a) => `<tr><td><a href="#" data-open="${esc(a.id)}">${esc(a.name)}</a></td><td class="muted">${esc(kb(a.size))}</td><td class="muted">${esc(new Date(a.addedAt).toLocaleDateString())}</td><td class="actions-cell"><button type="button" class="btn ghost small" data-rm="${esc(a.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`
-          : '<p class="muted small">Keep the receipt, bill or contract with this transaction. Files (up to 4 MB each) are stored in this company and its backups.</p>'}`;
+          : `<p class="muted small">Keep the ${b.txById[ownerId] ? 'receipt, bill or contract with this transaction' : (b.contactById && b.contactById[ownerId] ? 'contracts, W-9s and other papers for this ' + (b.contactById[ownerId].kind === 'vendor' ? 'vendor' : 'customer') : 'related files here')}. Files (up to 4 MB each) are stored in this company and its backups.</p>`}`;
       sec.querySelector('[data-testid=attach-file]').addEventListener('change', (e) => {
         const files = [...e.target.files];
         files.reduce((p, f) => p.then(() => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(f); })

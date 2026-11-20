@@ -345,7 +345,7 @@
   var OB = root.OB = root.OB || {};
   var S = OB.schema = {};
 
-  S.APP_VERSION = '1.55.2';
+  S.APP_VERSION = '1.56.0';
   S.DATA_VERSION = 8;        // company data schema version (see migrations below)
   S.BACKUP_FORMAT = 'OfflineBooksUS-Backup';
 
@@ -494,7 +494,7 @@
     var U = OB.util;
     return {
       id: U.uid('co'),
-      name: opts.name || 'My Company',
+      name: String(opts.name || '').trim().slice(0, 120) || 'My Company',
       legalName: opts.legalName || '',
       ein: opts.ein || '',
       address: opts.address || '',
@@ -1126,6 +1126,7 @@
     var c = U.clone(this.company);
     ['name', 'legalName', 'ein', 'address', 'email', 'phone'].forEach(function (k) { if (input[k] !== undefined) c[k] = String(input[k]); });
     if (!String(c.name).trim()) return Promise.reject(LedgerError('Company name is required.', 'name'));
+    if (input.name !== undefined && String(c.name).length > 120) return Promise.reject(LedgerError('Keep the company name to 120 characters or fewer.', 'name'));
     if (input.basis) c.basis = input.basis === 'cash' ? 'cash' : 'accrual';
     if (input.fiscalYearStartMonth) {
       var m = +input.fiscalYearStartMonth; if (m < 1 || m > 12) return Promise.reject(LedgerError('Invalid fiscal year start month.'));
@@ -13078,7 +13079,7 @@
     opts = opts || {};
     c = c || 0;
     if (opts.blankZero && !c) return '';
-    const cls = 'amt' + (c < 0 ? ' neg' : '') + (opts.strong ? ' strong' : '');
+    const cls = 'amt' + (c < 0 && !opts.contra ? ' neg' : '') + (opts.strong ? ' strong' : '');   // contra: a negative balance that is normal (accumulated depreciation), not shown in red
     return `<span class="${cls}">${U.fmt(c, { parens: opts.parens !== false, symbol: !!opts.symbol })}</span>`;
   };
   UI.date = (d) => esc(U.fmtDate(d));
@@ -13159,6 +13160,11 @@
     const i = a.key && !(a.primary && /^Save\b/.test(a.label)) ? a.label.toLowerCase().indexOf(a.key.toLowerCase()) : -1;
     return i < 0 ? esc(a.label) : '<span class="mn-wrap">' + esc(a.label.slice(0, i)) + '<u class="mn">' + esc(a.label.charAt(i)) + '</u>' + esc(a.label.slice(i + 1)) + '</span>';
   };
+  /** While a dialog is open the app behind it is inert: no focus, clicks or screen-reader reading. */
+  UI._shellInert = (on) => {
+    const open = document.querySelectorAll('.modal-backdrop').length;
+    document.querySelectorAll('body > .skip, body > .app, body > .window-taskbar').forEach((x) => { if (on || !open) x.inert = !!(on || open); });
+  };
   UI.modal = (o) => new Promise((resolve) => {
     const back = document.createElement('div');
     back.className = 'modal-backdrop';
@@ -13169,10 +13175,29 @@
       <div class="modal-actions">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''} ${a.danger ? 'danger' : ''}" data-i="${i}"${a.primary && /^Save\b/.test(a.label) ? ' data-key="s"' : ''}>${mnLabel(a)}</button>`).join('')}</div>
     </div>`;
     document.body.appendChild(back);
+    UI._shellInert(true);
     const prevFocus = document.activeElement;
-    const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); };
+    let edited = false;   // typed into this dialog: Esc and a click outside ask before throwing it away
+    back.addEventListener('input', (e) => { if (e.target.type !== 'search') edited = true; });   // a search or filter box is not data
+    const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey); UI._shellInert(false); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); };
+    const dismiss = () => {
+      if (o.locked) return;
+      // only a real form asks (two or more fields); a one-line prompt or a filter just closes
+      if (!edited || back.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=search]), textarea').length < 2) return close(null);
+      UI.confirm('Discard what you typed?', '<p>Closing this window throws away what you entered.</p>', { ok: 'Discard', cancel: 'Keep editing' }).then((yes) => { if (yes) close(null); });
+    };
+    const top = () => { const all = document.querySelectorAll('.modal-backdrop'); return all[all.length - 1] === back; };
     const onKey = (e) => {
-      if (e.key === 'Escape' && !o.locked) return close(null);
+      if (!top()) return;   // only the topmost dialog answers keys
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return dismiss(); }
+      if (e.key === 'Tab') {   // keep focus inside the dialog
+        const fs = [...back.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null || x === document.activeElement);
+        if (!fs.length) { e.preventDefault(); return; }
+        const i = fs.indexOf(document.activeElement);
+        if (e.shiftKey && i <= 0) { e.preventDefault(); fs[fs.length - 1].focus(); }
+        else if (!e.shiftKey && (i === -1 || i === fs.length - 1)) { e.preventDefault(); fs[0].focus(); }
+        return;
+      }
       const btns = [...back.querySelectorAll('.modal-actions [data-i], .modal [data-i]')], at = btns.indexOf(document.activeElement);
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && at >= 0) { e.preventDefault(); btns[(at + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length].focus(); return; }
       const typingIn = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
@@ -13181,7 +13206,7 @@
     };
     document.addEventListener('keydown', onKey);
     back.addEventListener('click', (e) => {
-      if (e.target === back) return o.locked ? null : close(null);
+      if (e.target === back) return dismiss();
       const btn = e.target.closest('[data-i]');
       if (!btn) return;
       const a = actions[+btn.dataset.i];
@@ -13194,7 +13219,7 @@
     });
     if (o.onMount) o.onMount(back.querySelector('.modal'), close);
     const f = back.querySelector('input,select,textarea') || back.querySelector('.btn.primary') || back.querySelector('.btn');
-    if (f) f.focus();
+    if (f) f.focus({ preventScroll: true });   // a long dialog opens at its top, even when focus starts on a button at the bottom
   });
   /** Side panel for secondary information (journal, history) — opened on request, closes with Esc. */
   UI.drawer = (o) => {
@@ -13214,7 +13239,7 @@
   window.addEventListener('hashchange', () => document.querySelectorAll('.drawer-backdrop').forEach((x) => x.remove()));
   UI.confirm = (title, html, opts) => {
     opts = opts || {};
-    return UI.modal({ title, html, actions: [{ label: 'Cancel', value: false }, { label: opts.ok || 'Continue', value: true, primary: !opts.danger, danger: !!opts.danger }] }).then((v) => !!v);
+    return UI.modal({ title, html, actions: [{ label: opts.cancel || 'Cancel', value: false }, { label: opts.ok || 'Continue', value: true, primary: !opts.danger, danger: !!opts.danger }] }).then((v) => !!v);
   };
   UI.prompt = (title, label, value, opts) => {
     opts = opts || {};
@@ -13285,6 +13310,10 @@
     if (UI._saving) return Promise.resolve(false);
     UI._saving = true;
     UI.setStatus('saving');
+    // the reason a save failed is shown inside the form too, next to the field it names
+    const form = btn && btn.closest ? btn.closest('form') : null;
+    const clearInline = () => { if (!form) return; form.querySelectorAll('.save-error').forEach((x) => x.remove()); form.querySelectorAll('[aria-invalid="true"][data-save-invalid]').forEach((x) => { x.removeAttribute('aria-invalid'); x.removeAttribute('data-save-invalid'); }); };
+    clearInline();
     return UI.busy(btn, fn).then((res) => {
       if (res === false) return false;
       UI.dirty = false;
@@ -13292,7 +13321,16 @@
       return true;
     }, (e) => {
       console.error(e);
-      UI.setStatus('failed', (e && e.message ? e.message : String(e)) + ' Nothing was saved and your entries are still here.');
+      const msg = e && e.message ? e.message : String(e);
+      UI.setStatus('failed', msg + ' Nothing was saved and your entries are still here.');
+      if (form) {
+        const box = document.createElement('div');
+        box.className = 'banner danger save-error span2'; box.setAttribute('role', 'alert'); box.dataset.testid = 'save-error';
+        box.textContent = msg + ' Nothing was saved.';
+        form.prepend(box);
+        const f = e && e.field && form.querySelector(`[name="${CSS.escape(e.field)}"]`);
+        if (f) { f.setAttribute('aria-invalid', 'true'); f.dataset.saveInvalid = '1'; f.focus(); }
+      }
       return false;
     }).finally(() => { UI._saving = false; });
   };
@@ -13463,7 +13501,8 @@
     if (!UI.book) { document.body.classList.add('no-company'); document.getElementById('topbar-title').textContent = ''; return UI.routes.companies(main, {}); }
     document.body.classList.remove('no-company');
     const r = UI.parseHash();
-    const fn = UI.routes[r.name] || UI.routes.gateway;
+    const known = Object.prototype.hasOwnProperty.call(UI.routes, r.name);
+    const fn = known ? UI.routes[r.name] : UI.routes.gateway;
     UI.current = r;
     // A link with a query (Invoices = transactions?type=invoice) wins over the bare route link.
     const navLinks = Array.from(document.querySelectorAll('.nav a'));
@@ -13486,6 +13525,7 @@
     UI.applyFeatures();
     try {
       const res = fn(main, r);
+      if (!known) UI.toast('There is no page at that address, so the Gateway is shown instead.');
       if (res && res.catch) res.catch(UI.error);
     } catch (e) {
       main.innerHTML = `<div class="page"><div class="banner danger"><strong>Something went wrong showing this page.</strong><br>${esc(e.message)}</div></div>`;
@@ -14091,7 +14131,7 @@
               <label class="field"><span>Accounting basis</span><select name="basis"><option value="accrual">Accrual</option><option value="cash">Cash</option></select></label>
               <label class="field"><span>Fiscal year starts</span><select name="fiscalYearStartMonth">${MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select></label>
               <label class="field"><span>EIN (optional)</span><input name="ein" maxlength="20" placeholder="12-3456789"></label>
-              <label class="field"><span>Currency</span><input value="USD — US dollar" disabled></label>
+              <div class="field"><span>Currency</span><p class="field-static">US dollar (USD)</p></div>
               <div class="span2 row gap"><button class="btn primary" type="submit">Create company</button>
               <label class="check"><input type="checkbox" name="sample"> Add sample data to explore</label>
               <label class="check"><input type="checkbox" name="qb" data-testid="newco-qb"> Bring in my books from QuickBooks next</label></div>
@@ -14101,8 +14141,8 @@
         </div>
         <section class="card note">
           <h2>Where your data lives</h2>
-          <p>Books are saved in this browser's private storage on this PC (IndexedDB), for the Windows user and browser profile you're using now.
-          Clearing browsing data for "files", using an InPrivate/Incognito window, or switching browsers means you won't see the data.
+          <p>Books are saved in this browser's private storage on this device (IndexedDB), for the user account and browser profile you're using now.
+          Clearing this site's data, using a private window, or switching browsers means you won't see the data.
           <strong>Download a backup file regularly</strong> (Settings → Backup) and keep copies somewhere safe.</p>
         </section>
       </div>`;
@@ -14118,6 +14158,9 @@
             return UI.openCompany(book.company.id);
           }))).catch(UI.error);
       });
+      // sample data and a QuickBooks import exclude each other: ticking one clears the other
+      const nf = el.querySelector('#newco');
+      nf.addEventListener('change', (e) => { const o = { sample: 'qb', qb: 'sample' }[e.target.name]; if (o && e.target.checked) nf.querySelector(`[name="${o}"]`).checked = false; });
       el.querySelector('#restore-file').addEventListener('change', (e) => UI.restoreFlow(e.target.files[0], null));
       el.querySelector('#qb-newco').addEventListener('change', (e) => {
         const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
@@ -14133,11 +14176,17 @@
     UI.modal({
       title: 'Delete company',
       html: `<p>This permanently deletes <strong>${esc(name)}</strong> and all of its transactions from this browser. It cannot be undone.</p>
-        <p>Make sure you have a backup. Type the company name to confirm:</p><input id="delname" autocomplete="off">`,
-      actions: [{ label: 'Cancel', value: null }, { label: 'Delete permanently', danger: true, collect: (m) => m.querySelector('#delname').value }]
+        <p>Make sure you have a backup first.</p>
+        <label class="field"><span>Type the company name to confirm</span><input id="delname" autocomplete="off" aria-describedby="delname-msg"></label>
+        <p id="delname-msg" class="warn-text small" role="alert" hidden></p>`,
+      actions: [{ label: 'Cancel', value: null }, { label: 'Delete permanently', danger: true, collect: (m) => {
+        const inp = m.querySelector('#delname'), msg = m.querySelector('#delname-msg');
+        if (inp.value.trim() === name) return inp.value.trim();
+        msg.textContent = `Type ${name} exactly as shown to delete it.`; msg.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus();
+        return false;   // the dialog stays open
+      } }]
     }).then((v) => {
-      if (v === null) return;
-      if (v.trim() !== name) { UI.toast('The name did not match. Nothing was deleted.', 'error'); return; }
+      if (v === null || v !== name) return;
       return OB.db.deleteCompany(id).then(() => { UI.toast('Company deleted.'); UI.render(); });
     }).catch(UI.error);
   }
@@ -14175,10 +14224,17 @@
           actions
         }).then((mode) => {
           if (!mode) return;
-          if (mode === 'replace' && !window.confirm('Replace all current data in "' + exists.name + '" with this backup?')) return;
-          const data = OB.backup.prepareRestore(v.data, mode);
-          if (UI.book && UI.book.company.id === data.company.id) UI.book.adapter.close();
-          return OB.db.writeCompanyData(data, prot).then(() => { UI.toast('Backup restored.'); return UI.openCompany(data.company.id, prot ? prot.dek : undefined); });
+          // replacing: one last check, with a backup of the current data offered first when it is the open company
+          const canBackup = mode === 'replace' && UI.book && UI.book.company.id === exists.id;
+          return (mode !== 'replace' ? Promise.resolve('go') : UI.modal({ title: 'Replace "' + exists.name + '"?',
+            html: `<p>All current data in <strong>${esc(exists.name)}</strong> is overwritten by the backup. This cannot be undone.</p>${canBackup ? '<p>Download a backup of the current data first, so you can go back.</p>' : ''}`,
+            actions: [{ label: 'Cancel', value: null }].concat(canBackup ? [{ label: 'Back up, then replace', value: 'backup', primary: true }] : []).concat([{ label: 'Replace', value: 'go', danger: true }]) }))
+            .then((how) => { if (!how) return null; return how === 'backup' ? UI.downloadBackup().then(() => 'go') : 'go'; })
+            .then((how) => { if (!how) return;
+              const data = OB.backup.prepareRestore(v.data, mode);
+              if (UI.book && UI.book.company.id === data.company.id) UI.book.adapter.close();
+              return OB.db.writeCompanyData(data, prot).then(() => { UI.toast('Backup restored.'); return UI.openCompany(data.company.id, prot ? prot.dek : undefined); });
+            });
         });
       }).catch(UI.error);
     };
@@ -14212,7 +14268,7 @@
         const bs = S.isBS(a.type);
         const bal = bs ? b.accountBalance(a.id) : R.netIncome ? b.normalSign(a) * R.rawSum(b.splitIndex()[a.id], U.fiscalYearStart(U.today(), b.company.fiscalYearStartMonth), U.today()) : 0;
         return `<tr class="${a.active ? '' : 'inactive'}"><td>${esc(a.number)}</td><td style="padding-left:${0.75 + depthOf(a) * 1.25}rem"><a href="#/register/${esc(a.id)}">${esc(a.name)}</a>${a.system ? ' <span class="badge">System</span>' : ''}${a.active ? '' : ' <span class="badge void">Inactive</span>'}${a.description ? `<div class="muted small">${esc(a.description)}</div>` : ''}</td>
-          <td>${esc(S.TYPE[a.type].label)}</td><td class="num">${UI.money(bal)}${bs ? '' : '<div class="muted small">FY to date</div>'}</td>
+          <td>${esc(S.TYPE[a.type].label)}</td><td class="num">${UI.money(bal, { contra: bs && /^accumulated (depreciation|amortization)/i.test(a.name) })}${bs ? '' : '<div class="muted small">FY to date</div>'}</td>
           <td class="actions-cell"><button class="btn ghost small" data-edit="${esc(a.id)}">Edit</button>${bs && a.type !== 'ar' && a.type !== 'ap' && a.system !== 'OBE' ? `<button class="btn ghost small" data-ob="${esc(a.id)}">Opening balance</button>` : ''}</td></tr>`;
       }).join('')}</tbody></table>`, { html: 'Income and expense accounts show fiscal-year-to-date totals.' });
     UI.fillLayout(el, 'table.data', 'list:accounts', 1);
@@ -14532,7 +14588,7 @@
       </div>
       ${shown.length ? `<table class="data"><thead><tr><th>Date</th><th>Type</th><th>No.</th><th>Name</th><th>Memo</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
       ${shown.map((t) => `<tr class="click${t.status === 'void' ? ' inactive' : ''}" data-href="#/txn/${esc(t.id)}"><td>${UI.date(t.date)}</td><td>${esc(UI.typeLabel(t.type))}</td><td>${esc(t.number)}</td><td>${esc(UI.contactName(t.contactId))}</td><td class="memo">${esc(t.memo)}</td><td class="num">${UI.money(t.total)}</td><td>${UI.statusBadge(t)}</td></tr>`).join('')}
-      </tbody></table>${UI.pager(list.length, page, size, (pg) => UI.go('#/transactions?' + UI.qs(Object.assign({}, p, { page: pg }))))}` : UI.empty('No transactions match these filters.')}`);
+      </tbody></table>${UI.pager(list.length, page, size, (pg) => UI.go('#/transactions?' + UI.qs(Object.assign({}, p, { page: pg }))))}` : UI.empty(b.transactions.length ? 'No transactions match these filters.' : 'No transactions yet. Create an invoice, record an expense, or bring in your bank transactions to get started.')}`);
     UI.fillLayout(el, 'table.data', 'list:transactions', 1);
     UI.bindRowLinks(el);
     el.querySelector('#tx-new').addEventListener('click', UI.newMenu);
@@ -14712,7 +14768,7 @@
     let updateRate = false; // CPA-02: "Update to current rate" was chosen
     const readOnly = existing && existing.status === 'void';
     const clientToken = U.uid('form');
-    const title = (existing ? '' : 'New ') + def.label + (existing && existing.number ? ' ' + existing.number : '');
+    const title = def.label + (existing && existing.number ? ' ' + existing.number : '');   // same title rule as the invoice form
     const isApply = !!def.applies;
     const amountType = def.special && d.type !== 'journal';
     const headTypes = S.HEAD_ACCOUNT_TYPES[d.type];
@@ -14735,7 +14791,9 @@
     }
     const locked = readOnly || (existing && existing.splits.some((s) => s.cleared === 'R'));
 
-    const headField = headTypes ? `<label class="field"><span>${HEAD_LABEL[d.type] || 'Account'}</span><select name="accountId" required>${UI.accountOptions(d.accountId, (a) => headTypes.indexOf(a.type) >= 0)}</select></label>` : '';
+    // money is deposited to a bank or Undeposited Funds, not to Inventory Asset or Prepaid Expenses (a saved choice stays listed)
+    const headOk = (a) => headTypes.indexOf(a.type) >= 0 && (a.type !== 'oca' || a.system === 'UNDEP' || a.id === d.accountId || (b.bankLines || []).some((l) => l.accountId === a.id));   // an asset used like a bank (PayPal clearing) has bank lines
+    const headField = headTypes ? `<label class="field"><span>${HEAD_LABEL[d.type] || 'Account'}</span><select name="accountId" required>${UI.accountOptions(d.accountId, headOk)}</select></label>` : '';
     const contactLabel = contactKind === 'customer' ? 'Customer' : contactKind === 'vendor' ? 'Vendor' : 'Payee';
     const contactField = contactKind ? `<label class="field"><span>${contactLabel}${contactKind === 'any' ? ' (optional)' : ''}</span>
       ${UI.comboHtml('contact', contactKind === 'any' ? 'any' : contactKind, d.contactId, 'name="contactId"', { placeholder: 'Type a ' + contactLabel.toLowerCase() + ' name…', label: contactLabel })}</label>` : '';
@@ -14781,9 +14839,7 @@
           ${existing && def.nonPosting && existing.status === 'open' ? `<button type="button" class="btn primary" data-act="convert" data-testid="convert">Create ${esc(S.TXN_TYPES[def.convertsTo].label.toLowerCase())}</button>` : ''}
           ${existing && def.nonPosting && existing.status !== 'void' ? `<button type="button" class="btn" data-act="docstatus" data-to="${existing.status === 'open' ? 'closed' : 'open'}">${existing.status === 'open' ? 'Mark as closed' : 'Reopen'}</button>` : ''}${existing && existing.status === 'posted' && d.type === 'invoice' ? `<button type="button" class="btn" id="tx-iif-one" data-testid="iif-one" data-id="${esc(existing.id)}">QuickBooks .iif</button>` : ''}
           ${existing ? moreMenu(existing, locked) : ''}
-          <button type="button" class="btn ghost" data-act="close" data-key="l,o">Close</button>
-          ${!locked ? `<button type="submit" class="btn${existing ? ' primary' : ''}" data-after="view" data-key="s">${existing ? 'Save changes' : 'Save'}</button>
-            ${!existing ? '<button type="submit" class="btn primary" data-after="new" data-key="e,d">Save &amp; New</button>' : ''}` : ''}
+          ${saveButtons(existing, locked)}
         </div>
       </form>
       ${existing ? relatedHtml(existing) : ''}`, existing ? { html: meta } : '');
@@ -14826,6 +14882,10 @@
     let creditState = {}; // CPA-06: credit txnId -> { use: string amount, target: txnId }
     let discState = {}; // CPA-13: document id -> true when the early-payment discount is taken
     (d.applications || []).forEach((a) => { appState[a.txnId] = U.fmtPlain(a.amount); });
+    // A new payment applies the amount typed to the oldest open documents, as QuickBooks does,
+    // until the user picks or types applications themselves.
+    const AUTO_APPLY = !existing && (d.type === 'payment' || d.type === 'billPayment');
+    let manualApply = false;
 
     /* ---- gather draft from form ---- */
     function gather() {
@@ -15020,6 +15080,16 @@
       });
       renderApply(); renderCredits(); updateTotals();
     }
+    /** Spread the typed amount over the open documents, oldest first. Leaves the amount field alone. */
+    function applyTyped() {
+      let remaining = safeC(g('amount').value) || 0;
+      appState = {};
+      b.openDocs(d.type, g('contactId').value, '').forEach((t) => {
+        const a = Math.min(b.openBalance(t) - creditUse(t.id), remaining);
+        if (a > 0) { appState[t.id] = U.fmtPlain(a); remaining -= a; }
+      });
+      renderApply();
+    }
 
     /* ---- events ---- */
     // choosing a product/service fills the line: account, description, rate (and amount when a quantity is known)
@@ -15058,7 +15128,8 @@
         const st = creditState[t.dataset.crUse] = creditState[t.dataset.crUse] || { use: '', target: (form.querySelector(`[data-cr-target="${t.dataset.crUse}"]`) || {}).value || '' };
         st.use = t.value; const cb = form.querySelector(`[data-cr-pick="${t.dataset.crUse}"]`); if (cb) cb.checked = !!safeC(t.value);
       }
-      if (t.name === 'amount') t.dataset.touched = '1';
+      if (t.name === 'amount') { t.dataset.touched = '1'; if (AUTO_APPLY && !manualApply && g('contactId').value) applyTyped(); }
+      if (t.dataset.app && e.isTrusted) manualApply = true;
       if (t.dataset.f === 'debit' && t.value) t.closest('tr').querySelector('[data-f="credit"]').value = '';
       if (t.dataset.f === 'credit' && t.value) t.closest('tr').querySelector('[data-f="debit"]').value = '';
       updateTotals();
@@ -15086,7 +15157,9 @@
         const addr = el.querySelector('#qbi-addr'); if (addr) addr.innerHTML = billToHtml(c);
         if (g('taxId') && c) { const tid = UI.defaultTaxFor(c); if ([...g('taxId').options].some((o) => o.value === tid)) g('taxId').value = tid; }
         billBtn();
-        appState = {}; renderApply(); updateTotals();
+        appState = {}; manualApply = false;
+        if (AUTO_APPLY && g('amount').dataset.touched) applyTyped(); else renderApply();
+        updateTotals();
       }
       if (t.dataset.f === 'taxable' || t.name === 'taxId') updateTotals();
       // "Print later": the check gets its number when printed (Print checks), so the number field is cleared
@@ -15109,12 +15182,14 @@
       }
       if (t.dataset.disc) {
         // taking the discount: the payment applies the rest of the open balance
+        manualApply = true;
         if (t.checked) discState[t.dataset.disc] = true; else delete discState[t.dataset.disc];
         const inp = form.querySelector(`[data-app="${t.dataset.disc}"]`), dv = b.discountAvailable(t.dataset.disc, g('date').value).amount;
         if (inp && t.checked) { inp.value = U.fmtPlain(Math.max(0, +inp.dataset.open - dv)); inp.dispatchEvent(new Event('input', { bubbles: true })); }
         UI.dirty = true;
       }
       if (t.dataset.pick) {
+        manualApply = true;
         const inp = form.querySelector(`[data-app="${t.dataset.pick}"]`);
         if (t.checked) {
           let open = +inp.dataset.open;
@@ -15221,6 +15296,12 @@
       if (errs.length) { showErrors(errs); UI.setStatus('failed', hadField ? 'Fix the highlighted fields.' : 'Fix the problems listed at the top.'); return Promise.resolve(false); }
       const dups = existing ? [] : b.findDuplicates(norm);
       const warns = b.warnings(Object.assign({}, norm, { id: existing ? existing.id : '' }), existing); // CPA-15–18, CPA-08
+      // money left unapplied while documents are still open becomes a credit: say so before saving
+      if (AUTO_APPLY && g('amount')) {
+        const left = (safeC(g('amount').value) || 0) - appliedSum();
+        const openLeft = U.sum(b.openDocs(d.type, g('contactId').value, ''), (t) => b.openBalance(t) - (safeC(appState[t.id]) || 0));
+        if (left > 0 && openLeft > 0) warns.push({ message: `${U.fmt(left, { symbol: true })} is not applied to any ${d.type === 'payment' ? 'invoice' : 'bill'}. It will be kept as a credit on ${(b.contactById[g('contactId').value] || {}).name ? b.contactById[g('contactId').value].name + '’s' : 'this ' + contactKind + '’s'} account.` });
+      }
       const dupHtml = dups.length ? `<p>A ${esc(def.label.toLowerCase())} with the same date, amount${norm.contactId ? ' and name' : ''} already exists:</p><ul>${dups.slice(0, 5).map((x) => `<li>${UI.txnLink(x)} — ${U.fmtDate(x.date)} — ${U.fmt(x.total, { symbol: true })}</li>`).join('')}</ul>` : '';
       const warnHtml = warns.length ? `<ul data-testid="save-warnings">${warns.map((w) => `<li>${esc(w.message)}</li>`).join('')}</ul>` : '';
       const go = dups.length || warns.length ? UI.confirm(dups.length ? 'Possible duplicate' : 'Check before saving', `${dupHtml}${warnHtml}<p>Save this one anyway?</p>`, { ok: 'Save anyway' }) : Promise.resolve(true);
@@ -15414,7 +15495,7 @@
       <div class="qbi-bar"><div class="qbi-cust">${contactField.replace('<span>Customer</span>', '<span>Customer:Job</span>')}</div>${classField ? `<div class="qbi-cls">${classField.replace(/<span>Class[^<]*<\/span>/, '<span>CLASS</span>')}</div>` : ''}</div>
       <div class="qbi-sheet">
         <div class="qbi-head">
-          <div class="qbi-title"><h1>${esc(def.label)}</h1>${existing ? '<a href="#" data-meta="history">See History</a>' : ''}${existing ? ` <span class="qbi-status">${UI.statusBadge(existing)}</span>` : ''}</div>
+          <div class="qbi-title"><h1>${esc(def.label + (existing && existing.number ? ' ' + existing.number : ''))}</h1>${existing ? '<a href="#" data-meta="history">See History</a>' : ''}${existing ? ` <span class="qbi-status">${UI.statusBadge(existing)}</span>` : ''}</div>
           <div class="qbi-fields">
             <label class="qbi-f"><span>DATE</span><input type="date" name="date" value="${esc(d.date)}" required></label>
             <label class="qbi-f"><span>${esc(def.label.toUpperCase())} #</span><input name="number" value="${esc(d.number || '')}" maxlength="30" placeholder="Auto"></label>
@@ -15441,11 +15522,22 @@
         </div>
         <div class="qbi-actions">
           <span class="form-status" aria-live="off"></span><span class="spacer"></span>
-          ${!locked ? `<button type="submit" class="btn" data-after="close" data-key="s">Save &amp; Close</button><button type="submit" class="btn primary" data-after="new" data-key="e,d">Save &amp; New</button><button type="button" class="btn" data-act="revert">Revert</button>` : `<button type="button" class="btn" data-act="close" data-key="l,o">Close</button>`}
+          ${saveButtons(existing, locked)}
         </div>
       </div>
       </fieldset>
     </form>`;
+  }
+
+  /** The same save buttons, in the same order, on every transaction form:
+   *  Close · Clear (new) or Revert (saved) · Save · Save & New. The primary button is Save & New on a new form
+   *  and Save changes on a saved one. */
+  function saveButtons(existing, locked) {
+    const close = '<button type="button" class="btn ghost" data-act="close" data-key="l,o">Close</button>';
+    if (locked) return close;
+    return close + `<button type="button" class="btn" data-act="revert">${existing ? 'Revert' : 'Clear'}</button>`
+      + `<button type="submit" class="btn${existing ? ' primary' : ''}" data-after="view" data-key="s">${existing ? 'Save changes' : 'Save'}</button>`
+      + `<button type="submit" class="btn${existing ? '' : ' primary'}" data-after="new" data-key="e,d">Save &amp; New</button>`;
   }
 
   function relatedHtml(t) {
@@ -15889,7 +15981,7 @@
       const list = b.attachmentsFor(ownerId);
       sec.innerHTML = `<div class="card-head"><h2>Attachments${list.length ? ' (' + list.length + ')' : ''}</h2><span><a class="btn small ghost" href="#/docs">Doc Center</a> <label class="btn small">Attach file…<input type="file" data-testid="attach-file" hidden multiple></label></span></div>
         ${list.length ? `<table class="data compact"><tbody>${list.map((a) => `<tr><td><a href="#" data-open="${esc(a.id)}">${esc(a.name)}</a></td><td class="muted">${esc(kb(a.size))}</td><td class="muted">${esc(new Date(a.addedAt).toLocaleDateString())}</td><td class="actions-cell"><button type="button" class="btn ghost small" data-rm="${esc(a.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`
-          : '<p class="muted small">Keep the receipt, bill or contract with this transaction. Files (up to 4 MB each) are stored in this company and its backups.</p>'}`;
+          : `<p class="muted small">Keep the ${b.txById[ownerId] ? 'receipt, bill or contract with this transaction' : (b.contactById && b.contactById[ownerId] ? 'contracts, W-9s and other papers for this ' + (b.contactById[ownerId].kind === 'vendor' ? 'vendor' : 'customer') : 'related files here')}. Files (up to 4 MB each) are stored in this company and its backups.</p>`}`;
       sec.querySelector('[data-testid=attach-file]').addEventListener('change', (e) => {
         const files = [...e.target.files];
         files.reduce((p, f) => p.then(() => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(f); })
@@ -17300,10 +17392,18 @@
         <td><a href="${esc(UI.savedReportHref(x))}">${esc(x.name)}</a></td><td>${esc(x.report === 'builder' ? 'Custom report builder' : x.report === 'designer' ? 'Statement designer' : (REPORTS[x.report] || { title: x.report }).title)}</td><td>${esc(new Date(x.updatedAt || x.createdAt).toLocaleDateString())}</td>
         <td class="actions-cell"><button type="button" class="btn ghost small" data-rn="${esc(x.id)}">Rename</button><button type="button" class="btn ghost small" data-rm="${esc(x.id)}">Delete</button></td></tr>`).join('')}</tbody></table>`
       : '<p class="muted">Customize any report and choose <strong>Save as</strong> — or build one from scratch — and it appears here.</p>'}</section>`;
-    el.innerHTML = UI.page('Reports', '<button type="button" class="btn primary" id="rp-workbook" data-testid="export-workbook" data-key="w">Export financial workbook</button><a class="btn" href="#/designer">Statement designer</a><a class="btn" href="#/builder">Custom report builder</a>', myHtml + `<div class="report-groups">${Object.keys(groups).map((g) => `<section class="card"><h2>${esc(g)}</h2><ul class="report-links">
+    el.innerHTML = UI.page('Reports', '<button type="button" class="btn primary" id="rp-workbook" data-testid="export-workbook" data-key="w">Export financial workbook</button><a class="btn" href="#/designer">Statement designer</a><a class="btn" href="#/builder">Custom report builder</a>', `<div class="toolbar rp-find"><input type="search" id="rp-filter" placeholder="Find a report by name or what it shows" aria-label="Find a report" data-testid="rp-filter"><span class="muted small" id="rp-count" aria-live="polite"></span></div>` + myHtml + `<div class="report-groups">${Object.keys(groups).map((g) => `<section class="card" data-rgroup><h2>${esc(g)}</h2><ul class="report-links">
       ${groups[g].map((k) => `<li><a href="${esc(reportHref(k))}" title="${esc(REPORTS[k].desc)}"><strong>${esc(REPORTS[k].title)}</strong><span>${esc(REPORTS[k].desc)}</span></a></li>`).join('')}</ul></section>`).join('')}</div>`,
     'Every figure is calculated from your posted transactions. Click amounts to see the transactions behind them.');
     el.querySelector('#rp-workbook').addEventListener('click', () => UI.exportWorkbook());
+    // about 30 reports: typing narrows the list, and groups with no match drop out
+    const flt = el.querySelector('#rp-filter'), cnt = el.querySelector('#rp-count');
+    flt.addEventListener('input', () => {
+      const q = flt.value.trim().toLowerCase(); let n = 0;
+      el.querySelectorAll('.report-links li').forEach((li) => { const hit = !q || li.textContent.toLowerCase().indexOf(q) >= 0; li.hidden = !hit; if (hit) n++; });
+      el.querySelectorAll('[data-rgroup]').forEach((sec) => { sec.hidden = !!q && !sec.querySelector('li:not([hidden])'); });
+      cnt.textContent = q ? (n ? n + ' report' + (n === 1 ? '' : 's') : 'No report matches. Try another word.') : '';
+    });
     el.querySelectorAll('[data-rm]').forEach((x) => x.addEventListener('click', () => {
       const rp = b.reports.find((y) => y.id === x.dataset.rm);
       UI.confirm('Delete saved report', `<p>Delete “${esc(rp.name)}”? Your transactions are not affected.</p>`, { danger: true, ok: 'Delete' }).then((ok) => ok && b.deleteReport(rp.id).then(() => { UI.toast('Saved report deleted.'); UI.render(); }));
@@ -18248,7 +18348,7 @@
       <div class="sb-head no-print">
         <div class="sb-titlebar sb-qbbar" role="toolbar" aria-label="${esc(title)}">
           <a href="#/reports" class="sb-back" title="Back to reports" aria-label="Back to reports">‹</a>
-          <h1 class="sr-only">${esc(title)}</h1>${saved ? `<span class="sb-tag" title="Saved report based on ${esc(TITLES[key])}">${esc(title)}</span>` : ''}
+          ${v.hdr === 'none' || p.hideList.indexOf('title') >= 0 ? `<h1 class="sr-only">${esc(title)}</h1>` : ''}${saved ? `<span class="sb-tag" title="Saved report based on ${esc(TITLES[key])}">${esc(title)}</span>` : ''}
 ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</span>
           <span class="spacer"></span>
           <button type="button" class="btn small${chartOn ? ' on' : ''}" id="st-chart" aria-pressed="${chartOn}" data-testid="st-chart-btn" title="Show a chart above the report">Chart</button>
@@ -20601,7 +20701,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   };
 
   routes.settings = (el, r) => {
-    const tab = r.params.tab || 'company';
+    const tab = TABS.some(([k]) => k === r.params.tab) ? r.params.tab : 'company';   // unknown tab: show Company
     el.innerHTML = UI.page('Settings', '', `<nav class="tabs" role="tablist">${TABS.map(([k, l]) => `<a role="tab" href="#/settings?tab=${k}" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}</a>`).join('')}</nav><div id="tab"></div>`);
     const host = el.querySelector('#tab');
     ({ company, features, salestax, backup, data, integrity, audit, storage, security: UI.securityTab })[tab](host, r);
@@ -20631,7 +20731,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       <div class="logo-row"><div class="logo-preview">${c.logo ? `<img src="${esc(c.logo)}" alt="Current invoice logo">` : '<span class="muted">No logo</span>'}</div>
         <label class="btn"><input type="file" id="logo-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-testid="logo-file">${c.logo ? 'Replace logo…' : 'Add logo…'}</label>
         ${c.logo ? '<button type="button" class="btn ghost" id="logo-remove" data-testid="logo-remove">Remove logo</button>' : ''}</div>
-      <p class="muted small">PNG, JPEG, GIF or WebP. Large images are scaled down to 1200 pixels wide; the logo is kept in this company’s books and backups.</p></section>
+      <p class="muted small">PNG, JPEG, GIF or WebP. Large images are scaled down to 1200 pixels on the longer side; the logo is kept in this company’s books and backups.</p></section>
     <section class="card" data-testid="closing-card"><h2>Closing date password <span class="muted small">(optional)</span></h2>
       <p class="muted">With a password, nobody can move the closing date — and so change closed periods — without it. ${c.closingPasswordHash ? '<strong>A password is set.</strong>' : 'No password is set.'}</p>
       <form id="cpw" class="form-grid" autocomplete="off">
@@ -20659,10 +20759,15 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       const img = new Image(), url = URL.createObjectURL(f);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const k = Math.min(1, 1200 / img.naturalWidth), cv = document.createElement('canvas');
+        const k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement('canvas');
         cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k));
-        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        saveLogo(cv.toDataURL('image/png'), 'Logo saved. It now prints on invoices.');
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        let url2 = cv.toDataURL('image/png');
+        // photo-like logos are far smaller as JPEG; JPEG has no transparency, so they go on white, like the printed page
+        if (url2.length > 1400000) { ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); url2 = cv.toDataURL('image/jpeg', 0.88); }
+        if (url2.length > 1400000) return UI.toast('That image has too much detail to use as a logo. Try a simpler or smaller image.', 'error');
+        saveLogo(url2, 'Logo saved. It now prints on invoices.');
       };
       img.onerror = () => { URL.revokeObjectURL(url); UI.toast('That file could not be read as an image.', 'error'); };
       img.src = url;
@@ -20683,19 +20788,20 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       if (x && !x.id) x = Object.assign({}, x, { id: '' });
       const liab = (a) => a.active && (a.type === 'ocl' || a.type === 'ltl');
       const defAcc = x ? x.accountId : (b.sys('STAX') || {}).id;
-      UI.modal({ title: x ? 'Edit sales tax rate' : 'New sales tax rate', html: `<form id="stx" class="form-grid" autocomplete="off">
+      const isNew = !x || !!x.retryNew;
+      UI.modal({ title: isNew ? 'New sales tax rate' : 'Edit sales tax rate', html: `<form id="stx" class="form-grid" autocomplete="off">
         <label class="field span2"><span>Name (printed on invoices)</span><input name="name" value="${esc(x ? x.name : '')}" maxlength="60" placeholder="e.g. Arizona + Tucson"></label>
         <label class="field"><span>Rate (%)</span><input name="rate" inputmode="decimal" value="${esc(x ? (x.rate / 10000).toString() : '')}" placeholder="8.7"></label>
         <label class="field"><span>Tax agency</span><input name="agency" value="${esc(x ? x.agency || '' : '')}" maxlength="80" placeholder="e.g. Arizona Dept. of Revenue"></label>
         <fieldset class="span2"><legend>Combined rate (optional) — state, county, city…</legend><table class="data compact" id="stx-parts"><thead><tr><th>Part</th><th>Agency</th><th class="num">Rate %</th></tr></thead><tbody>${[0, 1, 2, 3].map((i) => { const c = x && x.components && x.components[i]; return `<tr><td><input data-p="name" value="${esc(c ? c.name : '')}" aria-label="Part name"></td><td><input data-p="agency" value="${esc(c ? c.agency : '')}" aria-label="Agency"></td><td class="num"><input data-p="rate" inputmode="decimal" value="${esc(c ? (c.rate / 10000).toString() : '')}" aria-label="Rate" class="qty"></td></tr>`; }).join('')}</tbody></table>
           <p class="muted small">When parts are filled in, the rate is their total and each sale's tax is split by agency for the returns.</p></fieldset>
         <label class="field span2"><span>Owed in (liability account)</span><select name="accountId">${UI.accountOptions(defAcc, liab)}</select></label>
-        <label class="check span2"><input type="checkbox" name="makeDefault"${!x || c.defaultSalesTaxId === x.id ? ' checked' : ''}> Default rate for new sales</label>
-        ${x ? `<label class="check span2"><input type="checkbox" name="active"${x.active === false ? '' : ' checked'}> Active</label>` : ''}</form>
+        <label class="check span2"><input type="checkbox" name="makeDefault"${!x || x.makeDefault || c.defaultSalesTaxId === x.id ? ' checked' : ''}> Default rate for new sales</label>
+        ${!isNew ? `<label class="check span2"><input type="checkbox" name="active"${x.active === false ? '' : ' checked'}> Active</label>` : ''}</form>
         <p class="muted small">Changing a rate affects new and edited documents; saved documents keep the rate they were posted with.</p>`,
         actions: [{ label: 'Cancel', value: null }, { label: 'Save', primary: true, collect: (m) => Object.assign(Object.fromEntries(new FormData(m.querySelector('#stx')).entries()), { components: [...m.querySelectorAll('#stx-parts tbody tr')].map((tr) => ({ name: tr.querySelector('[data-p=name]').value, agency: tr.querySelector('[data-p=agency]').value, rate: tr.querySelector('[data-p=rate]').value })).filter((p) => p.name || p.agency || p.rate) }) }] })
-        .then((d) => d && b.saveSalesTax({ id: x ? x.id : '', name: d.name, rate: d.rate, agency: d.agency, accountId: d.accountId, makeDefault: !!d.makeDefault, active: x ? !!d.active : undefined, components: d.components })
-          .then(() => { UI.toast('Sales tax rate saved'); salestax(el); }, (e) => { UI.error(e); edit(Object.assign({ id: x ? x.id : '', active: true }, x || {}, { name: d.name, agency: d.agency, accountId: d.accountId, rate: OB.Book.parseRate(d.rate) || 0 })); }));
+        .then((d) => d && b.saveSalesTax({ id: x ? x.id : '', name: d.name, rate: d.rate, agency: d.agency, accountId: d.accountId, makeDefault: !!d.makeDefault, active: isNew ? undefined : !!d.active, components: d.components })
+          .then(() => { UI.toast('Sales tax rate saved'); salestax(el); }, (e) => { UI.error(e); edit(Object.assign({ id: x ? x.id : '', active: true, retryNew: isNew }, x || {}, { name: d.name, agency: d.agency, accountId: d.accountId, rate: OB.Book.parseRate(d.rate) || 0, active: isNew ? true : !!d.active, makeDefault: !!d.makeDefault, components: d.components.map((p) => ({ name: p.name, agency: p.agency, rate: OB.Book.parseRate(p.rate) || 0 })) })); }));
     };
     el.querySelector('#stx-new').addEventListener('click', () => edit(null));
     el.querySelectorAll('[data-edit]').forEach((bt) => bt.addEventListener('click', () => edit(list.find((x) => x.id === bt.dataset.edit))));
@@ -20732,12 +20838,13 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         <div class="feat-txt"><label for="f-${f.id}"><strong>${esc(f.title)}</strong></label><p>${esc(f.desc)}</p><p class="muted small">${esc(f.adds)}${f.count(b) ? ' · <strong>' + esc(f.count(b)) + '</strong>' : ''}</p></div>
         <div class="feat-ctl"><span class="switch"><input type="checkbox" role="switch" id="f-${f.id}" name="${f.key}" ${on(f) ? 'checked' : ''}><span aria-hidden="true"></span></span>
           ${on(f) ? `<a href="${f.manage[0]}" class="small">${esc(f.manage[1])}</a>` : ''}</div></li>`).join('')}</ul>
-      <div class="form-actions"><button type="submit" class="btn primary" data-key="s">Save features</button><span class="form-status" aria-live="off"></span></div></form>`;
+      <div class="form-actions"><span class="muted small">Each switch takes effect as soon as you change it.</span><button type="submit" class="btn" data-key="s" hidden>Save features</button><span class="form-status" aria-live="off"></span></div></form>`;
     const form = el.querySelector('#feat');
     const read = () => { const o = {}; FEATURES.forEach((f) => { o[f.key] = form.querySelector(`[name="${f.key}"]`).checked; }); return o; };
-    const submit = () => UI.runSave(form.querySelector('[type=submit]'), () => b.saveCompany(read()), 'Features saved').then((ok) => { if (ok) { tracker.reset(); UI.applyFeatures(); UI.render(); } return ok; });
+    const submit = () => UI.runSave(form.querySelector('[type=submit]'), () => b.saveCompany(read()), 'Features saved').then((ok) => { if (ok) { const at = document.activeElement && document.activeElement.id; tracker.reset(); UI.applyFeatures(); UI.render(); const back = at && document.getElementById(at); if (back) back.focus(); } return ok; });
     const tracker = UI.trackForm(form, { snapshot: () => JSON.stringify(read()), save: submit });
     form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+    form.addEventListener('change', (e) => { if (e.target.matches('[role=switch]')) submit(); });   // a switch acts at once, like any switch
   }
 
   function backup(el) {
@@ -20818,13 +20925,14 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     run();
   }
 
+  const actionLabel = (x) => { const t = String(x || '').replace(/[-_]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };   // edit-company → Edit company
   function audit(el, r) {
     const b = UI.book, page = +r.params.page || 0, size = 100;
     const q = (r.params.q || '').toLowerCase();
     const list = b.audit.filter((a) => !q || (a.summary + ' ' + a.action).toLowerCase().indexOf(q) >= 0).sort((x, y) => x.ts < y.ts ? 1 : -1);
     el.innerHTML = `<div class="toolbar"><input type="search" id="au-q" placeholder="Search the audit log" value="${esc(r.params.q || '')}" aria-label="Search audit log"></div>
       <table class="data"><thead><tr><th>When</th><th>Action</th><th>Details</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-      ${list.slice(page * size, page * size + size).map((a) => `<tr><td class="nowrap">${esc(new Date(a.ts).toLocaleString())}</td><td><span class="badge">${esc(a.action)}</span></td><td>${esc(a.summary)}</td><td>${a.txnId && b.txById[a.txnId] ? `<a href="#/txn/${esc(a.txnId)}">Open</a>` : ''}</td></tr>`).join('')}
+      ${list.slice(page * size, page * size + size).map((a) => `<tr><td class="nowrap">${esc(new Date(a.ts).toLocaleString())}</td><td><span class="badge">${esc(actionLabel(a.action))}</span></td><td>${esc(a.summary)}</td><td>${a.txnId && b.txById[a.txnId] ? `<a href="#/txn/${esc(a.txnId)}">Open</a>` : ''}</td></tr>`).join('')}
       </tbody></table>${UI.pager(list.length, page, size, (p) => UI.go('#/settings?' + UI.qs({ tab: 'audit', q: r.params.q, page: p })))}
       <p class="muted small">The audit log is append-only. Edits store the previous version of the transaction; voids keep the original amounts.</p>`;
     el.querySelector('#au-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') UI.go('#/settings?' + UI.qs({ tab: 'audit', q: e.target.value })); });
@@ -20833,7 +20941,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   function storage(el) {
     const cur = UI.theme || 'system';
     el.innerHTML = `<section class="card"><h2>Appearance</h2>
-      <div class="segmented" role="radiogroup" aria-label="Appearance">${[['system', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) =>
+      <div class="segmented" role="radiogroup" aria-label="Appearance">${[['system', 'Match system'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) =>
         `<button type="button" role="radio" aria-checked="${v === cur}" data-theme-opt="${v}">${l}</button>`).join('')}</div>
       <p class="muted small">The sun/moon button in the top bar switches between Light and Dark. Printing and PDFs always use the light appearance.</p>
       <h3>Density</h3>
@@ -21468,7 +21576,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   K.add({ id: 'salesReceipt', key: 'Alt+F8', label: 'Sales receipt', group: 'Create', ctx: ALL, run: newTxn('salesReceipt') });
   K.add({ id: 'bill', key: 'F9', label: 'Bill', group: 'Create', ctx: ALL, run: newTxn('bill') });
   K.add({ id: 'payBills', key: 'Alt+F9', label: 'Pay bills', group: 'Create', ctx: ALL, run: newTxn('billPayment') });
-  K.add({ id: 'otherTxn', key: 'F10', label: 'All transaction types', group: 'Create', ctx: ALL, run: () => UI.newMenu() });
+  K.add({ id: 'otherTxn', key: 'F10', label: 'Create anything', group: 'Create', ctx: ALL, run: () => UI.newMenu() });
   K.add({ id: 'features', key: 'F11', label: 'Features', group: 'Company', ctx: ALL, run: () => UI.openFeatures() });
   K.add({ id: 'configure', key: 'F12', label: 'Configure', group: 'Company', ctx: ALL, run: () => UI.openConfigure() });
   K.add({ id: 'goto', key: 'Alt+G', label: 'Go To', group: 'General', ctx: ALL, panel: false, run: () => UI.openPalette() });
@@ -21668,6 +21776,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     m._items = items;
     const r = (btn || document.querySelector('.cmdbar') || document.body).getBoundingClientRect();
     m.style.left = Math.max(6, Math.min(r.left, innerWidth - 270)) + 'px'; m.style.top = (r.bottom + 2) + 'px';
+    m._prev = document.activeElement && !(document.activeElement.closest && document.activeElement.closest('.cmdbar')) ? document.activeElement : null;   // Esc goes back here, not to the hidden bar
     m.hidden = false; if (btn) btn.setAttribute('aria-expanded', 'true');
     const first = m.querySelector('button'); if (first) first.focus();
   }
@@ -21686,7 +21795,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     else if (e.key === 'ArrowUp') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
     else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
     else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const b = document.querySelector(`.cmdbar [data-menu="${m.dataset.for}"]`); closeMenus(); if (b) b.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const back = m._prev; closeMenus(); if (back && back.isConnected && back.focus) back.focus(); }
     else if (e.key === 'Tab') closeMenus();
   });
   window.addEventListener('hashchange', closeMenus);
@@ -21743,11 +21852,11 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     return {
       root: { title: 'Gateway of VaultBook', sections: [
         { caption: 'Masters', items: [
-          { label: 'Create', hot: 'c', sub: 'create' },
-          { label: 'Alter', hot: 'a', sub: 'alter' }] },
+          { label: 'Create', hot: 'c', sub: 'create', hint: 'new accounts, customers, items' },
+          { label: 'Alter', hot: 'a', sub: 'alter', hint: 'change accounts, customers, items' }] },
         { caption: 'Transactions', items: [
-          { label: 'Vouchers', hot: 'v', sub: 'vouchers' },
-          { label: 'Day Book', hot: 'k', run: go('#/transactions') }] },
+          { label: 'Vouchers', hot: 'v', sub: 'vouchers', hint: 'enter invoices, bills, payments' },
+          { label: 'Day Book', hot: 'k', run: go('#/transactions'), hint: 'every transaction, by date' }] },
         { caption: 'Banking', items: [
           { label: 'Banking', hot: 'n', sub: 'banking' }] },
         { caption: 'Reports', items: [
@@ -21875,7 +21984,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       <div class="gw-menu-wrap"><nav class="gw-menu" aria-label="${esc(menu.title)}" data-menu="${key}">
         <div class="gw-title">${key === 'root' ? '' : '<span class="gw-crumb">Gateway ›</span> '}${esc(menu.title)}</div>
         <div role="menu" aria-label="${esc(menu.title)}">${menu.sections.map((s) => `<div class="gw-sec" role="group" aria-label="${esc(s.caption)}"><div class="gw-cap">${esc(s.caption)}</div>
-          ${s.items.map((it) => { const i = flat.indexOf(it); return `<button type="button" role="menuitem" class="gw-item" data-i="${i}" tabindex="-1"${it.hotKey ? ` aria-keyshortcuts="${esc(it.hotKey.toUpperCase())}"` : ''}><span class="gw-l">${labelHtml(it)}${it.sub ? ' <span class="gw-more" aria-hidden="true">›</span>' : ''}</span>${it.key ? `<kbd>${esc(UI.keys ? UI.keys.display(it.key) : it.key)}</kbd>` : ''}</button>`; }).join('')}</div>`).join('')}
+          ${s.items.map((it) => { const i = flat.indexOf(it); return `<button type="button" role="menuitem" class="gw-item" data-i="${i}" tabindex="-1"${it.hotKey ? ` aria-keyshortcuts="${esc(it.hotKey.toUpperCase())}"` : ''}><span class="gw-l">${labelHtml(it)}${it.hint ? ` <span class="gw-hint">${esc(it.hint)}</span>` : ''}${it.sub ? ' <span class="gw-more" aria-hidden="true">›</span>' : ''}</span>${it.key ? `<kbd>${esc(UI.keys ? UI.keys.display(it.key) : it.key)}</kbd>` : ''}</button>`; }).join('')}</div>`).join('')}
         </div>${key !== 'root' ? '<button type="button" class="gw-back" data-back>Esc · Back to Gateway</button>' : ''}</nav></div>
     </div></div>`;
     const items = [...el.querySelectorAll('.gw-item')];
@@ -22588,7 +22697,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
 (function () {
   'use strict';
   const UI = OB.ui, U = OB.util, S = OB.schema, esc = U.esc;
-  const SWITCH = [['F4', 'transfer'], ['F5', 'expense'], ['F6', 'payment'], ['F7', 'journal'], ['F8', 'invoice'], ['F9', 'bill']];
+  const SWITCH = [['F4', 'transfer'], ['F5', 'expense'], ['F6', 'payment', 'Receive payment'], ['F7', 'journal'], ['F8', 'invoice'], ['F9', 'bill']];
   const weekday = (d) => { try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }); } catch (e) { return ''; } };
 
   function enhance() {
@@ -22601,7 +22710,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const strip = document.createElement('div');
     strip.className = 'vch-strip'; strip.setAttribute('data-testid', 'voucher-strip');
     strip.innerHTML = `<span class="vch-type">${esc(def.label)}</span><span class="vch-no">No. <b data-v="no"></b></span>
-      ${!existing ? `<span class="vch-switch" aria-label="Switch transaction type">${SWITCH.filter((x) => x[1] !== type).map(([k, t]) => `<button type="button" class="vch-k" data-switch="${t}" title="${esc(UI.typeLabel(t))} (${k})"><kbd>${k}</kbd>${esc(UI.typeLabel(t))}</button>`).join('')}</span>` : '<span class="vch-switch"></span>'}
+      ${!existing ? `<span class="vch-switch" aria-label="Switch transaction type">${SWITCH.filter((x) => x[1] !== type).map(([k, t, l]) => `<button type="button" class="vch-k" data-switch="${t}" title="${esc(l || UI.typeLabel(t))} (${k})"><kbd>${k}</kbd>${esc(l || UI.typeLabel(t))}</button>`).join('')}</span>` : '<span class="vch-switch"></span>'}
       <span class="vch-date"><b data-v="date"></b><span data-v="wd"></span></span>`;
     // Invoice-style forms already show type, number and date in the sheet: keep only the type switch, in the toolbar.
     const tools = form.classList.contains('qbi') && form.querySelector('.qbi-tools');
@@ -22835,7 +22944,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     transactions: '<path d="M4 6h10.5M11.5 3l3 3-3 3"/><path d="M16 14H5.5M8.5 11l-3 3 3 3"/>',
     recurring: '<path d="M15.5 8A6 6 0 0 0 4.7 6.2M4.5 12a6 6 0 0 0 10.8 1.8"/><path d="M4.5 3v3.5H8M15.5 17v-3.5H12"/>',
     reports: '<path d="M10 3a7 7 0 1 0 7 7h-7z"/><path d="M12.5 2.8A5 5 0 0 1 17.2 7.5H12.5z"/>',
-    settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/>',
+    settings: '<g transform="scale(.8333)" stroke-width="1.9" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>',
     txn: '<rect x="4" y="3" width="12" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/>',
     default: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/>'
   };
@@ -22863,7 +22972,11 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   /* ---------- Helpers ---------- */
   const makeId = () => 'w' + Math.random().toString(36).slice(2, 9);
   const hashOf = (w) => w.hash || '#/gateway';
-  const findByHash = (hash) => WM.list.find((w) => w.hash === hash);
+  // one tab per page: #/settings?tab=backup reuses the Settings tab, #/gateway?m=vouchers the Gateway tab
+  // (only one-level pages: #/txn/new?type=bill never reuses a new-invoice tab)
+  const basePath = (h) => { const p = String(h || '').split('?')[0]; return /^#\/[^/]+$/.test(p) ? p : String(h || ''); };
+  const findByHash = (hash) => WM.list.find((w) => w.hash === hash) || WM.list.find((w) => basePath(w.hash) === basePath(hash));
+  const MAX_RESTORED = 10;   // tabs brought back after a reload: the Gateway, the active tab and the most recent others
   const findById = (id) => WM.list.find((w) => w.id === id);
   /* Unsaved-changes protection (BUG-002): a window action that leaves or re-renders the
      active view goes through UI.confirmLeave first, like any other navigation. Windows are
@@ -22890,6 +23003,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     hash = hash || '#/gateway';
     let w = findByHash(hash);
     const r = UI.parseHash.call ? parseHashLocal(hash) : parseHashLocal(hash);
+    if (w) w.hash = hash;
     if (!w) {
       w = {
         id: makeId(),
@@ -23145,6 +23259,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   function syncFromHash() {
     const hash = location.hash && location.hash !== '#/' ? location.hash : '#/gateway';
     let w = findByHash(hash);
+    if (w) w.hash = hash;
     if (!w) {
       // Opened from sidebar / direct nav — replace the active tab's hash (so sidebar nav doesn't flood tabs)
       // unless the active tab is pinned, then open a new tab.
@@ -23234,9 +23349,12 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const data = load();
     if (data && data.list.length) {
       WM.list = data.list.map((w) => ({ ...w, id: w.id || makeId() }));
+      // drop duplicates of one page (older versions opened a new tab for each Settings or Gateway section)
+      WM.list = WM.list.filter((w, i, a) => a.findIndex((x) => basePath(x.hash) === basePath(w.hash)) === i || w.id === data.activeId);
+      if (WM.list.length > MAX_RESTORED) WM.list = WM.list.filter((w, i, a) => w.pinned || w.id === data.activeId || i >= a.length - (MAX_RESTORED - 2));
       WM.activeId = data.activeId && findById(data.activeId) ? data.activeId : WM.list[0].id;
       // ensure dashboard pinned entry exists first
-      if (!WM.list.some((w) => w.hash === '#/gateway' && w.pinned)) {
+      if (!WM.list.some((w) => basePath(w.hash) === '#/gateway' && w.pinned)) {
         WM.list.unshift({ id: makeId(), hash: '#/gateway', title: 'Gateway', iconKey: 'gateway', pinned: true });
       }
     } else {
@@ -23316,14 +23434,20 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     W.setLayout(map[W.layout] || (tabsOff() ? 'tabs' : 'off'));
   };
   const tabsItem = () => [tabsOff() ? 'Show the window tabs' : 'Hide the window tabs', toggleTabs];
+  /* the icon toolbar and the function-key panel can each be hidden from View, for a calmer screen */
+  const tbOff = () => OB.prefs.get('toolbar') === false;
+  const applyTb = () => document.documentElement.classList.toggle('toolbar-off', tbOff());
+  applyTb();
+  const tbItem = () => [tbOff() ? 'Show the toolbar' : 'Hide the toolbar', () => { OB.prefs.set('toolbar', tbOff()); applyTb(); }];
+  const fkItem = () => [UI.fkeysVisible && !UI.fkeysVisible() ? 'Show the function-key panel' : 'Hide the function-key panel', () => { OB.prefs.set('fkeys', !(UI.fkeysVisible && UI.fkeysVisible())); if (UI.applyFkeys) UI.applyFkeys(); }];
   const SEP = null;
   /* [label, href or function, shortcut shown] */
   const MENUS = {
-    File: () => [['Open or switch company', click('btn-switch')], SEP, ['Backup and restore', '#/settings'], ['Import from QuickBooks', '#/migrate'], ['Import statement', '#/pdfimport'],
+    File: () => [['Open or switch company', click('btn-switch')], SEP, ['Backup and restore', '#/settings?tab=backup'], ['Import from QuickBooks', '#/migrate'], ['Import statement', '#/pdfimport'],
       ['Import', cmd('O'), 'Alt+O'], ['Export', cmd('X'), 'Alt+X'], SEP, ['Print', cmd('P'), 'Alt+P'], SEP, ['Lock company', $('btn-lock').hidden ? '' : click('btn-lock')], ['Settings', '#/settings']],
     Edit: () => [['Search or go to', () => UI.openPalette(), 'Ctrl+K'], ['Find transactions', '#/find'], SEP, ['Change the period', click('st-period'), 'Alt+F2'], ['New', click('st-new'), 'F10']],
     View: () => [['Home', '#/dashboard'], ['Gateway', '#/gateway'], ['Calendar', '#/calendar'], ['Company Snapshot', '#/snapshot'], SEP,
-      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], tabsItem(), [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
+      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], tabsItem(), tbItem(), fkItem(), [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
     Lists: () => [['Chart of accounts', '#/accounts'], ['Products & services', '#/items'], ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Classes', '#/classes'], SEP, ['Recurring', '#/recurring'], ['Bank rules', '#/rules']],
     Company: () => [['Calendar', '#/calendar'], ['Doc Center', '#/docs'], ['Budgets', '#/budgets'], SEP, ['Company Snapshot', '#/snapshot'], ['Lists and settings', () => UI.gearMenu && UI.gearMenu(), 'Ctrl+Alt+L']],
     Customers: () => [['Customers', '#/customers'], ['Invoices', '#/transactions?type=invoice'], SEP, ['Create invoice', '#/txn/new?type=invoice', 'F8'], ['Receive payment', '#/txn/new?type=payment'],
@@ -23391,10 +23515,10 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   /* ---------- icon toolbar ---------- */
   const TOOLS = [['Home', '#/dashboard'], ['Calendar', '#/calendar'], SEP, ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Payroll', '#/payroll'], SEP,
     ['Bank feed', '#/bankfeed'], ['Reconcile', '#/reconcile'], ['Close books', '#/close'], ['Reports', '#/reports'], SEP, ['Paste entries', '#/paste'], ['Docs', '#/docs'], ['Snapshot', '#/snapshot'], SEP,
-    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings']];
+    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings?tab=backup']];
   const tb = document.createElement('div');
   tb.id = 'tbar'; tb.className = 'tbar'; tb.setAttribute('role', 'toolbar'); tb.setAttribute('aria-label', 'Main toolbar'); tb.dataset.testid = 'toolbar';
-  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg');
+  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg');
     return `<a href="${x[1]}">${s ? s.outerHTML : ''}<span>${x[0]}</span></a>`; }).join('');
   topbar.insertBefore(tb, topbar.firstChild);
   const name = (h) => h.slice(2).split(/[/?]/)[0];
@@ -23651,9 +23775,18 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     if (iv.overdue.count) tasks.push(['#/report/araging', `Follow up ${iv.overdue.count} overdue invoice${iv.overdue.count === 1 ? '' : 's'}`, money(iv.overdue.total)]);
     if (due.length) tasks.push(['#/recurring', `Post ${due.length} recurring transaction${due.length === 1 ? '' : 's'}`, '']);
     if (iv.undeposited) tasks.push(['#/txn/new?type=deposit', 'Deposit payments waiting in Undeposited Funds', money(iv.undeposited)]);
+    // a new company gets four first steps instead of an empty task list; each ticks itself off from the books
+    const bk = UI.book, steps = [
+      ['#/accounts', 'Add your bank account and its opening balance', bk.transactions.some((t) => t.splits.some((x) => (bk.accById[x.accountId] || {}).type === 'bank'))],
+      ['#/customers', 'Add your first customer', bk.contacts.some((c) => c.kind === 'customer')],
+      ['#/txn/new?type=invoice', 'Create your first invoice', bk.transactions.some((t) => t.type === 'invoice')],
+      ['#/bankfeed?import=1', 'Bring in your bank transactions', (bk.bankLines || []).length > 0]];
+    const setup = steps.some((x) => !x[2]) && bk.transactions.length < 25;
     const wTask = `<section class="st-w" aria-labelledby="w-task" data-testid="w-tasks">
-        <div class="st-wh"><h2 id="w-task">Tasks</h2></div>
-        ${tasks.length ? tasks.map((t) => `<a class="st-task" href="${esc(t[0])}"><span>${esc(t[1])}</span><b>${t[2]}</b></a>`).join('') : '<p class="muted">Nothing waiting. Well done.</p>'}</section>`;
+        <div class="st-wh"><h2 id="w-task">${setup && !tasks.length ? 'Get started' : 'Tasks'}</h2>${setup && !tasks.length ? `<span>${steps.filter((x) => x[2]).length} of 4 done</span>` : ''}</div>
+        ${tasks.length ? tasks.map((t) => `<a class="st-task" href="${esc(t[0])}"><span>${esc(t[1])}</span><b>${t[2]}</b></a>`).join('')
+          : setup ? `<ol class="st-setup" data-testid="setup-steps">${steps.map((x) => `<li class="${x[2] ? 'done' : ''}"><a class="st-task" href="${esc(x[0])}"><span>${x[2] ? '<span class="sr-only">Done: </span>' : ''}${esc(x[1])}</span><b aria-hidden="true">${x[2] ? '✓' : ''}</b></a></li>`).join('')}</ol>`
+          : '<p class="muted">Nothing needs your attention right now.</p>'}</section>`;
 
     // the 12-month chart and fiscal-year totals (unchanged drill-downs: every bar opens what it shows)
     const maxV = Math.max(1, ...d.months.map((m) => Math.max(m.income, m.expense))), W = 1200, H = 150, bw = W / 12;
@@ -23669,7 +23802,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
           <a href="${esc(pnlFor(m.from, m.to))}" class="bar-link" aria-label="${esc('Profit and loss for ' + full)}"><title>Profit and loss, ${esc(full)}</title><text x="${i * bw + bw / 2}" y="${H + 16}" text-anchor="middle">${m.label}</text></a></g>`;
       }).join('')}<line x1="0" y1="${H}" x2="${W}" y2="${H}" class="axis"/></svg>`;
     const wYear = `<section class="st-w span3" aria-labelledby="w-year" style="grid-column: 1 / -1" data-testid="w-year">
-        <div class="st-wh"><h2 id="w-year">Income and expenses by month</h2><span>Fiscal year to date · ${esc(b.company.basis)} basis</span></div>
+        <div class="st-wh"><h2 id="w-year">Income and expenses by month</h2><span>Last 12 months · ${esc(b.company.basis)} basis</span></div>
         <div class="kpis">
           <a class="kpi" href="${esc(drill('net:inc', d.fyStart, today))}" data-testid="kpi-income"><span>Income</span><b>${money(d.ytdIncome)}</b></a>
           <a class="kpi" href="${esc(drill('net:exp', d.fyStart, today))}" data-testid="kpi-expense"><span>Expenses</span><b>${money(d.ytdExpense)}</b></a>
@@ -24891,7 +25024,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const p = periodOf(b), cl = C.checklist(b, p), can = C.canSignOff(cl);
     const plans = C.prepare(b, { from: p.from, to: p.to, auto: false });
     const st = {
-      statements: [cl.statements.done, U.sum(cl.statements.accounts, (a) => a.missing.length), 'missing'],
+      statements: [cl.statements.done, U.sum(cl.statements.accounts, (a) => a.missing.length), 'to import'],
       prepare: [cl.prepared.done, cl.prepared.waiting, 'waiting'],
       review: [cl.review.done, cl.review.waiting, 'to review'],
       questions: [cl.questions.done, cl.questions.open, 'open'],
@@ -27428,7 +27561,8 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
    * Statement lines typed or pasted here go to the account's For review list through Book.importBankLines (the same
    * duplicate check as a bank file); review posts each through Book.postBankLine (rules, history, matching). */
   const FEED = { bank: 1, cc: 1, oca: 1 };
-  const feedAccts = () => b().sortedAccounts((a) => FEED[a.type] && a.active !== false && !(a.type === 'oca' && a.system));
+  // same accounts as the desktop bank feed: banks and cards, and another current asset only once it has bank lines
+  const feedAccts = () => b().sortedAccounts((a) => FEED[a.type] && a.active !== false && (a.type !== 'oca' || (!a.system && b().bankLines.some((l) => l.accountId === a.id && l.status !== 'removed'))));
   const isCard = (id) => accType(id) === 'cc';
   const draftKey = (acct) => 'vbFeedDraft:' + (b().company.id || '') + ':' + acct;
   const loadDraft = (acct) => { try { return JSON.parse(localStorage.getItem(draftKey(acct)) || '[]'); } catch (e) { return []; } };

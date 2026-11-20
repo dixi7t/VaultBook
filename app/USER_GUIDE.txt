@@ -97,12 +97,15 @@ CUSTOMERS
   set the due date ("Due on receipt" = the invoice date).
   CUSTOMER MESSAGE prints at the bottom of the invoice; "< Add New >" adds
   your own message to the list. MEMO is for you.
-  Save & Close (Ctrl+S), Save & New (Ctrl+E), Revert (throw away changes).
+  Every entry form has the same buttons in the same order: Close, Clear (or
+  Revert on a saved form: throw away changes), Save (Ctrl+S) and Save & New.
   The arrows next to Find step to the previous / next invoice.
-- Receive payment: choose the customer; open invoices are listed. Enter the
-  amount and click "Apply oldest first", or type amounts per invoice. Partial
+- Receive payment: choose the customer; open invoices are listed. Type the
+  amount received and it is applied to the oldest invoices first, as in
+  QuickBooks; tick or type amounts per invoice to choose yourself. Partial
   payments are fine; the remainder stays open. Money left over is kept as a
-  credit on the customer's account.
+  credit on the customer's account, and VaultBook asks before saving it that
+  way while invoices are still open.
   You cannot apply more than an invoice's open balance.
 - Sales receipt: a sale paid immediately (no invoice).
 - Credit memo: reduces what a customer owes (return, discount). Apply it to an
@@ -1092,8 +1095,8 @@ Up/Down to move, Enter to open, Esc to close.
 
 APPEARANCE
 The sun/moon button at the top right switches instantly between Light and
-Dark. Settings and backup -> App and storage also has "Match Windows", which
-follows the Windows setting, and a Density choice: Comfortable (default) or
+Dark. Settings and backup -> App and storage also has "Match system", which
+follows your computer or phone, and a Density choice: Comfortable (default) or
 Compact (more rows on screen). Printing and Save as PDF always use the light
 appearance. The sidebar can be hidden with the button at the top left (or
 Ctrl+\) to give reports more room.

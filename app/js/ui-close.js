@@ -33,7 +33,7 @@
     const p = periodOf(b), cl = C.checklist(b, p), can = C.canSignOff(cl);
     const plans = C.prepare(b, { from: p.from, to: p.to, auto: false });
     const st = {
-      statements: [cl.statements.done, U.sum(cl.statements.accounts, (a) => a.missing.length), 'missing'],
+      statements: [cl.statements.done, U.sum(cl.statements.accounts, (a) => a.missing.length), 'to import'],
       prepare: [cl.prepared.done, cl.prepared.waiting, 'waiting'],
       review: [cl.review.done, cl.review.waiting, 'to review'],
       questions: [cl.questions.done, cl.questions.open, 'open'],

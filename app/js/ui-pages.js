@@ -36,7 +36,7 @@
               <label class="field"><span>Accounting basis</span><select name="basis"><option value="accrual">Accrual</option><option value="cash">Cash</option></select></label>
               <label class="field"><span>Fiscal year starts</span><select name="fiscalYearStartMonth">${MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select></label>
               <label class="field"><span>EIN (optional)</span><input name="ein" maxlength="20" placeholder="12-3456789"></label>
-              <label class="field"><span>Currency</span><input value="USD — US dollar" disabled></label>
+              <div class="field"><span>Currency</span><p class="field-static">US dollar (USD)</p></div>
               <div class="span2 row gap"><button class="btn primary" type="submit">Create company</button>
               <label class="check"><input type="checkbox" name="sample"> Add sample data to explore</label>
               <label class="check"><input type="checkbox" name="qb" data-testid="newco-qb"> Bring in my books from QuickBooks next</label></div>
@@ -46,8 +46,8 @@
         </div>
         <section class="card note">
           <h2>Where your data lives</h2>
-          <p>Books are saved in this browser's private storage on this PC (IndexedDB), for the Windows user and browser profile you're using now.
-          Clearing browsing data for "files", using an InPrivate/Incognito window, or switching browsers means you won't see the data.
+          <p>Books are saved in this browser's private storage on this device (IndexedDB), for the user account and browser profile you're using now.
+          Clearing this site's data, using a private window, or switching browsers means you won't see the data.
           <strong>Download a backup file regularly</strong> (Settings → Backup) and keep copies somewhere safe.</p>
         </section>
       </div>`;
@@ -63,6 +63,9 @@
             return UI.openCompany(book.company.id);
           }))).catch(UI.error);
       });
+      // sample data and a QuickBooks import exclude each other: ticking one clears the other
+      const nf = el.querySelector('#newco');
+      nf.addEventListener('change', (e) => { const o = { sample: 'qb', qb: 'sample' }[e.target.name]; if (o && e.target.checked) nf.querySelector(`[name="${o}"]`).checked = false; });
       el.querySelector('#restore-file').addEventListener('change', (e) => UI.restoreFlow(e.target.files[0], null));
       el.querySelector('#qb-newco').addEventListener('change', (e) => {
         const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
@@ -78,11 +81,17 @@
     UI.modal({
       title: 'Delete company',
       html: `<p>This permanently deletes <strong>${esc(name)}</strong> and all of its transactions from this browser. It cannot be undone.</p>
-        <p>Make sure you have a backup. Type the company name to confirm:</p><input id="delname" autocomplete="off">`,
-      actions: [{ label: 'Cancel', value: null }, { label: 'Delete permanently', danger: true, collect: (m) => m.querySelector('#delname').value }]
+        <p>Make sure you have a backup first.</p>
+        <label class="field"><span>Type the company name to confirm</span><input id="delname" autocomplete="off" aria-describedby="delname-msg"></label>
+        <p id="delname-msg" class="warn-text small" role="alert" hidden></p>`,
+      actions: [{ label: 'Cancel', value: null }, { label: 'Delete permanently', danger: true, collect: (m) => {
+        const inp = m.querySelector('#delname'), msg = m.querySelector('#delname-msg');
+        if (inp.value.trim() === name) return inp.value.trim();
+        msg.textContent = `Type ${name} exactly as shown to delete it.`; msg.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus();
+        return false;   // the dialog stays open
+      } }]
     }).then((v) => {
-      if (v === null) return;
-      if (v.trim() !== name) { UI.toast('The name did not match. Nothing was deleted.', 'error'); return; }
+      if (v === null || v !== name) return;
       return OB.db.deleteCompany(id).then(() => { UI.toast('Company deleted.'); UI.render(); });
     }).catch(UI.error);
   }
@@ -120,10 +129,17 @@
           actions
         }).then((mode) => {
           if (!mode) return;
-          if (mode === 'replace' && !window.confirm('Replace all current data in "' + exists.name + '" with this backup?')) return;
-          const data = OB.backup.prepareRestore(v.data, mode);
-          if (UI.book && UI.book.company.id === data.company.id) UI.book.adapter.close();
-          return OB.db.writeCompanyData(data, prot).then(() => { UI.toast('Backup restored.'); return UI.openCompany(data.company.id, prot ? prot.dek : undefined); });
+          // replacing: one last check, with a backup of the current data offered first when it is the open company
+          const canBackup = mode === 'replace' && UI.book && UI.book.company.id === exists.id;
+          return (mode !== 'replace' ? Promise.resolve('go') : UI.modal({ title: 'Replace "' + exists.name + '"?',
+            html: `<p>All current data in <strong>${esc(exists.name)}</strong> is overwritten by the backup. This cannot be undone.</p>${canBackup ? '<p>Download a backup of the current data first, so you can go back.</p>' : ''}`,
+            actions: [{ label: 'Cancel', value: null }].concat(canBackup ? [{ label: 'Back up, then replace', value: 'backup', primary: true }] : []).concat([{ label: 'Replace', value: 'go', danger: true }]) }))
+            .then((how) => { if (!how) return null; return how === 'backup' ? UI.downloadBackup().then(() => 'go') : 'go'; })
+            .then((how) => { if (!how) return;
+              const data = OB.backup.prepareRestore(v.data, mode);
+              if (UI.book && UI.book.company.id === data.company.id) UI.book.adapter.close();
+              return OB.db.writeCompanyData(data, prot).then(() => { UI.toast('Backup restored.'); return UI.openCompany(data.company.id, prot ? prot.dek : undefined); });
+            });
         });
       }).catch(UI.error);
     };
@@ -157,7 +173,7 @@
         const bs = S.isBS(a.type);
         const bal = bs ? b.accountBalance(a.id) : R.netIncome ? b.normalSign(a) * R.rawSum(b.splitIndex()[a.id], U.fiscalYearStart(U.today(), b.company.fiscalYearStartMonth), U.today()) : 0;
         return `<tr class="${a.active ? '' : 'inactive'}"><td>${esc(a.number)}</td><td style="padding-left:${0.75 + depthOf(a) * 1.25}rem"><a href="#/register/${esc(a.id)}">${esc(a.name)}</a>${a.system ? ' <span class="badge">System</span>' : ''}${a.active ? '' : ' <span class="badge void">Inactive</span>'}${a.description ? `<div class="muted small">${esc(a.description)}</div>` : ''}</td>
-          <td>${esc(S.TYPE[a.type].label)}</td><td class="num">${UI.money(bal)}${bs ? '' : '<div class="muted small">FY to date</div>'}</td>
+          <td>${esc(S.TYPE[a.type].label)}</td><td class="num">${UI.money(bal, { contra: bs && /^accumulated (depreciation|amortization)/i.test(a.name) })}${bs ? '' : '<div class="muted small">FY to date</div>'}</td>
           <td class="actions-cell"><button class="btn ghost small" data-edit="${esc(a.id)}">Edit</button>${bs && a.type !== 'ar' && a.type !== 'ap' && a.system !== 'OBE' ? `<button class="btn ghost small" data-ob="${esc(a.id)}">Opening balance</button>` : ''}</td></tr>`;
       }).join('')}</tbody></table>`, { html: 'Income and expense accounts show fiscal-year-to-date totals.' });
     UI.fillLayout(el, 'table.data', 'list:accounts', 1);
@@ -477,7 +493,7 @@
       </div>
       ${shown.length ? `<table class="data"><thead><tr><th>Date</th><th>Type</th><th>No.</th><th>Name</th><th>Memo</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
       ${shown.map((t) => `<tr class="click${t.status === 'void' ? ' inactive' : ''}" data-href="#/txn/${esc(t.id)}"><td>${UI.date(t.date)}</td><td>${esc(UI.typeLabel(t.type))}</td><td>${esc(t.number)}</td><td>${esc(UI.contactName(t.contactId))}</td><td class="memo">${esc(t.memo)}</td><td class="num">${UI.money(t.total)}</td><td>${UI.statusBadge(t)}</td></tr>`).join('')}
-      </tbody></table>${UI.pager(list.length, page, size, (pg) => UI.go('#/transactions?' + UI.qs(Object.assign({}, p, { page: pg }))))}` : UI.empty('No transactions match these filters.')}`);
+      </tbody></table>${UI.pager(list.length, page, size, (pg) => UI.go('#/transactions?' + UI.qs(Object.assign({}, p, { page: pg }))))}` : UI.empty(b.transactions.length ? 'No transactions match these filters.' : 'No transactions yet. Create an invoice, record an expense, or bring in your bank transactions to get started.')}`);
     UI.fillLayout(el, 'table.data', 'list:transactions', 1);
     UI.bindRowLinks(el);
     el.querySelector('#tx-new').addEventListener('click', UI.newMenu);

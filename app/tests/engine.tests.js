@@ -710,6 +710,16 @@
     });
   });
 
+  test('Company name: required and at most 120 characters when edited', function () {
+    return newBook().then(function (b) {
+      var was = b.company.name;
+      return rejects(b.saveCompany({ name: new Array(122).join('X') }), /120 characters/)
+        .then(function () { eq(b.company.name, was, 'a rejected name changes nothing'); return rejects(b.saveCompany({ name: '  ' }), /required/); })
+        .then(function () { return b.saveCompany({ name: new Array(121).join('Y') }); })
+        .then(function () { eq(b.company.name.length, 120); });
+    });
+  });
+
   test('Company logo: optional, image data URLs only, size-limited, removable', function () {
     return newBook().then(function (b) {
       ok(!b.company.logo, 'no logo by default');

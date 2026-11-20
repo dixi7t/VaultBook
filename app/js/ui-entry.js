@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const UI = OB.ui, U = OB.util, S = OB.schema, esc = U.esc;
-  const SWITCH = [['F4', 'transfer'], ['F5', 'expense'], ['F6', 'payment'], ['F7', 'journal'], ['F8', 'invoice'], ['F9', 'bill']];
+  const SWITCH = [['F4', 'transfer'], ['F5', 'expense'], ['F6', 'payment', 'Receive payment'], ['F7', 'journal'], ['F8', 'invoice'], ['F9', 'bill']];
   const weekday = (d) => { try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }); } catch (e) { return ''; } };
 
   function enhance() {
@@ -20,7 +20,7 @@
     const strip = document.createElement('div');
     strip.className = 'vch-strip'; strip.setAttribute('data-testid', 'voucher-strip');
     strip.innerHTML = `<span class="vch-type">${esc(def.label)}</span><span class="vch-no">No. <b data-v="no"></b></span>
-      ${!existing ? `<span class="vch-switch" aria-label="Switch transaction type">${SWITCH.filter((x) => x[1] !== type).map(([k, t]) => `<button type="button" class="vch-k" data-switch="${t}" title="${esc(UI.typeLabel(t))} (${k})"><kbd>${k}</kbd>${esc(UI.typeLabel(t))}</button>`).join('')}</span>` : '<span class="vch-switch"></span>'}
+      ${!existing ? `<span class="vch-switch" aria-label="Switch transaction type">${SWITCH.filter((x) => x[1] !== type).map(([k, t, l]) => `<button type="button" class="vch-k" data-switch="${t}" title="${esc(l || UI.typeLabel(t))} (${k})"><kbd>${k}</kbd>${esc(l || UI.typeLabel(t))}</button>`).join('')}</span>` : '<span class="vch-switch"></span>'}
       <span class="vch-date"><b data-v="date"></b><span data-v="wd"></span></span>`;
     // Invoice-style forms already show type, number and date in the sheet: keep only the type switch, in the toolbar.
     const tools = form.classList.contains('qbi') && form.querySelector('.qbi-tools');

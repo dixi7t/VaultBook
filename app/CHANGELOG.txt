@@ -1,6 +1,56 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.56.0  (2026-11-20)  Review fixes: payments, dialogs, one form layout
+-------------------------------------------------------------------------------
+  * Receive payment / Pay bills: the amount you type is applied to the
+    oldest open invoices (or bills) first, as in QuickBooks. If money would
+    be left unapplied while invoices are still open, VaultBook asks before
+    saving it as a credit. Before, the money silently became a credit and
+    the invoice stayed open.
+  * Dialogs keep keyboard focus inside them, and the screen behind them
+    can't be clicked or tabbed to. The menu bar no longer sits above an open
+    dialog. Esc or a click outside asks before throwing away what you typed
+    in a form dialog. Only the top dialog answers Esc.
+  * One layout for the save buttons on every entry form: Close, Clear (or
+    Revert), Save, Save & New. Ctrl+S is Save on every form (on the invoice
+    it was Save & Close). Form titles follow one rule: the type, plus the
+    number once saved.
+  * Settings: an unknown tab address opens Company instead of an error; a
+    failed save shows the reason inside the form and moves to the field at
+    fault; photo-style logos are saved (as JPEG when needed) instead of being
+    refused; logos are scaled by their longer side; a failed sales tax save
+    keeps what you typed. Feature switches take effect as soon as you flip
+    them. Audit log actions read as words ("Edit company").
+  * Phone and iPad: wide tables scroll sideways inside their box; save bars
+    sit above the tab bar; Settings tabs and the transaction-type keys stay
+    on one scrolling row; the bank feed lists only bank and card accounts
+    (as on desktop). Phone screens now use VaultBook's blue (#2452C7, dark
+    #7FA2F5) instead of Apple's blue, so phone and desktop read as one
+    product; contrast still meets WCAG AA.
+  * A new company: the welcome screen no longer shows a toolbar that does
+    nothing; "sample data" and "bring in from QuickBooks" can't both be
+    ticked; the dashboard shows four first steps instead of "Well done";
+    the empty transaction list says how to start.
+  * Window tabs: one tab per page (Settings sections and Gateway menus no
+    longer open duplicates); at most 10 tabs come back after a reload.
+  * Clearer words: the Gateway explains Create, Alter, Vouchers and Day
+    Book; "Match Windows" is "Match system"; F6 and F10 have the same label
+    everywhere; the settings icon is a cog (it looked like the theme sun);
+    Reports has a finder; Close the books says "to import", not "missing".
+  * Smaller fixes: unknown addresses say so; the dashboard chart is labelled
+    "Last 12 months"; Accumulated Depreciation is not shown in red; Deposit
+    to offers bank accounts and Undeposited Funds (not Inventory Asset);
+    long dialogs open at their top; View can hide the toolbar or the
+    function-key panel; the save pill no longer pushes toolbar buttons off;
+    company names are limited to 120 characters in the engine too; a backup
+    restore that replaces a company offers to back it up first.
+  * Accessibility: focus is visible on window tab buttons and the settings
+    pop-up; hidden command-bar buttons are out of the Tab order; the delete
+    company check is labelled and explained in place; contrast fixes for the
+    line delete ×, tab close ×, dark-mode calendar today and the logo box;
+    reports have one page heading.
+
 1.55.2  (2026-11-20)  No black band at the bottom on iPhone
 -------------------------------------------------------------------------------
   * When VaultBook was added to the Home Screen, a black band could cover

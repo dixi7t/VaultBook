@@ -11,7 +11,7 @@
     opts = opts || {};
     c = c || 0;
     if (opts.blankZero && !c) return '';
-    const cls = 'amt' + (c < 0 ? ' neg' : '') + (opts.strong ? ' strong' : '');
+    const cls = 'amt' + (c < 0 && !opts.contra ? ' neg' : '') + (opts.strong ? ' strong' : '');   // contra: a negative balance that is normal (accumulated depreciation), not shown in red
     return `<span class="${cls}">${U.fmt(c, { parens: opts.parens !== false, symbol: !!opts.symbol })}</span>`;
   };
   UI.date = (d) => esc(U.fmtDate(d));
@@ -92,6 +92,11 @@
     const i = a.key && !(a.primary && /^Save\b/.test(a.label)) ? a.label.toLowerCase().indexOf(a.key.toLowerCase()) : -1;
     return i < 0 ? esc(a.label) : '<span class="mn-wrap">' + esc(a.label.slice(0, i)) + '<u class="mn">' + esc(a.label.charAt(i)) + '</u>' + esc(a.label.slice(i + 1)) + '</span>';
   };
+  /** While a dialog is open the app behind it is inert: no focus, clicks or screen-reader reading. */
+  UI._shellInert = (on) => {
+    const open = document.querySelectorAll('.modal-backdrop').length;
+    document.querySelectorAll('body > .skip, body > .app, body > .window-taskbar').forEach((x) => { if (on || !open) x.inert = !!(on || open); });
+  };
   UI.modal = (o) => new Promise((resolve) => {
     const back = document.createElement('div');
     back.className = 'modal-backdrop';
@@ -102,10 +107,29 @@
       <div class="modal-actions">${actions.map((a, i) => `<button type="button" class="btn ${a.primary ? 'primary' : ''} ${a.danger ? 'danger' : ''}" data-i="${i}"${a.primary && /^Save\b/.test(a.label) ? ' data-key="s"' : ''}>${mnLabel(a)}</button>`).join('')}</div>
     </div>`;
     document.body.appendChild(back);
+    UI._shellInert(true);
     const prevFocus = document.activeElement;
-    const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); };
+    let edited = false;   // typed into this dialog: Esc and a click outside ask before throwing it away
+    back.addEventListener('input', (e) => { if (e.target.type !== 'search') edited = true; });   // a search or filter box is not data
+    const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey); UI._shellInert(false); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); };
+    const dismiss = () => {
+      if (o.locked) return;
+      // only a real form asks (two or more fields); a one-line prompt or a filter just closes
+      if (!edited || back.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=search]), textarea').length < 2) return close(null);
+      UI.confirm('Discard what you typed?', '<p>Closing this window throws away what you entered.</p>', { ok: 'Discard', cancel: 'Keep editing' }).then((yes) => { if (yes) close(null); });
+    };
+    const top = () => { const all = document.querySelectorAll('.modal-backdrop'); return all[all.length - 1] === back; };
     const onKey = (e) => {
-      if (e.key === 'Escape' && !o.locked) return close(null);
+      if (!top()) return;   // only the topmost dialog answers keys
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return dismiss(); }
+      if (e.key === 'Tab') {   // keep focus inside the dialog
+        const fs = [...back.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null || x === document.activeElement);
+        if (!fs.length) { e.preventDefault(); return; }
+        const i = fs.indexOf(document.activeElement);
+        if (e.shiftKey && i <= 0) { e.preventDefault(); fs[fs.length - 1].focus(); }
+        else if (!e.shiftKey && (i === -1 || i === fs.length - 1)) { e.preventDefault(); fs[0].focus(); }
+        return;
+      }
       const btns = [...back.querySelectorAll('.modal-actions [data-i], .modal [data-i]')], at = btns.indexOf(document.activeElement);
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && at >= 0) { e.preventDefault(); btns[(at + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length].focus(); return; }
       const typingIn = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
@@ -114,7 +138,7 @@
     };
     document.addEventListener('keydown', onKey);
     back.addEventListener('click', (e) => {
-      if (e.target === back) return o.locked ? null : close(null);
+      if (e.target === back) return dismiss();
       const btn = e.target.closest('[data-i]');
       if (!btn) return;
       const a = actions[+btn.dataset.i];
@@ -127,7 +151,7 @@
     });
     if (o.onMount) o.onMount(back.querySelector('.modal'), close);
     const f = back.querySelector('input,select,textarea') || back.querySelector('.btn.primary') || back.querySelector('.btn');
-    if (f) f.focus();
+    if (f) f.focus({ preventScroll: true });   // a long dialog opens at its top, even when focus starts on a button at the bottom
   });
   /** Side panel for secondary information (journal, history) — opened on request, closes with Esc. */
   UI.drawer = (o) => {
@@ -147,7 +171,7 @@
   window.addEventListener('hashchange', () => document.querySelectorAll('.drawer-backdrop').forEach((x) => x.remove()));
   UI.confirm = (title, html, opts) => {
     opts = opts || {};
-    return UI.modal({ title, html, actions: [{ label: 'Cancel', value: false }, { label: opts.ok || 'Continue', value: true, primary: !opts.danger, danger: !!opts.danger }] }).then((v) => !!v);
+    return UI.modal({ title, html, actions: [{ label: opts.cancel || 'Cancel', value: false }, { label: opts.ok || 'Continue', value: true, primary: !opts.danger, danger: !!opts.danger }] }).then((v) => !!v);
   };
   UI.prompt = (title, label, value, opts) => {
     opts = opts || {};
@@ -218,6 +242,10 @@
     if (UI._saving) return Promise.resolve(false);
     UI._saving = true;
     UI.setStatus('saving');
+    // the reason a save failed is shown inside the form too, next to the field it names
+    const form = btn && btn.closest ? btn.closest('form') : null;
+    const clearInline = () => { if (!form) return; form.querySelectorAll('.save-error').forEach((x) => x.remove()); form.querySelectorAll('[aria-invalid="true"][data-save-invalid]').forEach((x) => { x.removeAttribute('aria-invalid'); x.removeAttribute('data-save-invalid'); }); };
+    clearInline();
     return UI.busy(btn, fn).then((res) => {
       if (res === false) return false;
       UI.dirty = false;
@@ -225,7 +253,16 @@
       return true;
     }, (e) => {
       console.error(e);
-      UI.setStatus('failed', (e && e.message ? e.message : String(e)) + ' Nothing was saved and your entries are still here.');
+      const msg = e && e.message ? e.message : String(e);
+      UI.setStatus('failed', msg + ' Nothing was saved and your entries are still here.');
+      if (form) {
+        const box = document.createElement('div');
+        box.className = 'banner danger save-error span2'; box.setAttribute('role', 'alert'); box.dataset.testid = 'save-error';
+        box.textContent = msg + ' Nothing was saved.';
+        form.prepend(box);
+        const f = e && e.field && form.querySelector(`[name="${CSS.escape(e.field)}"]`);
+        if (f) { f.setAttribute('aria-invalid', 'true'); f.dataset.saveInvalid = '1'; f.focus(); }
+      }
       return false;
     }).finally(() => { UI._saving = false; });
   };
@@ -396,7 +433,8 @@
     if (!UI.book) { document.body.classList.add('no-company'); document.getElementById('topbar-title').textContent = ''; return UI.routes.companies(main, {}); }
     document.body.classList.remove('no-company');
     const r = UI.parseHash();
-    const fn = UI.routes[r.name] || UI.routes.gateway;
+    const known = Object.prototype.hasOwnProperty.call(UI.routes, r.name);
+    const fn = known ? UI.routes[r.name] : UI.routes.gateway;
     UI.current = r;
     // A link with a query (Invoices = transactions?type=invoice) wins over the bare route link.
     const navLinks = Array.from(document.querySelectorAll('.nav a'));
@@ -419,6 +457,7 @@
     UI.applyFeatures();
     try {
       const res = fn(main, r);
+      if (!known) UI.toast('There is no page at that address, so the Gateway is shown instead.');
       if (res && res.catch) res.catch(UI.error);
     } catch (e) {
       main.innerHTML = `<div class="page"><div class="banner danger"><strong>Something went wrong showing this page.</strong><br>${esc(e.message)}</div></div>`;

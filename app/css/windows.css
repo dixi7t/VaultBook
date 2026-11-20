@@ -76,7 +76,7 @@
 .win-close {
   width: 18px; height: 18px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
-  border: none; background: transparent; color: inherit; opacity: .55;
+  border: none; background: transparent; color: inherit; opacity: .8;
   border-radius: 4px; cursor: pointer; font-size: 15px;
   flex: 0 0 auto;
 }

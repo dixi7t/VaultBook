@@ -106,7 +106,7 @@
       <div class="sb-head no-print">
         <div class="sb-titlebar sb-qbbar" role="toolbar" aria-label="${esc(title)}">
           <a href="#/reports" class="sb-back" title="Back to reports" aria-label="Back to reports">‹</a>
-          <h1 class="sr-only">${esc(title)}</h1>${saved ? `<span class="sb-tag" title="Saved report based on ${esc(TITLES[key])}">${esc(title)}</span>` : ''}
+          ${v.hdr === 'none' || p.hideList.indexOf('title') >= 0 ? `<h1 class="sr-only">${esc(title)}</h1>` : ''}${saved ? `<span class="sb-tag" title="Saved report based on ${esc(TITLES[key])}">${esc(title)}</span>` : ''}
 ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</span>
           <span class="spacer"></span>
           <button type="button" class="btn small${chartOn ? ' on' : ''}" id="st-chart" aria-pressed="${chartOn}" data-testid="st-chart-btn" title="Show a chart above the report">Chart</button>

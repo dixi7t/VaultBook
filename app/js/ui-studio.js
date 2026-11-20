@@ -121,9 +121,18 @@
     if (iv.overdue.count) tasks.push(['#/report/araging', `Follow up ${iv.overdue.count} overdue invoice${iv.overdue.count === 1 ? '' : 's'}`, money(iv.overdue.total)]);
     if (due.length) tasks.push(['#/recurring', `Post ${due.length} recurring transaction${due.length === 1 ? '' : 's'}`, '']);
     if (iv.undeposited) tasks.push(['#/txn/new?type=deposit', 'Deposit payments waiting in Undeposited Funds', money(iv.undeposited)]);
+    // a new company gets four first steps instead of an empty task list; each ticks itself off from the books
+    const bk = UI.book, steps = [
+      ['#/accounts', 'Add your bank account and its opening balance', bk.transactions.some((t) => t.splits.some((x) => (bk.accById[x.accountId] || {}).type === 'bank'))],
+      ['#/customers', 'Add your first customer', bk.contacts.some((c) => c.kind === 'customer')],
+      ['#/txn/new?type=invoice', 'Create your first invoice', bk.transactions.some((t) => t.type === 'invoice')],
+      ['#/bankfeed?import=1', 'Bring in your bank transactions', (bk.bankLines || []).length > 0]];
+    const setup = steps.some((x) => !x[2]) && bk.transactions.length < 25;
     const wTask = `<section class="st-w" aria-labelledby="w-task" data-testid="w-tasks">
-        <div class="st-wh"><h2 id="w-task">Tasks</h2></div>
-        ${tasks.length ? tasks.map((t) => `<a class="st-task" href="${esc(t[0])}"><span>${esc(t[1])}</span><b>${t[2]}</b></a>`).join('') : '<p class="muted">Nothing waiting. Well done.</p>'}</section>`;
+        <div class="st-wh"><h2 id="w-task">${setup && !tasks.length ? 'Get started' : 'Tasks'}</h2>${setup && !tasks.length ? `<span>${steps.filter((x) => x[2]).length} of 4 done</span>` : ''}</div>
+        ${tasks.length ? tasks.map((t) => `<a class="st-task" href="${esc(t[0])}"><span>${esc(t[1])}</span><b>${t[2]}</b></a>`).join('')
+          : setup ? `<ol class="st-setup" data-testid="setup-steps">${steps.map((x) => `<li class="${x[2] ? 'done' : ''}"><a class="st-task" href="${esc(x[0])}"><span>${x[2] ? '<span class="sr-only">Done: </span>' : ''}${esc(x[1])}</span><b aria-hidden="true">${x[2] ? '✓' : ''}</b></a></li>`).join('')}</ol>`
+          : '<p class="muted">Nothing needs your attention right now.</p>'}</section>`;
 
     // the 12-month chart and fiscal-year totals (unchanged drill-downs: every bar opens what it shows)
     const maxV = Math.max(1, ...d.months.map((m) => Math.max(m.income, m.expense))), W = 1200, H = 150, bw = W / 12;
@@ -139,7 +148,7 @@
           <a href="${esc(pnlFor(m.from, m.to))}" class="bar-link" aria-label="${esc('Profit and loss for ' + full)}"><title>Profit and loss, ${esc(full)}</title><text x="${i * bw + bw / 2}" y="${H + 16}" text-anchor="middle">${m.label}</text></a></g>`;
       }).join('')}<line x1="0" y1="${H}" x2="${W}" y2="${H}" class="axis"/></svg>`;
     const wYear = `<section class="st-w span3" aria-labelledby="w-year" style="grid-column: 1 / -1" data-testid="w-year">
-        <div class="st-wh"><h2 id="w-year">Income and expenses by month</h2><span>Fiscal year to date · ${esc(b.company.basis)} basis</span></div>
+        <div class="st-wh"><h2 id="w-year">Income and expenses by month</h2><span>Last 12 months · ${esc(b.company.basis)} basis</span></div>
         <div class="kpis">
           <a class="kpi" href="${esc(drill('net:inc', d.fyStart, today))}" data-testid="kpi-income"><span>Income</span><b>${money(d.ytdIncome)}</b></a>
           <a class="kpi" href="${esc(drill('net:exp', d.fyStart, today))}" data-testid="kpi-expense"><span>Expenses</span><b>${money(d.ytdExpense)}</b></a>

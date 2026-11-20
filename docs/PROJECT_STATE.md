@@ -7,7 +7,7 @@
 - Current phase: Phases 1–3 delivered (foundations, Gateway/navigation, F11/F12); Phases 4–6 partly (entry strip, row cursor, design tokens on all screens)
 - Current task: ER-design audit follow-up delivered (ERD-001…006, Phase 11, app 1.13.0); next: user to choose ERD-008…010 scope; then import .iif into real QuickBooks Desktop (INV-005), open exports in real Microsoft Excel (XW-007, FR-003/004), QA-002
 - Last verified commit/branch: `master` — see `git log` (session 2 commits: VaultBook workspace, refinements)
-- Last update: 2026-11-20 (app 1.51.0, data format 8)
+- Last update: 2026-11-20 (app 1.56.0, data format 8)
 
 ## Product goal
 Transform the existing application into a coherent, Tally Prime–inspired, keyboard-first US accounting system named VaultBook, preserving its accounting engine, stored data, offline operation, security, and existing features.
@@ -342,6 +342,12 @@ Transform the existing application into a coherent, Tally Prime–inspired, keyb
 
 ## 1.50.4 checkpoint (2026-11-19)
 - Rule from the user: no instruction notes on screens or reports unless a user could not figure it out. UI.page subtitles now need { html } (only data). Menu bar redesign: Version D1 and D2 on the design canvas, not built yet.
+
+## 1.56.0 checkpoint (2026-11-20) — review fixes (Impeccable critique + audit)
+- Done: everything in the 2026-11-20 critique (`.impeccable/critique/2026-11-20T21-02-24Z__app-index-src-html.md`): payment auto-apply and unapplied-credit question; dialog focus trap, inert background, Esc guard, z-order; one save-button row on all entry forms; Settings fixes (unknown tab, inline save error, photo logos, sales tax retry, switches act at once); tab de-duplication and restore cap; Reports finder; View can hide toolbar / F-key panel; phone tables scroll in their box, save bars above the tab bar, one-row Settings tabs and type keys, VaultBook blue on phone, bank feed accounts as desktop; first-run checklist and copy; Gateway hints; contrast and focus fixes. See DEC-046 and CHANGELOG 1.56.0.
+- Tests: Node 266/266 (new: company name limit). Developer UI tests 34 run, all pass (including qbinvoice_ui 22/22 updated for Ctrl+S = Save, menubar_ui 17/17, vaultbook_ui 45/45, studio_ui 40/40, payroll 38/38). paystub_iif_ui NOT RUN (needs tools/paystub-iif). e2e: 182 checks pass, then the run stops at the encrypted-backup download with "browser has been closed" — the unchanged 1.55.2 code stops at the same step in this environment (system Chrome, no Playwright Chromium), so not caused by this change; NEEDS VERIFICATION on a machine with Playwright's Chromium. Browser checks of each fix: 28/28 (desktop, phone, dark).
+- Risks: Ctrl+S on the invoice now saves and stays (was Save & Close); phone colours need the user's eye on a real iPhone.
+- Next action: run the full e2e with Playwright Chromium; the user reviews phone colours and the payment flow.
 
 ## 1.51.0 checkpoint (2026-11-20)
 - The user chose Version F from the design canvas: the D1 menu bar and toolbar with the mixed style. Built as js/ui-menubar.js (no new routes; every item points at an existing screen). The old K/Y/O/X/P bar stays in the page, invisible, so its keys and menus work; File opens them.

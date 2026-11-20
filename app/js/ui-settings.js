@@ -15,7 +15,7 @@
   };
 
   routes.settings = (el, r) => {
-    const tab = r.params.tab || 'company';
+    const tab = TABS.some(([k]) => k === r.params.tab) ? r.params.tab : 'company';   // unknown tab: show Company
     el.innerHTML = UI.page('Settings', '', `<nav class="tabs" role="tablist">${TABS.map(([k, l]) => `<a role="tab" href="#/settings?tab=${k}" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}</a>`).join('')}</nav><div id="tab"></div>`);
     const host = el.querySelector('#tab');
     ({ company, features, salestax, backup, data, integrity, audit, storage, security: UI.securityTab })[tab](host, r);
@@ -45,7 +45,7 @@
       <div class="logo-row"><div class="logo-preview">${c.logo ? `<img src="${esc(c.logo)}" alt="Current invoice logo">` : '<span class="muted">No logo</span>'}</div>
         <label class="btn"><input type="file" id="logo-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-testid="logo-file">${c.logo ? 'Replace logo…' : 'Add logo…'}</label>
         ${c.logo ? '<button type="button" class="btn ghost" id="logo-remove" data-testid="logo-remove">Remove logo</button>' : ''}</div>
-      <p class="muted small">PNG, JPEG, GIF or WebP. Large images are scaled down to 1200 pixels wide; the logo is kept in this company’s books and backups.</p></section>
+      <p class="muted small">PNG, JPEG, GIF or WebP. Large images are scaled down to 1200 pixels on the longer side; the logo is kept in this company’s books and backups.</p></section>
     <section class="card" data-testid="closing-card"><h2>Closing date password <span class="muted small">(optional)</span></h2>
       <p class="muted">With a password, nobody can move the closing date — and so change closed periods — without it. ${c.closingPasswordHash ? '<strong>A password is set.</strong>' : 'No password is set.'}</p>
       <form id="cpw" class="form-grid" autocomplete="off">
@@ -73,10 +73,15 @@
       const img = new Image(), url = URL.createObjectURL(f);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const k = Math.min(1, 1200 / img.naturalWidth), cv = document.createElement('canvas');
+        const k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement('canvas');
         cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k));
-        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        saveLogo(cv.toDataURL('image/png'), 'Logo saved. It now prints on invoices.');
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        let url2 = cv.toDataURL('image/png');
+        // photo-like logos are far smaller as JPEG; JPEG has no transparency, so they go on white, like the printed page
+        if (url2.length > 1400000) { ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); url2 = cv.toDataURL('image/jpeg', 0.88); }
+        if (url2.length > 1400000) return UI.toast('That image has too much detail to use as a logo. Try a simpler or smaller image.', 'error');
+        saveLogo(url2, 'Logo saved. It now prints on invoices.');
       };
       img.onerror = () => { URL.revokeObjectURL(url); UI.toast('That file could not be read as an image.', 'error'); };
       img.src = url;
@@ -97,19 +102,20 @@
       if (x && !x.id) x = Object.assign({}, x, { id: '' });
       const liab = (a) => a.active && (a.type === 'ocl' || a.type === 'ltl');
       const defAcc = x ? x.accountId : (b.sys('STAX') || {}).id;
-      UI.modal({ title: x ? 'Edit sales tax rate' : 'New sales tax rate', html: `<form id="stx" class="form-grid" autocomplete="off">
+      const isNew = !x || !!x.retryNew;
+      UI.modal({ title: isNew ? 'New sales tax rate' : 'Edit sales tax rate', html: `<form id="stx" class="form-grid" autocomplete="off">
         <label class="field span2"><span>Name (printed on invoices)</span><input name="name" value="${esc(x ? x.name : '')}" maxlength="60" placeholder="e.g. Arizona + Tucson"></label>
         <label class="field"><span>Rate (%)</span><input name="rate" inputmode="decimal" value="${esc(x ? (x.rate / 10000).toString() : '')}" placeholder="8.7"></label>
         <label class="field"><span>Tax agency</span><input name="agency" value="${esc(x ? x.agency || '' : '')}" maxlength="80" placeholder="e.g. Arizona Dept. of Revenue"></label>
         <fieldset class="span2"><legend>Combined rate (optional) — state, county, city…</legend><table class="data compact" id="stx-parts"><thead><tr><th>Part</th><th>Agency</th><th class="num">Rate %</th></tr></thead><tbody>${[0, 1, 2, 3].map((i) => { const c = x && x.components && x.components[i]; return `<tr><td><input data-p="name" value="${esc(c ? c.name : '')}" aria-label="Part name"></td><td><input data-p="agency" value="${esc(c ? c.agency : '')}" aria-label="Agency"></td><td class="num"><input data-p="rate" inputmode="decimal" value="${esc(c ? (c.rate / 10000).toString() : '')}" aria-label="Rate" class="qty"></td></tr>`; }).join('')}</tbody></table>
           <p class="muted small">When parts are filled in, the rate is their total and each sale's tax is split by agency for the returns.</p></fieldset>
         <label class="field span2"><span>Owed in (liability account)</span><select name="accountId">${UI.accountOptions(defAcc, liab)}</select></label>
-        <label class="check span2"><input type="checkbox" name="makeDefault"${!x || c.defaultSalesTaxId === x.id ? ' checked' : ''}> Default rate for new sales</label>
-        ${x ? `<label class="check span2"><input type="checkbox" name="active"${x.active === false ? '' : ' checked'}> Active</label>` : ''}</form>
+        <label class="check span2"><input type="checkbox" name="makeDefault"${!x || x.makeDefault || c.defaultSalesTaxId === x.id ? ' checked' : ''}> Default rate for new sales</label>
+        ${!isNew ? `<label class="check span2"><input type="checkbox" name="active"${x.active === false ? '' : ' checked'}> Active</label>` : ''}</form>
         <p class="muted small">Changing a rate affects new and edited documents; saved documents keep the rate they were posted with.</p>`,
         actions: [{ label: 'Cancel', value: null }, { label: 'Save', primary: true, collect: (m) => Object.assign(Object.fromEntries(new FormData(m.querySelector('#stx')).entries()), { components: [...m.querySelectorAll('#stx-parts tbody tr')].map((tr) => ({ name: tr.querySelector('[data-p=name]').value, agency: tr.querySelector('[data-p=agency]').value, rate: tr.querySelector('[data-p=rate]').value })).filter((p) => p.name || p.agency || p.rate) }) }] })
-        .then((d) => d && b.saveSalesTax({ id: x ? x.id : '', name: d.name, rate: d.rate, agency: d.agency, accountId: d.accountId, makeDefault: !!d.makeDefault, active: x ? !!d.active : undefined, components: d.components })
-          .then(() => { UI.toast('Sales tax rate saved'); salestax(el); }, (e) => { UI.error(e); edit(Object.assign({ id: x ? x.id : '', active: true }, x || {}, { name: d.name, agency: d.agency, accountId: d.accountId, rate: OB.Book.parseRate(d.rate) || 0 })); }));
+        .then((d) => d && b.saveSalesTax({ id: x ? x.id : '', name: d.name, rate: d.rate, agency: d.agency, accountId: d.accountId, makeDefault: !!d.makeDefault, active: isNew ? undefined : !!d.active, components: d.components })
+          .then(() => { UI.toast('Sales tax rate saved'); salestax(el); }, (e) => { UI.error(e); edit(Object.assign({ id: x ? x.id : '', active: true, retryNew: isNew }, x || {}, { name: d.name, agency: d.agency, accountId: d.accountId, rate: OB.Book.parseRate(d.rate) || 0, active: isNew ? true : !!d.active, makeDefault: !!d.makeDefault, components: d.components.map((p) => ({ name: p.name, agency: p.agency, rate: OB.Book.parseRate(p.rate) || 0 })) })); }));
     };
     el.querySelector('#stx-new').addEventListener('click', () => edit(null));
     el.querySelectorAll('[data-edit]').forEach((bt) => bt.addEventListener('click', () => edit(list.find((x) => x.id === bt.dataset.edit))));
@@ -146,12 +152,13 @@
         <div class="feat-txt"><label for="f-${f.id}"><strong>${esc(f.title)}</strong></label><p>${esc(f.desc)}</p><p class="muted small">${esc(f.adds)}${f.count(b) ? ' · <strong>' + esc(f.count(b)) + '</strong>' : ''}</p></div>
         <div class="feat-ctl"><span class="switch"><input type="checkbox" role="switch" id="f-${f.id}" name="${f.key}" ${on(f) ? 'checked' : ''}><span aria-hidden="true"></span></span>
           ${on(f) ? `<a href="${f.manage[0]}" class="small">${esc(f.manage[1])}</a>` : ''}</div></li>`).join('')}</ul>
-      <div class="form-actions"><button type="submit" class="btn primary" data-key="s">Save features</button><span class="form-status" aria-live="off"></span></div></form>`;
+      <div class="form-actions"><span class="muted small">Each switch takes effect as soon as you change it.</span><button type="submit" class="btn" data-key="s" hidden>Save features</button><span class="form-status" aria-live="off"></span></div></form>`;
     const form = el.querySelector('#feat');
     const read = () => { const o = {}; FEATURES.forEach((f) => { o[f.key] = form.querySelector(`[name="${f.key}"]`).checked; }); return o; };
-    const submit = () => UI.runSave(form.querySelector('[type=submit]'), () => b.saveCompany(read()), 'Features saved').then((ok) => { if (ok) { tracker.reset(); UI.applyFeatures(); UI.render(); } return ok; });
+    const submit = () => UI.runSave(form.querySelector('[type=submit]'), () => b.saveCompany(read()), 'Features saved').then((ok) => { if (ok) { const at = document.activeElement && document.activeElement.id; tracker.reset(); UI.applyFeatures(); UI.render(); const back = at && document.getElementById(at); if (back) back.focus(); } return ok; });
     const tracker = UI.trackForm(form, { snapshot: () => JSON.stringify(read()), save: submit });
     form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+    form.addEventListener('change', (e) => { if (e.target.matches('[role=switch]')) submit(); });   // a switch acts at once, like any switch
   }
 
   function backup(el) {
@@ -232,13 +239,14 @@
     run();
   }
 
+  const actionLabel = (x) => { const t = String(x || '').replace(/[-_]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };   // edit-company → Edit company
   function audit(el, r) {
     const b = UI.book, page = +r.params.page || 0, size = 100;
     const q = (r.params.q || '').toLowerCase();
     const list = b.audit.filter((a) => !q || (a.summary + ' ' + a.action).toLowerCase().indexOf(q) >= 0).sort((x, y) => x.ts < y.ts ? 1 : -1);
     el.innerHTML = `<div class="toolbar"><input type="search" id="au-q" placeholder="Search the audit log" value="${esc(r.params.q || '')}" aria-label="Search audit log"></div>
       <table class="data"><thead><tr><th>When</th><th>Action</th><th>Details</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-      ${list.slice(page * size, page * size + size).map((a) => `<tr><td class="nowrap">${esc(new Date(a.ts).toLocaleString())}</td><td><span class="badge">${esc(a.action)}</span></td><td>${esc(a.summary)}</td><td>${a.txnId && b.txById[a.txnId] ? `<a href="#/txn/${esc(a.txnId)}">Open</a>` : ''}</td></tr>`).join('')}
+      ${list.slice(page * size, page * size + size).map((a) => `<tr><td class="nowrap">${esc(new Date(a.ts).toLocaleString())}</td><td><span class="badge">${esc(actionLabel(a.action))}</span></td><td>${esc(a.summary)}</td><td>${a.txnId && b.txById[a.txnId] ? `<a href="#/txn/${esc(a.txnId)}">Open</a>` : ''}</td></tr>`).join('')}
       </tbody></table>${UI.pager(list.length, page, size, (p) => UI.go('#/settings?' + UI.qs({ tab: 'audit', q: r.params.q, page: p })))}
       <p class="muted small">The audit log is append-only. Edits store the previous version of the transaction; voids keep the original amounts.</p>`;
     el.querySelector('#au-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') UI.go('#/settings?' + UI.qs({ tab: 'audit', q: e.target.value })); });
@@ -247,7 +255,7 @@
   function storage(el) {
     const cur = UI.theme || 'system';
     el.innerHTML = `<section class="card"><h2>Appearance</h2>
-      <div class="segmented" role="radiogroup" aria-label="Appearance">${[['system', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) =>
+      <div class="segmented" role="radiogroup" aria-label="Appearance">${[['system', 'Match system'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) =>
         `<button type="button" role="radio" aria-checked="${v === cur}" data-theme-opt="${v}">${l}</button>`).join('')}</div>
       <p class="muted small">The sun/moon button in the top bar switches between Light and Dark. Printing and PDFs always use the light appearance.</p>
       <h3>Density</h3>

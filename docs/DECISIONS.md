@@ -415,6 +415,16 @@ Record important decisions here. Add new entries at the top. Do not silently rev
 - Impact on requirements/tasks: js/ui-menubar.js, css/studio.css, index.html, js/prefs.js, js/ui-core.js, js/ui-keys.js, js/ui-studio.js; tests/dev/menubar_ui.py; four older UI tests seed the side menu on.
 - Verification needed: the user's eye on the real app; a Windows check at 125% display scaling.
 
+### DEC-046 — Review fixes (1.56.0): payments auto-apply, one save-button row, phone uses VaultBook blue
+- Date: 2026-11-20
+- Status: Accepted (the user asked to fix everything from the Impeccable critique and audit, and left the phone look to judgement)
+- Context: a dual-agent design review found a payment that saved as unapplied credit while its invoice stayed open, dialogs without a focus trap under a live menu bar, two save-button layouts, tab duplicates, phone layout breaks and weak first-run guidance.
+- Decision: new Receive payment / Pay bills forms apply the typed amount oldest-first until the user picks applications; unapplied money with open documents asks first. Every entry form uses Close · Clear/Revert · Save · Save & New; Ctrl+S is Save everywhere (the invoice's Save & Close shortcut is retired). The phone keeps iOS layout and controls but uses the desktop accent (#2452C7 / #7FA2F5; filled buttons #3460D6 in dark) instead of Apple blue (supersedes the 1.54.1 colour choice; AA contrast rechecked). The menu bar + toolbar defaults of DEC-045 stay; View can now hide the toolbar and the function-key panel. Tally words on the Gateway stay (hot letters) with plain-English hints.
+- Alternatives considered: toolbar off by default (rejected: contradicts DEC-045); rewriting the invoice to the generic form (rejected: the QuickBooks Create Invoices layout is a chosen feature); renaming Vouchers/Alter (rejected: hot letters and Tally users).
+- Risks: users used to Ctrl+S = Save & Close on invoices now stay on the saved invoice; auto-apply only on new payments (editing a saved payment keeps its applications).
+- Impact on requirements/tasks: js/ui-forms.js, ui-core.js, ui-settings.js, ui-windows.js, ui-menubar.js, ui-mobile.js, ui-studio.js, ui-pages.js, ui-gateway.js, ui-keys.js, ui-entry.js, ui-reports.js, ui-statements.js, ui-close.js, ui-business.js, ledger.js, schema.js; css app/studio/mobile/vault/windows/reports; tests/engine.tests.js, tests/dev/qbinvoice_ui.py.
+- Verification needed: the user's eye on phone colours on a real iPhone; a bookkeeper trying the payment flow.
+
 ## Decision template
 ### DEC-XXX — Title
 - Date:

@@ -80,10 +80,18 @@
         <td><a href="${esc(UI.savedReportHref(x))}">${esc(x.name)}</a></td><td>${esc(x.report === 'builder' ? 'Custom report builder' : x.report === 'designer' ? 'Statement designer' : (REPORTS[x.report] || { title: x.report }).title)}</td><td>${esc(new Date(x.updatedAt || x.createdAt).toLocaleDateString())}</td>
         <td class="actions-cell"><button type="button" class="btn ghost small" data-rn="${esc(x.id)}">Rename</button><button type="button" class="btn ghost small" data-rm="${esc(x.id)}">Delete</button></td></tr>`).join('')}</tbody></table>`
       : '<p class="muted">Customize any report and choose <strong>Save as</strong> — or build one from scratch — and it appears here.</p>'}</section>`;
-    el.innerHTML = UI.page('Reports', '<button type="button" class="btn primary" id="rp-workbook" data-testid="export-workbook" data-key="w">Export financial workbook</button><a class="btn" href="#/designer">Statement designer</a><a class="btn" href="#/builder">Custom report builder</a>', myHtml + `<div class="report-groups">${Object.keys(groups).map((g) => `<section class="card"><h2>${esc(g)}</h2><ul class="report-links">
+    el.innerHTML = UI.page('Reports', '<button type="button" class="btn primary" id="rp-workbook" data-testid="export-workbook" data-key="w">Export financial workbook</button><a class="btn" href="#/designer">Statement designer</a><a class="btn" href="#/builder">Custom report builder</a>', `<div class="toolbar rp-find"><input type="search" id="rp-filter" placeholder="Find a report by name or what it shows" aria-label="Find a report" data-testid="rp-filter"><span class="muted small" id="rp-count" aria-live="polite"></span></div>` + myHtml + `<div class="report-groups">${Object.keys(groups).map((g) => `<section class="card" data-rgroup><h2>${esc(g)}</h2><ul class="report-links">
       ${groups[g].map((k) => `<li><a href="${esc(reportHref(k))}" title="${esc(REPORTS[k].desc)}"><strong>${esc(REPORTS[k].title)}</strong><span>${esc(REPORTS[k].desc)}</span></a></li>`).join('')}</ul></section>`).join('')}</div>`,
     'Every figure is calculated from your posted transactions. Click amounts to see the transactions behind them.');
     el.querySelector('#rp-workbook').addEventListener('click', () => UI.exportWorkbook());
+    // about 30 reports: typing narrows the list, and groups with no match drop out
+    const flt = el.querySelector('#rp-filter'), cnt = el.querySelector('#rp-count');
+    flt.addEventListener('input', () => {
+      const q = flt.value.trim().toLowerCase(); let n = 0;
+      el.querySelectorAll('.report-links li').forEach((li) => { const hit = !q || li.textContent.toLowerCase().indexOf(q) >= 0; li.hidden = !hit; if (hit) n++; });
+      el.querySelectorAll('[data-rgroup]').forEach((sec) => { sec.hidden = !!q && !sec.querySelector('li:not([hidden])'); });
+      cnt.textContent = q ? (n ? n + ' report' + (n === 1 ? '' : 's') : 'No report matches. Try another word.') : '';
+    });
     el.querySelectorAll('[data-rm]').forEach((x) => x.addEventListener('click', () => {
       const rp = b.reports.find((y) => y.id === x.dataset.rm);
       UI.confirm('Delete saved report', `<p>Delete “${esc(rp.name)}”? Your transactions are not affected.</p>`, { danger: true, ok: 'Delete' }).then((ok) => ok && b.deleteReport(rp.id).then(() => { UI.toast('Saved report deleted.'); UI.render(); }));
