@@ -10,6 +10,14 @@
   const click = (id) => () => $(id).click();
   const cmd = (m) => () => document.querySelector('.cmdbar [data-menu="' + m + '"]').click();
   const sideOff = () => document.documentElement.classList.contains('sidebar-collapsed');
+  /* the strip of open-window tabs under the toolbar; the Window menu still lists every open screen while it is hidden */
+  const tabsOff = () => !OB.windows || OB.windows.layout === 'off' || OB.windows.layout === 'taskbar';
+  const toggleTabs = () => {
+    const W = OB.windows; if (!W || !W.setLayout) return;
+    const map = tabsOff() ? { off: 'tabs', taskbar: 'both' } : { tabs: 'off', both: 'taskbar' };
+    W.setLayout(map[W.layout] || (tabsOff() ? 'tabs' : 'off'));
+  };
+  const tabsItem = () => [tabsOff() ? 'Show the window tabs' : 'Hide the window tabs', toggleTabs];
   const SEP = null;
   /* [label, href or function, shortcut shown] */
   const MENUS = {
@@ -17,7 +25,7 @@
       ['Import', cmd('O'), 'Alt+O'], ['Export', cmd('X'), 'Alt+X'], SEP, ['Print', cmd('P'), 'Alt+P'], SEP, ['Lock company', $('btn-lock').hidden ? '' : click('btn-lock')], ['Settings', '#/settings']],
     Edit: () => [['Search or go to', () => UI.openPalette(), 'Ctrl+K'], ['Find transactions', '#/find'], SEP, ['Change the period', click('st-period'), 'Alt+F2'], ['New', click('st-new'), 'F10']],
     View: () => [['Home', '#/dashboard'], ['Gateway', '#/gateway'], ['Calendar', '#/calendar'], ['Company Snapshot', '#/snapshot'], SEP,
-      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
+      [sideOff() ? 'Show the side menu' : 'Hide the side menu', click('nav-toggle'), 'Ctrl+\\'], tabsItem(), [$('theme-toggle').getAttribute('aria-label'), click('theme-toggle')]],
     Lists: () => [['Chart of accounts', '#/accounts'], ['Products & services', '#/items'], ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Classes', '#/classes'], SEP, ['Recurring', '#/recurring'], ['Bank rules', '#/rules']],
     Company: () => [['Calendar', '#/calendar'], ['Doc Center', '#/docs'], ['Budgets', '#/budgets'], SEP, ['Company Snapshot', '#/snapshot'], ['Lists and settings', () => UI.gearMenu && UI.gearMenu(), 'Ctrl+Alt+L']],
     Customers: () => [['Customers', '#/customers'], ['Invoices', '#/transactions?type=invoice'], SEP, ['Create invoice', '#/txn/new?type=invoice', 'F8'], ['Receive payment', '#/txn/new?type=payment'],
@@ -32,7 +40,7 @@
     Reports: () => [['Report center', '#/reports'], SEP, ['Profit and loss', '#/report/pnl'], ['Balance sheet', '#/report/bs'], SEP, ['A/R aging', '#/report/araging'], ['A/P aging', '#/report/apaging'],
       ['General ledger', '#/report/gl'], ['Trial balance', '#/report/tb'], ['Journal', '#/report/journal']],
     Window: () => (OB.windows ? OB.windows.list : []).map((w) => [(w.id === OB.windows.activeId ? '✓ ' : '') + (w.title || w.hash), () => OB.windows.focus(w.id), '', w.id])
-      .concat([SEP, ['Close the other screens', () => OB.windows.closeOthers(OB.windows.activeId)]]),
+      .concat([SEP, ['Close the other screens', () => OB.windows.closeOthers(OB.windows.activeId)], tabsItem()]),
     Help: () => [['Keyboard shortcuts', () => UI.showShortcuts(), 'F1']]
   };
   /* an item is left out when its feature is switched off for this company (the side menu link is hidden) */
