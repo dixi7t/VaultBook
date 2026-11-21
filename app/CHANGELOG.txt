@@ -1,6 +1,25 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.57.0  (2026-11-21)  Import statement files on iPhone and iPad
+-------------------------------------------------------------------------------
+  * Bank feed on iPhone and iPad: every account has Import File, Type Lines
+    and Review. Import File takes a CSV, Excel, OFX, QFX, QBO or PDF
+    statement from the Files app. It picks the columns, shows what will come
+    in (new lines, money in and out, running-balance check, lines imported
+    before) and adds the new lines to For review. The column layout is
+    remembered per account, so the next file from the same bank goes
+    straight to the summary.
+  * Pending lines: a Status column saying Pending, or a description starting
+    with PENDING, is now recognised. Pending lines are left out by default
+    (on the laptop import too) and arrive with the next file once they
+    clear, so nothing is counted twice. Untick the box to bring them in.
+  * Android: VaultBook appears in the Share menu once added to the Home
+    Screen; share a bank file to it and it opens in Import File. (iPhone
+    does not let web apps receive shared files; use the Files app.)
+  * PDF and OFX statements imported on a phone or iPad return to the bank
+    feed Review screen.
+
 1.56.0  (2026-11-20)  Review fixes: payments, dialogs, one form layout
 -------------------------------------------------------------------------------
   * Receive payment / Pay bills: the amount you type is applied to the

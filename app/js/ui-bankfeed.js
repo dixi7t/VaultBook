@@ -267,8 +267,8 @@
     return imp;
   }
   function preview(b, imp) {
-    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert });
-    imp.rows = parsed.rows; imp.errors = parsed.errors;
+    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert, skipPending: imp.skipPending !== false });
+    imp.rows = parsed.rows; imp.errors = parsed.errors; imp.pending = parsed.pending;
     imp.bal = I.checkBalances(parsed.rows); imp.pre = b.bankPreview(imp.accountId, parsed.rows);
   }
   function importPanel(b) {
@@ -303,6 +303,7 @@
         ${imp.pre.inBooks && imp.pre.inBooks.length ? `<dt>Already in your books</dt><dd data-testid="bf-inbooks"><label class="check"><input type="checkbox" id="bfi-books" ${imp.matchBooks !== false ? 'checked' : ''}> <strong>${imp.pre.inBooks.length}</strong> line${imp.pre.inBooks.length === 1 ? ' is' : 's are'} already entered in ${esc(acc.name)} — match ${imp.pre.inBooks.length === 1 ? 'it' : 'them'} instead of adding again</label>
           <details><summary>Show which</summary><table class="data compact bf-inbooks"><thead><tr><th>Bank date</th><th>Description</th><th class="num">Amount</th><th>In the books as</th></tr></thead><tbody>${imp.pre.inBooks.slice(0, 60).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.description)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc(x.entry)} <span class="muted small">${esc(x.reasons.slice(1).join(' · '))}</span></td></tr>`).join('')}</tbody></table></details></dd>` : ''}
         ${imp.pre.autoAdd ? `<dt>Auto-add rules</dt><dd><label class="check"><input type="checkbox" id="bfi-auto" ${imp.autoAdd !== false ? 'checked' : ''}> <strong>${imp.pre.autoAdd}</strong> line${imp.pre.autoAdd === 1 ? '' : 's'} will be posted by your auto-add rules</label></dd>` : ''}
+        ${imp.pending ? `<dt>Pending</dt><dd data-testid="bf-pending"><label class="check"><input type="checkbox" id="bfi-pending" ${imp.skipPending !== false ? 'checked' : ''}> Leave out <strong>${imp.pending}</strong> pending line${imp.pending === 1 ? '' : 's'}</label> <span class="muted small">They come in with your next file once they clear, so nothing is counted twice.</span></dd>` : ''}
         <dt>Money in / out</dt><dd>${UI.money(U.sum(rows.filter((r) => r.amount > 0), (r) => r.amount), { symbol: true })} in · ${UI.money(-U.sum(rows.filter((r) => r.amount < 0), (r) => r.amount), { symbol: true })} out</dd>
         <dt>Running balance</dt><dd data-testid="bf-balance-check">${!bal.hasBalance ? '<span class="muted">No balance column in this file</span>' : bal.mismatches.length ? `<span class="badge warn">Breaks at line${bal.mismatches.length === 1 ? '' : 's'} ${esc(bal.mismatches.slice(0, 8).join(', '))}</span> — lines may be missing or the file was edited` : `<span class="badge ok">Checks out</span> · ending balance ${UI.money(bal.endingBalance, { symbol: true })} on ${esc(U.fmtDate(bal.endingDate))}`}</dd>
         ${imp.errors.length ? `<dt>Skipped</dt><dd><details><summary>${imp.errors.length} line${imp.errors.length === 1 ? '' : 's'} could not be read</summary><ul>${imp.errors.slice(0, 50).map((e) => `<li>${esc(e)}</li>`).join('')}</ul></details></dd>` : ''}
@@ -513,6 +514,7 @@
     on('#bfi-remap', 'click', remap); on('#bfi-remap2', 'click', remap);
     on('#bfi-books', 'change', (e) => { imp.matchBooks = e.target.checked; });
     on('#bfi-auto', 'change', (e) => { imp.autoAdd = e.target.checked; });
+    on('#bfi-pending', 'change', (e) => { imp.skipPending = e.target.checked; preview(b, imp); UI.render(); });
     on('#bfi-go', 'click', (e) => UI.busy(e.target, () => {
       const bal = imp.bal, meta = { fileName: imp.fileName, source: 'csv', endingBalance: bal.hasBalance && !bal.mismatches.length ? bal.endingBalance : null, endingDate: bal.hasBalance ? bal.endingDate : '' };
       const save = imp.remember ? b.saveBankProfile(imp.accountId, { header: imp.header, mapping: imp.mapping, dateFormat: imp.mapping.dateFormat, invert: imp.invert }) : Promise.resolve();

@@ -38,6 +38,18 @@
     });
     eq(I.detectColumns(['Date', 'Transaction Details', 'Narrative', 'Amount'], [['1/1/2026', 'POS', 'STARBUCKS 123', '-4']]).description, 2, 'narrative text beats a code-like column');
   });
+  test('BF-03b pending lines: Status column or PENDING description found; skipped only when asked', function () {
+    var csv = 'Date,Description,Amount,Status\n11/03/2026,SHELL OIL 5521,-45.10,Pending\n11/02/2026,CORNER COFFEE,-4.50,Posted\n11/01/2026,PAYROLL,2000.00,Posted\n';
+    var t = U.parseCSV(csv), m = I.detectColumns(t[0], t.slice(1)); m.hasHeader = true;
+    eq(m.status, 3, 'Status column found'); eq(m.description, 1, 'Description unchanged'); eq(m.amount, 2);
+    var all = I.parseBankRows(t, m, {}); eq(all.rows.length, 3, 'default keeps every line (old behaviour)'); eq(all.pending, 1, 'pending counted');
+    var posted = I.parseBankRows(t, m, { skipPending: true }); eq(posted.rows.length, 2, 'pending left out'); eq(posted.pending, 1);
+    ok(posted.rows.every(function (r) { return r.description !== 'SHELL OIL 5521'; }), 'the pending line is the one left out');
+    var t2 = U.parseCSV('Date,Description,Amount\n11/03/2026,PENDING - AMAZON MKTP,-32.99\n11/02/2026,AMAZON MKTP,-32.99\n'), m2 = I.detectColumns(t2[0], t2.slice(1)); m2.hasHeader = true;
+    eq(m2.status, -1, 'no status column'); eq(I.parseBankRows(t2, m2, { skipPending: true }).rows.length, 1, 'PENDING description left out');
+    var tc = U.parseCSV(CHASE), mc = I.detectColumns(tc[0], tc.slice(1)); mc.hasHeader = true;
+    eq(mc.status, -1, 'Chase Details/Type columns are not a status column'); eq(I.parseBankRows(tc, mc, { skipPending: true }).rows.length, 5, 'nothing skipped in a file with no pending lines');
+  });
   test('BF-02 a rule suggested from a bank line uses the merchant text, never a bare DEBIT/CREDIT word', function () {
     eq(I.ruleTextFor('SQ *BLUE BOTTLE COFFEE 4432 NEW YORK NY'), 'BLUE BOTTLE COFFEE');
     eq(I.ruleTextFor('COMCAST CABLE COMM 800-COMCAST PA'), 'COMCAST CABLE COMM');
