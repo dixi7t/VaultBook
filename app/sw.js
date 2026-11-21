@@ -4,16 +4,16 @@
  * - Everything else (the page itself, icons, lazily loaded helpers) asks the server first, with a cheap check when the
  *   file has not changed, and falls back to the saved copy when offline. A new build therefore shows up on the next
  *   open, and the phone downloads only the bundles whose contents changed. */
-const CACHE = 'vaultbook-app-v4';
+const CACHE = 'vaultbook-app-v5';
 const SHARED = 'vaultbook-share';   // a bank file shared to VaultBook from another app (Android share sheet)
-const HASHED = /\/(?:js|css)\/app\.[0-9a-f]{10}\.(?:js|css)$/;
+const HASHED = /\/(?:js|css)\/(?:app|head)\.[0-9a-f]{10}\.(?:js|css)$/;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 async function precache() {
   const cache = await caches.open(CACHE);
   await cache.addAll(CORE.map((u) => new Request(u, { cache: 'no-cache' })));
   const html = await (await cache.match('./index.html')).text();
-  const assets = [...html.matchAll(/(?:src|href)="((?:js|css)\/app\.[0-9a-f]{10}\.(?:js|css))"/g)].map((m) => './' + m[1]);
+  const assets = [...html.matchAll(/(?:src|href)="((?:js|css)\/(?:app|head)\.[0-9a-f]{10}\.(?:js|css))"/g)].map((m) => './' + m[1]);
   await cache.addAll(assets);
   // remove bundles from earlier builds
   const keep = new Set(assets.map((a) => new URL(a, self.registration.scope).href));

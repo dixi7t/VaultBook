@@ -345,7 +345,7 @@
   var OB = root.OB = root.OB || {};
   var S = OB.schema = {};
 
-  S.APP_VERSION = '1.57.0';
+  S.APP_VERSION = '1.58.0';
   S.DATA_VERSION = 8;        // company data schema version (see migrations below)
   S.BACKUP_FORMAT = 'OfflineBooksUS-Backup';
 
@@ -742,6 +742,121 @@
   C.unlock = function (security, secret, mode) {
     return mode === 'recovery' ? C.unwrap(security.recovery, C.normalizeRecoveryKey(secret)).catch(function (e) { e.message = 'That recovery key is not correct.'; throw e; })
       : C.unwrap(security.password, secret);
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+;
+/* == js/secrets.js == */
+/* VaultBook — connection secrets (1.58.0): where keys for outside services (for example a SimpleFIN Access URL) are kept.
+ *
+ * - Separate from the books: a database of its own ("VaultBookSecrets"), never part of a company, so a secret is never
+ *   in a backup, an export, a QuickBooks file or anything else VaultBook writes out.
+ * - Encrypted at rest with AES-GCM under a device key the browser generates as NON-EXTRACTABLE: code can ask the
+ *   browser to decrypt with it, but can never read the key itself, so the stored bytes are useless off this device.
+ * - Listing returns names and dates only. Each record belongs to one company and can be removed (revoked) at any time.
+ * - Limits, stated plainly: a script that runs inside VaultBook could still ask for a secret while the page is open.
+ *   That is why the page's security policy forbids inline and injected scripts (see index.src.html).
+ * Classic script; works in browsers and in Node (tests swap in an in-memory store with OB.secrets._useStore).
+ */
+(function (root) {
+  'use strict';
+  var OB = root.OB = root.OB || {};
+  var subtle = root.crypto && root.crypto.subtle;
+  var DB = 'VaultBookSecrets', KEY_ID = 'device-key';
+
+  /* ---------- storage: IndexedDB in the browser, a Map in tests ---------- */
+  function idbStore() {
+    var dbp = null;
+    function db() {
+      if (!dbp) dbp = new Promise(function (res, rej) {
+        var r = root.indexedDB.open(DB, 1);
+        r.onupgradeneeded = function () { var d = r.result; d.createObjectStore('keys'); d.createObjectStore('secrets', { keyPath: 'id' }); };
+        r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+      });
+      return dbp;
+    }
+    function tx(store, mode, fn) {
+      return db().then(function (d) { return new Promise(function (res, rej) {
+        var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s);
+        t.oncomplete = function () { res(out && 'result' in out ? out.result : undefined); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error); };
+      }); });
+    }
+    return {
+      getKey: function () { return tx('keys', 'readonly', function (s) { return s.get(KEY_ID); }); },
+      putKey: function (k) { return tx('keys', 'readwrite', function (s) { return s.put(k, KEY_ID); }); },
+      get: function (id) { return tx('secrets', 'readonly', function (s) { return s.get(id); }); },
+      put: function (rec) { return tx('secrets', 'readwrite', function (s) { return s.put(rec); }); },
+      del: function (id) { return tx('secrets', 'readwrite', function (s) { return s.delete(id); }); },
+      all: function () { return tx('secrets', 'readonly', function (s) { return s.getAll(); }); }
+    };
+  }
+  function memoryStore() {
+    var keys = new Map(), recs = new Map();
+    return {
+      getKey: function () { return Promise.resolve(keys.get(KEY_ID)); },
+      putKey: function (k) { keys.set(KEY_ID, k); return Promise.resolve(); },
+      get: function (id) { return Promise.resolve(recs.get(id)); },
+      put: function (rec) { recs.set(rec.id, rec); return Promise.resolve(); },
+      del: function (id) { recs.delete(id); return Promise.resolve(); },
+      all: function () { return Promise.resolve(Array.from(recs.values())); },
+      _raw: recs
+    };
+  }
+  var store = null;
+  function st() { if (!store) store = root.indexedDB ? idbStore() : memoryStore(); return store; }
+
+  /* ---------- the device key ---------- */
+  var keyP = null;
+  function deviceKey() {
+    if (!keyP) keyP = st().getKey().then(function (k) {
+      if (k) return k;
+      return subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])   // false = not extractable
+        .then(function (nk) { return st().putKey(nk).then(function () { return nk; }); });
+    });
+    return keyP;
+  }
+  var enc = function (s) { return new TextEncoder().encode(s); };
+  var dec = function (b) { return new TextDecoder().decode(b); };
+  function aad(rec) { return enc('vaultbook-secret|' + rec.id + '|' + rec.companyId + '|' + rec.kind); }   // binds the bytes to this record
+
+  function clean(rec) { return { id: rec.id, companyId: rec.companyId, kind: rec.kind, label: rec.label, createdAt: rec.createdAt, lastUsedAt: rec.lastUsedAt || '' }; }
+
+  var S = OB.secrets = {
+    /** True when this browser can keep secrets (WebCrypto plus IndexedDB, or the test store). */
+    available: function () { return !!subtle && (!!root.indexedDB || !!store); },
+    /** Save (or replace) a secret. info: { companyId, kind, label }. Resolves with the record, without the value. */
+    put: function (id, value, info) {
+      info = info || {};
+      if (!id || typeof value !== 'string' || !value) return Promise.reject(new Error('A secret needs an id and a value.'));
+      var rec = { id: String(id), companyId: String(info.companyId || ''), kind: String(info.kind || 'other'), label: String(info.label || id), createdAt: new Date().toISOString() };
+      var iv = root.crypto.getRandomValues(new Uint8Array(12));
+      return deviceKey().then(function (k) { return subtle.encrypt({ name: 'AES-GCM', iv: iv, additionalData: aad(rec) }, k, enc(value)); })
+        .then(function (ct) { rec.iv = Array.from(iv); rec.data = new Uint8Array(ct); return st().put(rec); })
+        .then(function () { return clean(rec); });
+    },
+    /** The decrypted value, or null when there is no such secret. */
+    get: function (id) {
+      return st().get(String(id)).then(function (rec) {
+        if (!rec) return null;
+        return deviceKey().then(function (k) { return subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(rec.iv), additionalData: aad(rec) }, k, rec.data); })
+          .then(function (pt) { rec.lastUsedAt = new Date().toISOString(); return st().put(rec).then(function () { return dec(pt); }); });
+      });
+    },
+    /** Names and dates of the stored secrets (never the values), optionally for one company, newest first. */
+    list: function (companyId) {
+      return st().all().then(function (all) {
+        return (all || []).filter(function (r) { return companyId === undefined || r.companyId === companyId; }).map(clean)
+          .sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+      });
+    },
+    /** Remove one secret (revoke it on this device). */
+    remove: function (id) { return st().del(String(id)); },
+    /** Remove every secret of a company (used when a company is deleted). */
+    removeCompany: function (companyId) {
+      return S.list(companyId).then(function (list) { return Promise.all(list.map(function (r) { return st().del(r.id); })); });
+    },
+    _useStore: function (s) { store = s || memoryStore(); keyP = null; return store; },
+    _memoryStore: memoryStore
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -13004,6 +13119,8 @@
       return new Promise(function (res) { tx.oncomplete = res; });
     }).then(function () {
       return new Promise(function (resolve) { var r = root.indexedDB.deleteDatabase(DB.dbName(companyId)); r.onsuccess = r.onerror = r.onblocked = function () { resolve(); }; });
+    }).then(function () {   // 1.58.0: connection secrets of the company go with it
+      return OB.secrets && OB.secrets.available() ? OB.secrets.removeCompany(companyId).catch(function () {}) : null;
     });
   };
 
@@ -14566,7 +14683,7 @@
     const co = b.company;
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>Statement</h1></div><div class="actions">
       <label>From <input type="date" id="st-from" value="${from}"></label><label>To <input type="date" id="st-to" value="${to}"></label>
-      <button class="btn" id="st-run">Update</button><button class="btn primary" onclick="window.print()" data-key="p">Print / Save as PDF</button></div></div>
+      <button class="btn" id="st-run">Update</button><button class="btn primary" data-print data-key="p">Print / Save as PDF</button></div></div>
       <article class="doc">
         <header class="doc-head"><div><h2>${esc(co.name)}</h2><p>${esc(co.address).replace(/\n/g, '<br>')}</p><p>${esc([co.phone, co.email].filter(Boolean).join(' · '))}</p></div>
         <div class="doc-title"><h1>Statement</h1><p>${U.fmtDate(from)} – ${U.fmtDate(to)}</p></div></header>
@@ -15718,7 +15835,7 @@
     const L = OB.invoiceLayout, pages = L.pages(b, t);
     const titleMap = { invoice: 'Invoice', salesReceipt: 'Sales Receipt', creditMemo: 'Credit Memo', estimate: 'Estimate' };
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>${esc(titleMap[t.type] || 'Document')} ${esc(t.number)}</h1><p class="sub">Download the PDF, or print on US Letter paper with no scaling.</p></div>
-      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" onclick="window.print()" data-key="p">Print</button></div></div>
+      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
       <div class="inv-pages" data-testid="invoice-doc">${pages.map((ops, i) => `<div class="inv-page">${t.status === 'void' ? '<div class="void-stamp">VOID</div>' : ''}${L.svg(ops, 'class="inv-svg" role="img" aria-label="' + esc((titleMap[t.type] || 'Invoice') + ' ' + t.number + (pages.length > 1 ? ', page ' + (i + 1) : '')) + '"')}</div>`).join('')}</div></div>`;
     el.querySelector('#inv-pdf').addEventListener('click', () => {
       const logoJpeg = (src) => new Promise((res) => {
@@ -21230,6 +21347,39 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       .then((pw) => pw === null ? null : OB.db.newRecoveryKey(b, pw).then((rk) => UI.showRecoveryKey(rk, b.company.name, 'New recovery key issued. The previous one no longer works.'))).catch(UI.error));
     el.querySelector('#sec-off').addEventListener('click', () => UI.prompt('Turn off password protection', 'Company password', '', { type: 'password', ok: 'Turn off protection', danger: true, help: 'All data for this company will be stored unencrypted on this PC, and new backups will not be encrypted.' })
       .then((pw) => pw === null ? null : OB.db.unprotect(b, pw).then(() => { UI.toast('Password protection turned off.'); UI.render(); })).catch(UI.error));
+  };
+})();
+
+/* ---------- Connected services (1.58.0): keys for outside services, kept by OB.secrets ---------- */
+(function () {
+  'use strict';
+  const UI = OB.ui, esc = OB.util.esc, X = OB.secrets;
+  const base = UI.securityTab;
+  const KIND = { simplefin: 'Bank sync (SimpleFIN Bridge)' };
+  const when = (iso) => { try { return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'never'; } catch (e) { return iso || 'never'; } };
+  function render(card) {
+    const co = UI.book.company.id;
+    if (!X || !X.available()) { card.innerHTML = '<h2>Connected services</h2><p class="muted">This browser cannot keep encrypted keys, so outside services cannot be connected here.</p>'; return; }
+    X.list(co).then((list) => {
+      card.innerHTML = `<h2>Connected services</h2>
+        <p>Keys VaultBook uses to fetch data from outside services, such as automatic bank sync. Each key is <strong>encrypted on this device</strong>, is <strong>never included</strong> in backups or exports, and does not leave this device except to reach its own service.</p>
+        ${list.length ? `<div class="scroll-x"><table class="data" data-testid="secrets-list"><thead><tr><th>Service</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>${list.map((s) => `<tr>
+            <td><strong>${esc(s.label)}</strong><div class="muted small">${esc(KIND[s.kind] || s.kind)}</div></td><td>${esc(when(s.createdAt))}</td><td>${esc(when(s.lastUsedAt))}</td>
+            <td><button type="button" class="btn ghost small" data-rm="${esc(s.id)}" data-label="${esc(s.label)}">Remove</button></td></tr>`).join('')}</tbody></table></div>
+          <p class="muted small">Removing a key stops VaultBook from using it. To cut off access completely, also revoke it at the service itself (for SimpleFIN Bridge: sign in at beta-bridge.simplefin.org and remove the app).</p>`
+        : '<p class="muted" data-testid="secrets-empty">No services connected. Nothing is fetched from outside this device.</p>'}`;
+      card.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', () => {
+        UI.confirm('Remove ' + btn.dataset.label + '?', '<p>VaultBook will stop using this key on this device. Lines already imported stay in your books.</p>', { ok: 'Remove' })
+          .then((yes) => yes && X.remove(btn.dataset.rm).then(() => { UI.toast(btn.dataset.label + ' removed.'); render(card); }))
+          .catch(UI.error);
+      }));
+    }).catch((e) => { card.innerHTML = '<h2>Connected services</h2><div class="banner danger">' + esc(e.message || String(e)) + '</div>'; });
+  }
+  UI.securityTab = function (el, r) {
+    base(el, r);
+    const card = document.createElement('section');
+    card.className = 'card'; card.dataset.testid = 'connected-services';
+    el.appendChild(card); render(card);
   };
 })();
 
@@ -28057,5 +28207,12 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache is optional */ }); });
   }
 })();
+
+;
+/* == js/boot.js == */
+/* Start VaultBook once the passcode screen (gate.js) is unlocked. Loaded last. */
+VBGate.ready.then(function () { OB.ui.start(); OB.windows.init(); });
+/* buttons marked data-print open the browser's print dialog (no inline onclick: the security policy forbids it) */
+document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-print]'); if (b) { e.preventDefault(); window.print(); } });
 
 ;

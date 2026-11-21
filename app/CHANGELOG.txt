@@ -1,6 +1,21 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.58.0  (2026-11-21)  Security groundwork for bank sync
+-------------------------------------------------------------------------------
+  * Stricter script policy: the page now runs only scripts from VaultBook's
+    own files. Inline scripts, inline click handlers and code generated at
+    run time are refused by the browser, so text that sneaks into a screen
+    cannot run as code. (Startup and theme scripts moved into files; the
+    two Print buttons no longer use inline handlers.)
+  * Encrypted keys for outside services: a separate store on the device
+    keeps keys such as a future bank-sync connection. Each key is encrypted
+    (AES-256) with a device key the browser will not reveal even to
+    VaultBook, is never part of a company, so never in a backup, export or
+    QuickBooks file, and is removed when its company is deleted.
+  * Settings > Security > Connected services lists those keys (names and
+    dates only, never the key) with Remove. Nothing is connected yet.
+
 1.57.0  (2026-11-21)  Import statement files on iPhone and iPad
 -------------------------------------------------------------------------------
   * Bank feed on iPhone and iPad: every account has Import File, Type Lines

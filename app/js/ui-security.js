@@ -232,3 +232,36 @@
       .then((pw) => pw === null ? null : OB.db.unprotect(b, pw).then(() => { UI.toast('Password protection turned off.'); UI.render(); })).catch(UI.error));
   };
 })();
+
+/* ---------- Connected services (1.58.0): keys for outside services, kept by OB.secrets ---------- */
+(function () {
+  'use strict';
+  const UI = OB.ui, esc = OB.util.esc, X = OB.secrets;
+  const base = UI.securityTab;
+  const KIND = { simplefin: 'Bank sync (SimpleFIN Bridge)' };
+  const when = (iso) => { try { return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'never'; } catch (e) { return iso || 'never'; } };
+  function render(card) {
+    const co = UI.book.company.id;
+    if (!X || !X.available()) { card.innerHTML = '<h2>Connected services</h2><p class="muted">This browser cannot keep encrypted keys, so outside services cannot be connected here.</p>'; return; }
+    X.list(co).then((list) => {
+      card.innerHTML = `<h2>Connected services</h2>
+        <p>Keys VaultBook uses to fetch data from outside services, such as automatic bank sync. Each key is <strong>encrypted on this device</strong>, is <strong>never included</strong> in backups or exports, and does not leave this device except to reach its own service.</p>
+        ${list.length ? `<div class="scroll-x"><table class="data" data-testid="secrets-list"><thead><tr><th>Service</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>${list.map((s) => `<tr>
+            <td><strong>${esc(s.label)}</strong><div class="muted small">${esc(KIND[s.kind] || s.kind)}</div></td><td>${esc(when(s.createdAt))}</td><td>${esc(when(s.lastUsedAt))}</td>
+            <td><button type="button" class="btn ghost small" data-rm="${esc(s.id)}" data-label="${esc(s.label)}">Remove</button></td></tr>`).join('')}</tbody></table></div>
+          <p class="muted small">Removing a key stops VaultBook from using it. To cut off access completely, also revoke it at the service itself (for SimpleFIN Bridge: sign in at beta-bridge.simplefin.org and remove the app).</p>`
+        : '<p class="muted" data-testid="secrets-empty">No services connected. Nothing is fetched from outside this device.</p>'}`;
+      card.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', () => {
+        UI.confirm('Remove ' + btn.dataset.label + '?', '<p>VaultBook will stop using this key on this device. Lines already imported stay in your books.</p>', { ok: 'Remove' })
+          .then((yes) => yes && X.remove(btn.dataset.rm).then(() => { UI.toast(btn.dataset.label + ' removed.'); render(card); }))
+          .catch(UI.error);
+      }));
+    }).catch((e) => { card.innerHTML = '<h2>Connected services</h2><div class="banner danger">' + esc(e.message || String(e)) + '</div>'; });
+  }
+  UI.securityTab = function (el, r) {
+    base(el, r);
+    const card = document.createElement('section');
+    card.className = 'card'; card.dataset.testid = 'connected-services';
+    el.appendChild(card); render(card);
+  };
+})();
