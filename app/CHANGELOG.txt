@@ -1,6 +1,30 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.59.0  (2026-11-21)  Optional automatic bank sync (SimpleFIN)
+-------------------------------------------------------------------------------
+  * Bank Sync (Bank Feed > Automatic bank sync, or Settings > Security >
+    Connected services): optional and off until you connect it. Sign up
+    at SimpleFIN Bridge (a separate paid service, about $15 a year), link
+    your banks there, make a setup token for VaultBook and paste it in.
+    VaultBook fetches new transactions straight from this device; there is
+    no VaultBook server. The connection key is encrypted on this device and
+    never included in backups.
+  * Choose which VaultBook account each bank account feeds, then Sync Now.
+    The first sync brings in the last 30, 60 or 90 days; later syncs
+    overlap by 5 days and skip lines already brought in. Pending
+    transactions are left out. New lines wait in For review (auto-add bank
+    rules and matching to your books apply, as with a file).
+  * Optional: sync when VaultBook opens, at most twice a day. VaultBook only
+    syncs while it is open. It asks SimpleFIN at most 20 times a day and
+    not again within 10 minutes of a sync, as SimpleFIN asks of apps.
+  * Disconnect deletes the key from this device; lines already brought in
+    stay. To cut off access completely, also remove VaultBook at SimpleFIN.
+  * The page's security policy allows connections to SimpleFIN Bridge
+    (beta-bridge.simplefin.org) only, besides VaultBook itself.
+  * Bank Feed account buttons are now Import, Type and Review (shorter, so
+    they fit on one line on a phone).
+
 1.58.0  (2026-11-21)  Security groundwork for bank sync
 -------------------------------------------------------------------------------
   * Stricter script policy: the page now runs only scripts from VaultBook's

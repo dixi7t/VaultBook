@@ -1,11 +1,12 @@
 /* global OB */
 /* Developer test runner: node tests/run-node.js  (the app itself needs no Node.js) */
 var path = require('path');
-['util', 'schema', 'crypto', 'ledger', 'reports', 'statements', 'backup', 'xlsx', 'pdf', 'report-model', 'invoice-layout', 'designer', 'workbook', 'importer', 'sample', 'qbimport', 'paste', 'qbexport', 'business', 'inventory', 'projects', 'doccenter', 'calendar', 'sales', 'taxreports', 'bankfeed', 'bankplus', 'registers', 'reclass', 'find', 'recon-report', 'paydays', 'qbsend', 'qbsync', 'qbfull', 'paystub', 'paydocs', 'intel', 'merchants', 'hints', 'close', 'qbupdate', 'secrets'].forEach(function (f) { require(path.join(__dirname, '..', 'js', f + '.js')); });
+['util', 'schema', 'crypto', 'ledger', 'reports', 'statements', 'backup', 'xlsx', 'pdf', 'report-model', 'invoice-layout', 'designer', 'workbook', 'importer', 'sample', 'qbimport', 'paste', 'qbexport', 'business', 'inventory', 'projects', 'doccenter', 'calendar', 'sales', 'taxreports', 'bankfeed', 'bankplus', 'registers', 'reclass', 'find', 'recon-report', 'paydays', 'qbsend', 'qbsync', 'qbfull', 'paystub', 'paydocs', 'intel', 'merchants', 'hints', 'close', 'qbupdate', 'secrets', 'simplefin'].forEach(function (f) { require(path.join(__dirname, '..', 'js', f + '.js')); });
 require('./engine.tests.js');
 require('./cpa.tests.js');
 require('./bankfeed.tests.js');
 require('./secrets.tests.js');
+require('./simplefin.tests.js');
 require('./tally.tests.js');
 require('./bankplus.tests.js');
 require('./qbo.tests.js');

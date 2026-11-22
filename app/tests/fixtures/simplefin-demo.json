@@ -1,0 +1,179 @@
+{
+ "errlist": [
+  {
+   "code": "gen.api",
+   "msg": "Requested date range exceeds recommended range of 45 days. In the future, this may be capped."
+  }
+ ],
+ "accounts": [
+  {
+   "id": "Demo Savings",
+   "name": "SimpleFIN Savings",
+   "currency": "USD",
+   "balance": "114405.51",
+   "available-balance": "114405.51",
+   "balance-date": 1795392000,
+   "transactions": [
+    {
+     "id": "1790251593",
+     "posted": 1790251593,
+     "amount": "-120.00",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790251593,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790280393",
+     "posted": 1790280393,
+     "amount": "-20.00",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790280393,
+     "mcc": "5411"
+    },
+    {
+     "id": "1790337993",
+     "posted": 1790337993,
+     "amount": "-125.50",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790337993,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790366793",
+     "posted": 1790366793,
+     "amount": "-15.50",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790366793,
+     "mcc": "5411"
+    },
+    {
+     "id": "1790424393",
+     "posted": 1790424393,
+     "amount": "-130.00",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790424393,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790453193",
+     "posted": 1790453193,
+     "amount": "-10.00",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790453193,
+     "mcc": "5411"
+    }
+   ],
+   "conn_id": "CON-SIMPLEFIN-DEMO"
+  },
+  {
+   "id": "Demo Checking",
+   "name": "SimpleFIN Checking",
+   "currency": "USD",
+   "balance": "24668.87",
+   "available-balance": "24668.87",
+   "balance-date": 1795392000,
+   "transactions": [
+    {
+     "id": "1790251593",
+     "posted": 1790251593,
+     "amount": "-157.70",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790251593,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790280393",
+     "posted": 1790280393,
+     "amount": "-26.62",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790280393,
+     "mcc": "5411"
+    },
+    {
+     "id": "1790337993",
+     "posted": 1790337993,
+     "amount": "-163.36",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790337993,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790366793",
+     "posted": 1790366793,
+     "amount": "-19.96",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790366793,
+     "mcc": "5411"
+    },
+    {
+     "id": "1790424393",
+     "posted": 1790424393,
+     "amount": "-170.01",
+     "description": "Fishing bait",
+     "payee": "John's Fishin Shack",
+     "memo": "JOHNS FISHIN SHACK BAIT",
+     "transacted_at": 1790424393,
+     "mcc": "5812"
+    },
+    {
+     "id": "1790453193",
+     "posted": 1790453193,
+     "amount": "-13.31",
+     "description": "Grocery store",
+     "payee": "Grocery store",
+     "memo": "LOCAL GROCER STORE #1133",
+     "transacted_at": 1790453193,
+     "mcc": "5411"
+    },
+    {
+     "id": "PENDING-1",
+     "posted": 0,
+     "amount": "-9.99",
+     "description": "Pending thing",
+     "pending": true
+    }
+   ],
+   "conn_id": "CON-SIMPLEFIN-DEMO"
+  },
+  {
+   "id": "Demo Empty Account",
+   "name": "SimpleFIN Empty Account",
+   "currency": "USD",
+   "balance": "0.00",
+   "available-balance": "0.00",
+   "balance-date": 1795392000,
+   "transactions": [],
+   "conn_id": "CON-SIMPLEFIN-DEMO"
+  }
+ ],
+ "connections": [
+  {
+   "conn_id": "CON-SIMPLEFIN-DEMO",
+   "name": "SimpleFIN Demo",
+   "org_id": "simplefin.demoorg",
+   "org_name": "SimpleFIN Bridge",
+   "org_url": "https://beta-bridge.simplefin.org",
+   "sfin_url": "https://beta-bridge.simplefin.org/simplefin"
+  }
+ ]
+}

@@ -353,6 +353,11 @@
         <p>Type or paste the lines from your bank and credit card statements, a month or a whole year at a time. They wait in <b>For review</b> until you pick a category; VaultBook suggests one from your rules and past choices and spots entries you already recorded.</p>
         ${total ? `<p class="m-feed-total"><b>${total}</b> line${total === 1 ? '' : 's'} waiting for review</p>` : ''}
       </section>
+      ${(() => { const st = sfState();
+        return st.connected ? `<section class="m-card m-sync-card" data-testid="m-sync-card"><div class="m-card-h"><h2>Bank Sync</h2><a href="#/m/feed/sync">Settings</a></div>
+            <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + (st.lastResult ? ' · ' + esc(st.lastResult) : '') : 'Connected. Not synced yet.'}</p>
+            <button type="button" class="m-btn primary" data-sf-sync>${icon(I.swap)}Sync Now</button></section>`
+          : `<a class="m-card m-row-link m-sync-offer" href="#/m/feed/sync" data-testid="m-sync-offer">${icon(I.swap)}<span>Automatic bank sync<small>Optional · bring in new transactions daily with SimpleFIN</small></span>${icon(I.chev)}</a>`; })()}
       ${list.length ? list.map((a) => {
         const rev = book.bankLinesFor(a.id, 'review').length, posted = book.bankLinesFor(a.id, 'posted'), card = a.type === 'cc';
         const lastD = book.bankLinesFor(a.id)[0];
@@ -361,12 +366,12 @@
             <span class="m-tx-main"><b>${esc(a.name)}</b><small>${card ? 'Credit card' : 'Bank'}${lastD ? ' · statement lines to ' + esc(U.fmtDate(lastD.date)) : ' · no statement lines yet'}</small></span>
             <span class="m-tx-amt">${signed(book.accountBalance(a.id, today))}<small>${card ? 'owed' : 'in VaultBook'}</small></span></div>
           <div class="m-feed-btns m-feed-btns3">
-            <a class="m-btn primary" href="#/m/feed/import?account=${encodeURIComponent(a.id)}" data-testid="m-feed-import">${icon(I.upload)}Import File</a>
-            <a class="m-btn" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Type Lines</a>
+            <a class="m-btn primary" href="#/m/feed/import?account=${encodeURIComponent(a.id)}" data-testid="m-feed-import">${icon(I.upload)}Import</a>
+            <a class="m-btn" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Type</a>
             <a class="m-btn ${rev ? 'warn' : ''}" href="#/m/feed/review?account=${encodeURIComponent(a.id)}">${icon(I.check)}Review${rev ? ` <i class="m-badge">${rev}</i>` : ''}</a>
           </div>
           ${posted.length ? `<small class="m-feed-meta">${posted.length} line${posted.length === 1 ? '' : 's'} posted</small>` : ''}
-          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Type Lines</small>` : ''}
+          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Type</small>` : ''}
         </section>`;
       }).join('') : '<section class="m-card"><p class="m-empty">No bank or credit card accounts yet. Add one below to start.</p></section>'}
       <section class="m-card">
@@ -729,9 +734,153 @@
       })).catch(() => {});
     }
   }
+  /* ---------- Automatic bank sync through SimpleFIN Bridge (1.59.0, optional, off until connected) ----------
+   * The Access URL is kept by OB.secrets (encrypted on this device, never in backups). Which SimpleFIN account feeds
+   * which VaultBook account, and when the last sync ran, are device settings (not secret) kept in OB.prefs. */
+  const SFX = OB.simplefin, DAYSEC = 86400;
+  const sfId = () => 'simplefin:' + b().company.id;
+  const sfKey = () => 'sfState:' + b().company.id;
+  const sfState = () => Object.assign({ connected: false, map: {}, accounts: [], lastAt: 0, lastSync: '', lastResult: '', messages: [], auto: false, firstDays: 30, log: [] }, OB.prefs.get(sfKey()) || {});
+  const sfSave = (st) => OB.prefs.set(sfKey(), st);
+  const sfHome = () => (isPhone() || touchMQ.matches) ? '#/m/feed' : '#/settings?tab=security';   // where Back goes
+  const sfWhen = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; } };
+  const MAX_DAY = 20, MIN_GAP = 10 * 60;      // SimpleFIN asks apps to stay well under 24 requests a day
+  function sfGuard(st, requests) {
+    const now = Date.now() / 1000, log = (st.log || []).filter((t) => t > now - DAYSEC);
+    if (log.length + requests > MAX_DAY) return 'Bank sync has already asked SimpleFIN ' + log.length + ' times today. SimpleFIN limits how often apps may ask; try again tomorrow.';
+    if (st.lastAt && now - st.lastAt < MIN_GAP) return 'Synced a few minutes ago. SimpleFIN updates about once a day; try again in ' + Math.ceil((MIN_GAP - (now - st.lastAt)) / 60) + ' minutes.';   // between syncs only; listing accounts does not count
+    return '';
+  }
+  /** Fetch from SimpleFIN and add new lines to the bank feed. Resolves a summary; rejects with a readable error. */
+  async function sfSync() {
+    const book = b(), st = sfState(), access = await OB.secrets.get(sfId());
+    if (!access) { st.connected = false; sfSave(st); throw new Error('Bank sync is not connected on this device.'); }
+    const now = Math.floor(Date.now() / 1000), start = st.lastAt ? st.lastAt - 5 * DAYSEC : now - (st.firstDays || 30) * DAYSEC;   // 5-day overlap, as SimpleFIN advises
+    const wins = SFX.windows(start, now).length, g = sfGuard(st, wins);
+    if (g) throw new Error(g);
+    st.log = (st.log || []).filter((t) => t > now - DAYSEC).concat(Array(wins).fill(now)); sfSave(st);
+    const r = await SFX.fetchRange(access, start, now);
+    const sum = { added: 0, matched: 0, autoAdded: 0, duplicates: 0, unmapped: 0, accounts: 0 };
+    for (const a of r.accounts) {
+      const target = st.map[a.id], rows = SFX.rows(a.transactions);
+      if (!target || !book.accById[target]) { sum.unmapped += rows.length; continue; }
+      if (!rows.length) continue;
+      const x = await book.importBankLines(target, rows, { fileName: 'SimpleFIN sync ' + U.fmtDate(U.today()), source: 'simplefin', matchBooks: true, autoAdd: true });
+      sum.added += x.added; sum.matched += x.matched || 0; sum.autoAdded += x.autoAdded || 0; sum.duplicates += x.duplicates || 0; sum.accounts++;
+    }
+    const s2 = sfState();
+    s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance }));
+    s2.lastAt = now; s2.lastSync = new Date().toISOString(); s2.messages = r.messages;
+    s2.lastResult = sum.added ? sum.added + ' new line' + (sum.added === 1 ? '' : 's') : 'nothing new';
+    sfSave(s2); markTab();
+    return Object.assign(sum, { messages: r.messages });
+  }
+  const sfSummary = (x) => (x.added ? x.added + ' new line' + (x.added === 1 ? '' : 's') + ' for review' : 'No new transactions') +
+    (x.matched ? ' · ' + x.matched + ' matched to your books' : '') + (x.autoAdded ? ' · ' + x.autoAdded + ' posted by rules' : '') +
+    (x.unmapped ? ' · ' + x.unmapped + ' from accounts not linked to VaultBook' : '') + '.';
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest && e.target.closest('[data-sf-sync]'); if (!t) return;
+    e.preventDefault(); t.disabled = true;
+    sfSync().then((x) => { UI.toast('Bank sync: ' + sfSummary(x)); UI.render(); }, (x) => { t.disabled = false; UI.toast(x.message || String(x), 'error'); });
+  });
+
+  function feedSync(el) {
+    const book = b(), st = sfState(), list = feedAccts();
+    if (!st.connected) {
+      el.innerHTML = page('Bank Sync', `
+        <section class="m-card m-sync-intro">
+          <p>Bring new bank and credit card transactions into the bank feed automatically, about once a day, instead of downloading statement files. It is optional and off until you connect it.</p>
+          <ul class="m-imp-facts">
+            <li>Uses <b>SimpleFIN Bridge</b>, a separate service you sign up for and pay yourself (about $15 a year). It covers most US banks and card issuers.</li>
+            <li>Your bank login goes to SimpleFIN and its data provider (MX), <b>never to VaultBook</b>. They keep a copy of your bank data under their own terms.</li>
+            <li>VaultBook fetches straight from this device. There is no VaultBook server. The connection key is encrypted on this device and never included in backups.</li>
+            <li>New lines wait in For review, like an imported file. Nothing posts by itself unless you have auto-add bank rules.</li>
+          </ul>
+        </section>
+        <h2 class="m-sec">How to connect</h2>
+        <section class="m-card m-form">
+          <ol class="m-steps"><li>At <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener noreferrer">beta-bridge.simplefin.org</a>, create an account and connect your banks.</li>
+            <li>There, choose <b>New app connection</b> and copy the <b>setup token</b>.</li><li>Paste it here and tap Connect.</li></ol>
+          <label class="m-f"><span>Setup token</span><textarea id="m-sf-token" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the setup token" data-testid="m-sf-token"></textarea></label>
+          <label class="m-f"><span>On the first sync, bring in</span><select id="m-sf-days">${[[30, 'The last 30 days'], [60, 'The last 60 days'], [90, 'The last 90 days']].map(([v, l]) => `<option value="${v}"${v === st.firstDays ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+          <p class="m-err" id="m-sf-err" hidden></p>
+          <button type="button" class="m-btn primary" id="m-sf-connect" data-testid="m-sf-connect">Connect</button>
+          <p class="m-note">A setup token works once. If it was used or shared by mistake, revoke it at SimpleFIN Bridge and make a new one.</p>
+        </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
+      const errEl = el.querySelector('#m-sf-err'), btn = el.querySelector('#m-sf-connect');
+      btn.addEventListener('click', async () => {
+        errEl.hidden = true; btn.disabled = true; btn.textContent = 'Connecting…';
+        try {
+          if (!OB.secrets.available()) throw new Error('This browser cannot keep the connection key encrypted, so bank sync cannot be used here.');
+          const access = await SFX.claim(el.querySelector('#m-sf-token').value);
+          await OB.secrets.put(sfId(), access, { companyId: book.company.id, kind: 'simplefin', label: 'SimpleFIN Bridge' });
+          el.querySelector('#m-sf-token').value = '';
+          const s2 = sfState(); s2.connected = true; s2.firstDays = +el.querySelector('#m-sf-days').value; s2.lastAt = 0; s2.lastSync = ''; s2.lastResult = '';
+          try {
+            const r = await SFX.accounts(access, { balancesOnly: true });
+            s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s2.messages = r.messages;
+            s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]);
+          } catch (x) { s2.messages = [x.message]; }
+          sfSave(s2); UI.toast('Bank sync connected. Choose which account each bank account goes to.'); feedSync(el);
+        } catch (x) { errEl.textContent = x.message || String(x); errEl.hidden = false; btn.disabled = false; btn.textContent = 'Connect'; }
+      });
+      return;
+    }
+    const opt = (sel) => '<option value="">Don\'t bring in</option>' + list.map((a) => `<option value="${esc(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
+    const mapped = Object.values(st.map).filter(Boolean).length;
+    el.innerHTML = page('Bank Sync', `
+      <section class="m-card" data-testid="m-sf-status">
+        <div class="m-card-h"><h2>Connected</h2><small>SimpleFIN Bridge</small></div>
+        <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + ' · ' + esc(st.lastResult) : 'Not synced yet. The first sync brings in the last ' + st.firstDays + ' days.'}</p>
+        ${(st.messages || []).length ? `<ul class="m-imp-facts m-sf-msgs">${st.messages.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
+        <button type="button" class="m-btn primary" data-sf-sync${mapped ? '' : ' disabled'} data-testid="m-sf-sync">${icon(I.swap)}Sync Now</button>
+        ${mapped ? '' : '<p class="m-note">Choose a VaultBook account for at least one bank account below first.</p>'}
+      </section>
+      <h2 class="m-sec">Where each bank account goes</h2>
+      <section class="m-card m-form" data-testid="m-sf-map">
+        ${(st.accounts || []).length ? st.accounts.map((a) => `<label class="m-f"><span>${esc(a.name)}${a.org ? ' · ' + esc(a.org) : ''} · ${signed(a.balance)}</span><select data-sf-map="${esc(a.id)}">${opt(st.map[a.id])}</select></label>`).join('')
+          : '<p class="m-empty">SimpleFIN has not listed any accounts yet. Check that your banks are connected at SimpleFIN Bridge, then tap Refresh.</p>'}
+        <button type="button" class="m-btn ghost" id="m-sf-refresh">Refresh Account List</button>
+        <p class="m-note">Need a new account in VaultBook first? Add it on the <a href="#/m/feed">Bank Feed</a> screen.</p>
+      </section>
+      <h2 class="m-sec">Options</h2>
+      <section class="m-card m-form">
+        <label class="m-check"><input type="checkbox" id="m-sf-auto"${st.auto ? ' checked' : ''}> Sync when VaultBook opens (at most twice a day)</label>
+        <p class="m-note">VaultBook can only sync while it is open; nothing runs in the background.</p>
+        <button type="button" class="m-btn ghost m-danger" id="m-sf-disconnect" data-testid="m-sf-disconnect">Disconnect Bank Sync</button>
+      </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
+    el.querySelectorAll('[data-sf-map]').forEach((s) => s.addEventListener('change', () => {
+      const s2 = sfState(); if (s.value) s2.map[s.dataset.sfMap] = s.value; else delete s2.map[s.dataset.sfMap]; sfSave(s2); feedSync(el);
+    }));
+    el.querySelector('#m-sf-auto').addEventListener('change', (e) => { const s2 = sfState(); s2.auto = e.target.checked; sfSave(s2); });
+    el.querySelector('#m-sf-refresh').addEventListener('click', async (e) => {
+      const s2 = sfState(), g = sfGuard(s2, 1); if (g) return UI.toast(g, 'error');
+      e.currentTarget.disabled = true;
+      try {
+        const access = await OB.secrets.get(sfId()); if (!access) throw new Error('Bank sync is not connected on this device.');
+        s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]); sfSave(s2);
+        const r = await SFX.accounts(access, { balancesOnly: true });
+        const s3 = sfState(); s3.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s3.messages = r.messages; sfSave(s3); feedSync(el);
+      } catch (x) { UI.toast(x.message || String(x), 'error'); feedSync(el); }
+    });
+    el.querySelector('#m-sf-disconnect').addEventListener('click', () => {
+      UI.confirm('Disconnect bank sync?', '<p>VaultBook deletes the connection key from this device and stops syncing. Lines already brought in stay in your books.</p><p>To cut off access completely, also remove VaultBook at beta-bridge.simplefin.org.</p>', { ok: 'Disconnect' })
+        .then((yes) => yes && OB.secrets.remove(sfId()).then(() => { OB.prefs.set(sfKey(), null); UI.toast('Bank sync disconnected.'); UI.go(sfHome()); })).catch(UI.error);
+    });
+  }
+  /* optional: sync once when VaultBook opens (at most every 12 hours), if the person turned it on */
+  let sfAutoTried = false;
+  function sfAuto() {
+    if (sfAutoTried || !UI.book) return; sfAutoTried = true;
+    const st = sfState();
+    if (!st.connected || !st.auto || !Object.keys(st.map).length || Date.now() / 1000 - st.lastAt < 12 * 3600) return;
+    setTimeout(() => sfSync().then((x) => { if (x.added) UI.toast('Bank sync: ' + sfSummary(x)); }, () => { /* shown next time on the Bank Sync screen */ }), 2500);
+  }
+  UI.sfSettingsLink = () => '#/m/feed/sync';
+
   /* after a PDF / OFX statement is imported, touch screens go back to the bank feed Review screen */
   UI.feedReviewHash = (accId) => (isPhone() || touchMQ.matches) ? '#/m/feed/review?account=' + encodeURIComponent(accId) : '';
-  const feed = (el, r) => ({ enter: feedEnter, review: feedReview, import: feedImport }[r.sub] || feedHub)(el, r);
+  const feed = (el, r) => ({ enter: feedEnter, review: feedReview, import: feedImport, sync: feedSync }[r.sub] || feedHub)(el, r);
 
   /* ---------- Add sheet (bottom sheet with every way to record something) ---------- */
   function addSheet() {
@@ -781,7 +930,8 @@
 
   /* ---------- routes ---------- */
   UI.routes.m = (el, r) => {
-    if (r.id === 'feed' && (isPhone() || touchMQ.matches)) { root.classList.add('m-screen'); feed(el, r); markTab(); return; }
+    if (r.id === 'feed' && (isPhone() || touchMQ.matches || r.sub === 'sync')) {   /* Bank Sync also opens on a laptop */
+      root.classList.add('m-screen'); feed(el, r); markTab(); return; }
     if (!isPhone()) { const map = { activity: '#/transactions', reports: '#/reports', more: '#/gateway', add: '#/txn/new?type=' + ((KINDS[r.params.kind] || KINDS.expense).full) }; location.replace(map[r.id] || '#/dashboard'); return; }
     root.classList.add('m-screen');
     ({ activity, add, reports, more }[r.id] || home)(el, r);
@@ -802,7 +952,7 @@
   });
   /* leaving a mobile screen drops its page styling; the tab bar keeps the current tab lit */
   const baseRender = UI.render;
-  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); return res; };
+  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); sfAuto(); return res; };
   markTab();
 
   /* ---------- offline app (service worker) on https or localhost ---------- */

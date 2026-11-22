@@ -248,12 +248,12 @@
         <p>Keys VaultBook uses to fetch data from outside services, such as automatic bank sync. Each key is <strong>encrypted on this device</strong>, is <strong>never included</strong> in backups or exports, and does not leave this device except to reach its own service.</p>
         ${list.length ? `<div class="scroll-x"><table class="data" data-testid="secrets-list"><thead><tr><th>Service</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>${list.map((s) => `<tr>
             <td><strong>${esc(s.label)}</strong><div class="muted small">${esc(KIND[s.kind] || s.kind)}</div></td><td>${esc(when(s.createdAt))}</td><td>${esc(when(s.lastUsedAt))}</td>
-            <td><button type="button" class="btn ghost small" data-rm="${esc(s.id)}" data-label="${esc(s.label)}">Remove</button></td></tr>`).join('')}</tbody></table></div>
+            <td>${s.kind === 'simplefin' && UI.sfSettingsLink ? `<a class="btn ghost small" href="${UI.sfSettingsLink()}">Manage</a> ` : ''}<button type="button" class="btn ghost small" data-rm="${esc(s.id)}" data-label="${esc(s.label)}">Remove</button></td></tr>`).join('')}</tbody></table></div>
           <p class="muted small">Removing a key stops VaultBook from using it. To cut off access completely, also revoke it at the service itself (for SimpleFIN Bridge: sign in at beta-bridge.simplefin.org and remove the app).</p>`
-        : '<p class="muted" data-testid="secrets-empty">No services connected. Nothing is fetched from outside this device.</p>'}`;
+        : `<p class="muted" data-testid="secrets-empty">No services connected. Nothing is fetched from outside this device.</p>${UI.sfSettingsLink ? `<p><a class="btn" href="${UI.sfSettingsLink()}">Set up automatic bank sync (optional)</a></p>` : ''}`}`;
       card.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', () => {
         UI.confirm('Remove ' + btn.dataset.label + '?', '<p>VaultBook will stop using this key on this device. Lines already imported stay in your books.</p>', { ok: 'Remove' })
-          .then((yes) => yes && X.remove(btn.dataset.rm).then(() => { UI.toast(btn.dataset.label + ' removed.'); render(card); }))
+          .then((yes) => yes && X.remove(btn.dataset.rm).then(() => { if (/^simplefin:/.test(btn.dataset.rm)) OB.prefs.set('sfState:' + UI.book.company.id, null); UI.toast(btn.dataset.label + ' removed.'); render(card); }))
           .catch(UI.error);
       }));
     }).catch((e) => { card.innerHTML = '<h2>Connected services</h2><div class="banner danger">' + esc(e.message || String(e)) + '</div>'; });
