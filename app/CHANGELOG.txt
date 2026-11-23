@@ -1,6 +1,18 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.59.1  (2026-11-23)  Download the QuickBooks tool from VaultBook
+-------------------------------------------------------------------------------
+  * Send to QuickBooks Desktop and the QuickBooks Desktop page now have a
+    "Download the QuickBooks tool" button. It saves one zip with both
+    connector files (VaultBook QuickBooks.cmd and VaultBook-QB.ps1) in one
+    folder. On the PC with QuickBooks Desktop: right-click the zip,
+    Extract All, then double-click VaultBook QuickBooks.cmd. Before, the
+    steps pointed to VaultBook's tools folder, which people using VaultBook
+    online did not have.
+  * If VaultBook QuickBooks.cmd is opened from inside the zip without
+    extracting it first, it now says so instead of failing.
+
 1.59.0  (2026-11-21)  Optional automatic bank sync (SimpleFIN)
 -------------------------------------------------------------------------------
   * Bank Sync (Bank Feed > Automatic bank sync, or Settings > Security >

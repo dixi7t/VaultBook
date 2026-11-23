@@ -10,6 +10,9 @@ Because a hashed file never changes, the offline cache (sw.js) can keep it witho
   python3 app/tools/build-site.py           rebuild index.html and the bundles
   python3 app/tools/build-site.py --check   exit 1 if index.html is out of date with the sources
 
+It also packs the QuickBooks connector (tools/VaultBook QuickBooks.cmd + VaultBook-QB.ps1) into
+tools/VaultBook-QuickBooks-Connector.zip, the file the app's "Download the QuickBooks tool" buttons fetch.
+
 Standard library only. Files are joined in the source page's order, unchanged (no minifying), so a stack trace still
 points at readable code; each file starts with a /* == path == */ marker.
 """
@@ -62,10 +65,35 @@ def build():
     return out, {css_name: css, head_name: head, js_name: js}
 
 
+TOOL_ZIP = 'tools/VaultBook-QuickBooks-Connector.zip'
+TOOL_FILES = ('VaultBook QuickBooks.cmd', 'VaultBook-QB.ps1')   # the .cmd runs the .ps1 beside it: ship them together
+
+
+def tool_zip():
+    """The QuickBooks connector as one download (Send to QuickBooks Desktop › Download the QuickBooks tool).
+
+    Both files sit in one folder inside the zip. Fixed dates and attributes make the bytes depend only on the two
+    files, so --check can compare and an unchanged tool keeps an unchanged zip."""
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name in TOOL_FILES:
+            info = zipfile.ZipInfo('VaultBook QuickBooks/' + name, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            with open(os.path.join(APP, 'tools', name), 'rb') as f:
+                z.writestr(info, f.read())
+    return buf.getvalue()
+
+
 def main():
     out, bundles = build()
+    zip_bytes = tool_zip()
+    zip_path = os.path.join(APP, TOOL_ZIP)
     if '--check' in sys.argv:
         ok = os.path.exists(OUT) and read('index.html') == out and all(os.path.exists(os.path.join(APP, n)) for n in bundles)
+        ok = ok and os.path.exists(zip_path) and open(zip_path, 'rb').read() == zip_bytes
         print('build-site: index.html is ' + ('up to date' if ok else 'OUT OF DATE: run python3 app/tools/build-site.py'))
         sys.exit(0 if ok else 1)
     for d in ('css', 'js'):                              # drop bundles from earlier builds
@@ -77,7 +105,10 @@ def main():
             f.write(text)
     with open(OUT, 'w', encoding='utf-8') as f:
         f.write(out)
-    print('build-site: wrote index.html, ' + ', '.join('%s (%d KB)' % (n, len(t.encode()) // 1024) for n, t in sorted(bundles.items())))
+    with open(zip_path, 'wb') as f:
+        f.write(zip_bytes)
+    print('build-site: wrote index.html, ' + ', '.join('%s (%d KB)' % (n, len(t.encode()) // 1024) for n, t in sorted(bundles.items()))
+          + ', %s (%d KB)' % (TOOL_ZIP, len(zip_bytes) // 1024))
 
 
 if __name__ == '__main__':

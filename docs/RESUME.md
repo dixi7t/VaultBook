@@ -395,3 +395,8 @@ Next: the user picks D1 or D2 for the menu bar (design canvas); then build it wi
 
 ## Resume after 1.51.0
 Next: the user looks at the menu bar and colours in the real app and says what to adjust (menu contents, toolbar order, blue). Then VaultBook's own DESIGN.md, and Close the books sign-off package.
+
+### 2026-11-23 — QBD connector — Download the QuickBooks tool (1.59.1)
+- **Change:** One-click download of the connector (.cmd + .ps1 zipped by build-site.py) on Send to QuickBooks Desktop and the QuickBooks Desktop page; "tools folder" wording now links to it; .cmd warns when not extracted.
+- **Files:** `app/tools/build-site.py`, `app/tools/VaultBook QuickBooks.cmd`, `app/js/ui-qbsend.js`, `app/js/ui-qbd.js`, `app/js/ui-bankfeed.js`.
+- **Verification:** Node 275/275; build --check OK; Playwright download check passes. qbsend_ui/qbd_ui/bankfeed_ui fail on CSP string-eval (pre-existing, same on 1.59.0). Real Windows + QuickBooks run: NOT RUN (no Windows here).

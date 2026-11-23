@@ -7,7 +7,7 @@
 - Current phase: Phases 1–3 delivered (foundations, Gateway/navigation, F11/F12); Phases 4–6 partly (entry strip, row cursor, design tokens on all screens)
 - Current task: ER-design audit follow-up delivered (ERD-001…006, Phase 11, app 1.13.0); next: user to choose ERD-008…010 scope; then import .iif into real QuickBooks Desktop (INV-005), open exports in real Microsoft Excel (XW-007, FR-003/004), QA-002
 - Last verified commit/branch: `master` — see `git log` (session 2 commits: VaultBook workspace, refinements)
-- Last update: 2026-11-20 (app 1.56.0, data format 8)
+- Last update: 2026-11-23 (app 1.59.1, data format 8)
 
 ## Product goal
 Transform the existing application into a coherent, Tally Prime–inspired, keyboard-first US accounting system named VaultBook, preserving its accounting engine, stored data, offline operation, security, and existing features.
@@ -342,6 +342,13 @@ Transform the existing application into a coherent, Tally Prime–inspired, keyb
 
 ## 1.50.4 checkpoint (2026-11-19)
 - Rule from the user: no instruction notes on screens or reports unless a user could not figure it out. UI.page subtitles now need { html } (only data). Menu bar redesign: Version D1 and D2 on the design canvas, not built yet.
+
+## 1.59.1 checkpoint (2026-11-23) — connector download
+- Done: "Download the QuickBooks tool" (Send to QuickBooks Desktop: page header, Items header, first-step button in the empty Months screen; QuickBooks Desktop page > The connector). `tools/build-site.py` now also writes `tools/VaultBook-QuickBooks-Connector.zip` (the .cmd and .ps1 in one folder, fixed dates so the bytes only change with the tool; `--check` compares it). Every "VaultBook's tools folder" wording links to the zip (ui-qbsend, ui-qbd, ui-bankfeed). The .cmd stops with an "Extract All first" message when VaultBook-QB.ps1 is not beside it.
+- Files: app/tools/build-site.py, app/tools/VaultBook QuickBooks.cmd, app/tools/VaultBook-QuickBooks-Connector.zip (new, generated), app/js/ui-qbsend.js, app/js/ui-qbd.js, app/js/ui-bankfeed.js, app/js/schema.js, CHANGELOG.
+- Tests: `node app/tests/run-node.js` 275/275. `build-site.py --check` up to date; zip entries byte-identical to the two tool files. Browser check (Playwright Chromium, file://, CSP bypassed): button present on #/qbsend (header + empty state), #/qbsend?tab=items, #/qbd; clicking it downloads VaultBook-QuickBooks-Connector.zip identical to the built file; no page errors. Developer UI tests qbsend_ui / qbd_ui / bankfeed_ui FAIL at their first wait_for_function: the page's CSP forbids string eval (`script-src` has no 'unsafe-eval'); the unchanged 1.59.0 page fails the same way, so not caused by this change.
+- Not verified: running the extracted tool on a real Windows PC with QuickBooks Desktop (NEEDS VERIFICATION); SmartScreen wording on Windows.
+- Next action: make the developer UI tests CSP-safe (pass functions, not strings, to wait_for_function, or use bypass_csp) and re-run them.
 
 ## 1.56.0 checkpoint (2026-11-20) — review fixes (Impeccable critique + audit)
 - Done: everything in the 2026-11-20 critique (`.impeccable/critique/2026-11-20T21-02-24Z__app-index-src-html.md`): payment auto-apply and unapplied-credit question; dialog focus trap, inert background, Esc guard, z-order; one save-button row on all entry forms; Settings fixes (unknown tab, inline save error, photo logos, sales tax retry, switches act at once); tab de-duplication and restore cap; Reports finder; View can hide toolbar / F-key panel; phone tables scroll in their box, save bars above the tab bar, one-row Settings tabs and type keys, VaultBook blue on phone, bank feed accounts as desktop; first-run checklist and copy; Gateway hints; contrast and focus fixes. See DEC-046 and CHANGELOG 1.56.0.

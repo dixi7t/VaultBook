@@ -51,7 +51,8 @@
           <li><a href="#/qbsend?tab=items&status=sent"><strong>Sent to QuickBooks</strong><span>Every invoice and payment recorded or found in QuickBooks, with its QuickBooks id.</span></a></li>
           <li><a href="#/qbsend?tab=items&status=problem"><strong>Problems</strong><span>What the connector could not record, with the reason.</span></a></li></ul></section>
         <section class="card"><h2>The connector</h2>
-          <p>One file in VaultBook's <code>tools</code> folder: <strong>VaultBook QuickBooks.cmd</strong>. Copy the folder to the PC with QuickBooks Desktop once and double-click it there.</p>
+          <p>${UI.qbToolButton('btn primary')}</p>
+          <p>On the PC with QuickBooks Desktop, unzip it once (right-click › <strong>Extract All</strong>) and double-click <strong>VaultBook QuickBooks.cmd</strong> in the extracted folder. If Windows says it protected your PC, choose <strong>More info › Run anyway</strong>.</p>
           <table class="data compact qbd-menu"><tbody>
             <tr><td>1</td><td>Read QuickBooks</td><td>Snapshot for step 2. Writes nothing.</td></tr>
             <tr><td>2</td><td>Send to QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries).</td></tr>

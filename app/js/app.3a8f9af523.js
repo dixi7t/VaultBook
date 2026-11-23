@@ -345,7 +345,7 @@
   var OB = root.OB = root.OB || {};
   var S = OB.schema = {};
 
-  S.APP_VERSION = '1.59.0';
+  S.APP_VERSION = '1.59.1';
   S.DATA_VERSION = 8;        // company data schema version (see migrations below)
   S.BACKUP_FORMAT = 'OfflineBooksUS-Backup';
 
@@ -17336,7 +17336,7 @@
         <div class="scroll-x"><table class="data compact" data-testid="bf-xpay-table"><thead><tr><th>Date</th><th>Customer or vendor</th><th class="num">Payment</th><th>Apply to</th><th class="num">Amount</th></tr></thead><tbody>${pl.rows.slice(0, 12).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.name)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc((x.kind === 'Bill payment' ? 'Bill ' : 'Invoice ') + (x.doc || U.fmtDate(x.docDate)))}</td><td class="num">${UI.money(x.applied)}</td></tr>`).join('')}${pl.rows.length > 12 ? `<tr><td colspan="5" class="muted">and ${pl.rows.length - 12} more in the file</td></tr>` : ''}</tbody></table></div>
         <div class="form-actions"><button class="btn" id="bfx-paylist" data-testid="bfx-paylist">Download payments to apply (.csv)</button></div></section>` : ''}
       ${iif ? `<p class="small"><button class="btn ghost small" id="bfx-paylist-old" data-testid="bfx-paylist-old">Payments to apply for lines already exported</button> <span class="muted">If an earlier file left invoices open in QuickBooks: this lists which invoices each of those payments pays, for the chosen period.</span></p>
-      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd (tools folder) › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
+      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd ${UI.qbToolWhere} › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
       <div class="form-actions"><span class="spacer"></span><button class="btn primary" id="bfx-go" data-testid="bf-export-go" ${r && r.txnCount ? '' : 'disabled'}>${iif ? 'Download .iif' : 'Download .csv' + (ex.accountIds.length > 1 ? ' files' : '')}</button></div>
       ${hist.length ? `<details class="bf-xhist"><summary>Export history (${hist.length})</summary><table class="data compact" data-testid="bf-export-history"><tbody>${hist.map((h) => `<tr class="${h.undone ? 'inactive' : ''}"><td>${esc(new Date(h.at).toLocaleString())}</td><td>${esc(h.fileName)}</td><td class="num">${h.count} line${h.count === 1 ? '' : 's'}</td>
         <td>${h.undone ? '<span class="badge void">Marked not exported</span>' : `<button class="btn ghost small" data-xundo="${esc(h.id)}">Mark as not exported</button>`}</td></tr>`).join('')}</tbody></table></details>` : ''}`;
@@ -26963,6 +26963,13 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   const st = { picked: null, months: null };   // picked: Set of keys for the current list, null = all; months: Set of ticked months
   const snapKey = (b) => 'qbSnapshot:' + b.company.id;
 
+  /* The connector as one download (1.59.1): the published site has no tools folder to copy, so every place that
+   * names VaultBook QuickBooks.cmd links to tools/VaultBook-QuickBooks-Connector.zip (built by tools/build-site.py:
+   * the .cmd and the .ps1 it runs, together in one folder). Same address as the page, so it also works offline. */
+  UI.qbToolHref = 'tools/VaultBook-QuickBooks-Connector.zip';
+  UI.qbToolButton = (cls) => `<a class="${cls || 'btn'}" href="${UI.qbToolHref}" download data-testid="qb-tool-download" title="Both connector files in one zip. On the PC with QuickBooks Desktop: unzip it (right-click › Extract All), then double-click VaultBook QuickBooks.cmd.">Download the QuickBooks tool</a>`;
+  UI.qbToolWhere = `(<a href="${UI.qbToolHref}" download data-testid="qb-tool-link">download it</a> once and unzip it on that PC)`;
+
   UI.routes.qbsend = (el, r) => {
     const b = UI.book, p = Object.assign({ kinds: 'invoice,payment,bank', status: 'new', range: 'all', tab: 'months' }, r.params || {});
     if (p.tab === 'months') return monthsView(el, b, p);
@@ -26983,7 +26990,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const sentCount = Object.keys((b.company.qbSent || {})).filter((k) => b.company.qbSent[k].qbTxnId).length;
     const badge = (x) => x.status === 'Sent' ? `<span class="qs-st qs-sent" title="Sent ${esc(new Date(x.sentAt).toLocaleString())} · QuickBooks id ${esc(x.qbTxnId)}">Sent</span>` : x.status === 'Problem' ? `<span class="qs-st qs-problem" title="${esc(x.problem)}">Problem</span>` : '<span class="qs-st qs-new">Not sent</span>';
     el.innerHTML = UI.page('Send to QuickBooks Desktop',
-      `<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
+      `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
        <button class="btn primary" id="qs-download" data-testid="qs-download" ${chosen.length ? '' : 'disabled'}>Download for QuickBooks (${chosen.length})</button>`,
       tabs(p, 'items') + `<form class="toolbar wrap" id="qs-form" data-testid="qs-form">
         <fieldset class="qs-kinds"><legend class="sr-only">What to send</legend>
@@ -26998,7 +27005,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         <label>Amount from <input type="text" id="qs-min" inputmode="decimal" size="9" value="${esc(p.min || '')}"></label><label>to <input type="text" id="qs-max" inputmode="decimal" size="9" value="${esc(p.max || '')}"></label>
         <button class="btn" type="submit">Show</button>
       </form>
-      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder), choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
+      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere}, choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
       ${list.length ? `<div class="scroll-area table-wrap"><table class="data compact qs-table" data-testid="qs-table"><thead><tr>
           <th><input type="checkbox" id="qs-all" aria-label="Select all" ${chosen.length === list.length ? 'checked' : ''}></th><th>Type</th><th>Date</th><th>No.</th><th>Name</th><th>Pays / account</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
         ${list.map((x) => `<tr class="${picked.has(x.key) ? '' : 'inactive'}"><td><input type="checkbox" data-k="${esc(x.key)}" ${picked.has(x.key) ? 'checked' : ''} aria-label="Send ${esc(x.kind)} ${esc(x.number)}"></td>
@@ -27064,10 +27071,11 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const snap = OB.prefs.get(snapKey(b));
     let cmp = null, err = '';
     if (snap) { try { cmp = OB.qbsync.compare(b, snap); } catch (e) { err = e.message; } }
-    const head = `<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
+    const head = `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
     if (!cmp) {
       el.innerHTML = UI.page('Send to QuickBooks Desktop', head, tabs(p, 'months') + `<div class="empty"><p><strong>Start by reading QuickBooks.</strong></p>
-        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder) and choose <strong>1 Read QuickBooks</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
+        <p>First time? ${UI.qbToolButton('btn primary')}</p>
+        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere} and choose <strong>1 Read QuickBooks</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
         <p class="muted small">The Months tab then shows, month by month, what QuickBooks already has and what is still only in VaultBook, so you send only the gap, in any order. ${err ? `<br><span class="warn-text">${esc(err)}</span>` : ''}Prefer to pick items yourself? Use the <a href="#/qbsend?tab=items">Items</a> tab.</p></div>`,
         'Records VaultBook transactions in QuickBooks Desktop. Nothing is written until you run the script and confirm.');
       bindResult(el, b); return;
@@ -27152,7 +27160,8 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
           <li><a href="#/qbsend?tab=items&status=sent"><strong>Sent to QuickBooks</strong><span>Every invoice and payment recorded or found in QuickBooks, with its QuickBooks id.</span></a></li>
           <li><a href="#/qbsend?tab=items&status=problem"><strong>Problems</strong><span>What the connector could not record, with the reason.</span></a></li></ul></section>
         <section class="card"><h2>The connector</h2>
-          <p>One file in VaultBook's <code>tools</code> folder: <strong>VaultBook QuickBooks.cmd</strong>. Copy the folder to the PC with QuickBooks Desktop once and double-click it there.</p>
+          <p>${UI.qbToolButton('btn primary')}</p>
+          <p>On the PC with QuickBooks Desktop, unzip it once (right-click › <strong>Extract All</strong>) and double-click <strong>VaultBook QuickBooks.cmd</strong> in the extracted folder. If Windows says it protected your PC, choose <strong>More info › Run anyway</strong>.</p>
           <table class="data compact qbd-menu"><tbody>
             <tr><td>1</td><td>Read QuickBooks</td><td>Snapshot for step 2. Writes nothing.</td></tr>
             <tr><td>2</td><td>Send to QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries).</td></tr>
