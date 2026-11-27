@@ -1,6 +1,17 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
+1.65.1  (2026-11-27)  Lists use the whole width of the screen
+-------------------------------------------------------------------------------
+  * Vendors, Customers, Chart of accounts, Transactions and account
+    registers now fill the page. Before, a list was only as wide as its
+    columns, so Vendors with just Name and Open balance stopped halfway
+    and left the right half of the screen empty. The name (or memo)
+    column takes the spare room; amounts and buttons stay at the right.
+  * A column you resize keeps the width you gave it, and narrow windows
+    still scroll sideways instead of squeezing columns. Reports keep
+    their own width so labels stay close to their amounts.
+
 1.65.0  (2026-11-27)  Citi card statements import
 -------------------------------------------------------------------------------
   * Import bank statement reads Citi card PDFs (Costco Anywhere Visa

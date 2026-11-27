@@ -7,7 +7,7 @@
 - Current phase: Phases 1–3 delivered (foundations, Gateway/navigation, F11/F12); Phases 4–6 partly (entry strip, row cursor, design tokens on all screens)
 - Current task: ER-design audit follow-up delivered (ERD-001…006, Phase 11, app 1.13.0); next: user to choose ERD-008…010 scope; then import .iif into real QuickBooks Desktop (INV-005), open exports in real Microsoft Excel (XW-007, FR-003/004), QA-002
 - Last verified commit/branch: `master` — see `git log` (session 2 commits: VaultBook workspace, refinements)
-- Last update: 2026-11-27 (app 1.65.0, data format 8)
+- Last update: 2026-11-27 (app 1.65.1, data format 8)
 
 ## Product goal
 Transform the existing application into a coherent, Tally Prime–inspired, keyboard-first US accounting system named VaultBook, preserving its accounting engine, stored data, offline operation, security, and existing features.
@@ -399,6 +399,12 @@ Transform the existing application into a coherent, Tally Prime–inspired, keyb
 - The user attached a Citi Costco Anywhere Visa Business statement and asked for support in VaultBook and Statement Studio. The general reader found 116 of 118 lines, glued words, pulled the rewards panel and footer into descriptions and could not reconcile.
 - A Citi-only reader (readCitiCard) runs before the general reader and returns null for any other statement. On the client statement: 118 of 118 lines, both totals match. Fixture is made up (tests/fixtures/statements/citi-card-sample.pdf).
 
+## 1.65.1 checkpoint (2026-11-27) — lists fill the page width
+- Cause: `UI.enhanceTables` (js/ui-tables.js) gave every keyed table `width: <sum of columns>px`, so lists with few columns (Vendors with no company/email/phone: Name + Open balance) ended mid-page inside a full-width box.
+- Fix: tables with keys `list:*` (customers, vendors, accounts, transactions, register) get `width: max(100%, <sum>px)`; the widest text column the person has not resized gets no fixed width and takes the spare room (amount columns, the ✓ column and the actions column never do). If every text column was resized, the spare room is spread over all columns. `report:*` tables are unchanged.
+- Sweep: Playwright, 54 routes at 1700×950 with sample data, tables narrower than 80% of their page. Before: vendors (and customers/accounts/transactions with bare contacts). After: only builder (report layout, intended), snapshot (dashboard cards), reclassify and close (tables inside side panels that are full) — not changed.
+- Tests: `node app/tests/run-node.js` 276/276; `build-site.py --check` OK. Browser checks: vendors/customers/accounts/transactions/register fill the box at 1700 px; resizing Name keeps 266 px and the table still fills; double-click reset restores; at 900 px transactions scrolls sideways (884 px table in 863 px box); GL report width unchanged; no page errors.
+- Next action: none required; look at the phone layout of the lists on a real iPhone (mobile.css sets its own table widths, not affected in Chromium checks).
 ## Session 7 checkpoint (2026-11-05) — ER-design audit, sales tax, estimates/POs, audit chain (app 1.13.0)
 - Done: `docs/ERD_AUDIT.md`; sales tax (rates, lines, posting, print, .iif, Sales Tax Liability, exempt customers); estimates and purchase orders; SHA-256 hash-chained audit; closing-date history and password; credit-limit warning; SCHEMA.txt updated.
 - Files:

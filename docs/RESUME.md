@@ -425,3 +425,8 @@ Next: the user tries General Ledger > .iif on the real company and imports into 
 
 ## Resume after 1.65.0
 Next: the user imports the Citi PDF into the card account and checks the Bank feed. Open: bills and payments in .iif; account choice on By date.
+
+### 2026-11-27 — UI — Lists fill the page width (1.65.1)
+- **Change:** list tables (`list:*` keys) stretch to the page; one unresized text column absorbs the spare room. Reports unchanged.
+- **Files:** `app/js/ui-tables.js`, `app/js/schema.js`, `app/CHANGELOG.txt`.
+- **Verification:** Node 276/276; build --check OK; Playwright sweep of 54 routes + resize/narrow-window checks pass.

@@ -61,20 +61,42 @@
   const widthOf = (g, i) => Math.max(MIN, +g.pref.widths[g.labels[i]] || g.natural[i] || 120);
   const hidden = (g, i) => i >= Math.max(1, g.sticky) && g.pref.hidden.indexOf(g.labels[i]) >= 0;
 
+  /* List pages (keys "list:…": customers, vendors, accounts, transactions, register) fill the page width (1.65.1).
+   * Before, every keyed table was exactly as wide as its columns, so a list with few columns (Vendors with only
+   * Name and Open balance) stopped halfway and left the right of the page empty. One text column — the widest
+   * the person has not resized — takes the spare room; numbers and actions keep their width at the right edge.
+   * Reports keep their own width so labels stay near their amounts. */
+  const stretches = (g) => /^list:/.test(g.key);
+  const visibleText = (th) => { const c = th.cloneNode(true); c.querySelectorAll('.sr-only, .col-resizer, [aria-hidden="true"]').forEach((x) => x.remove()); return c.textContent.trim(); };
+  function flexColumn(g) {
+    if (!stretches(g)) return -1;
+    const th = headCells(g.tables[0]);
+    let best = -1;
+    g.labels.forEach((l, i) => {
+      if (hidden(g, i) || (i > 0 && i < g.sticky) || +g.pref.widths[l]) return;   // a column the person sized keeps that size
+      const h = th[i];
+      if (!h || h.classList.contains('num') || !visibleText(h)) return;           // not amounts, not the actions/✓ columns
+      if (best < 0 || g.natural[i] > g.natural[best]) best = i;
+    });
+    return best;   // -1 when every text column was sized: apply() then spreads the room over all columns
+  }
+
   /** Write widths, visibility and sticky offsets to every table in the group. */
   function apply(g) {
     let total = 0;
     const lefts = [];
     g.labels.forEach((l, i) => { lefts[i] = total; if (!hidden(g, i)) total += widthOf(g, i); });
+    const flex = flexColumn(g);
     g.tables.forEach((t) => {
       const cols = t.querySelector('colgroup.tw').children;
       g.labels.forEach((l, i) => {
         const c = cols[i]; if (!c) return;
-        c.style.width = widthOf(g, i) + 'px';
+        c.style.width = i === flex ? '' : widthOf(g, i) + 'px';                     // no width: it takes what is left
         c.style.visibility = hidden(g, i) ? 'collapse' : '';
       });
       t.style.tableLayout = 'fixed';
-      t.style.width = total + 'px';
+      // never narrower than its columns (the box scrolls sideways), and as wide as the page when there is room
+      t.style.width = stretches(g) ? `max(100%, ${total}px)` : total + 'px';
       for (let i = 0; i < g.sticky; i++) t.style.setProperty('--sl' + i, lefts[i] + 'px');
       if (g.sticky && !t.dataset.stickyMarked) {
         // mark key-column cells once (cells whose start column is < sticky)
