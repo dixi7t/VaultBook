@@ -458,7 +458,7 @@
     const co = b.company;
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>Statement</h1></div><div class="actions">
       <label>From <input type="date" id="st-from" value="${from}"></label><label>To <input type="date" id="st-to" value="${to}"></label>
-      <button class="btn" id="st-run">Update</button><button class="btn primary" data-print data-key="p">Print / Save as PDF</button></div></div>
+      <button class="btn" id="st-run">Update</button><button class="btn primary" onclick="window.print()" data-key="p">Print / Save as PDF</button></div></div>
       <article class="doc">
         <header class="doc-head"><div><h2>${esc(co.name)}</h2><p>${esc(co.address).replace(/\n/g, '<br>')}</p><p>${esc([co.phone, co.email].filter(Boolean).join(' · '))}</p></div>
         <div class="doc-title"><h1>Statement</h1><p>${U.fmtDate(from)} – ${U.fmtDate(to)}</p></div></header>

@@ -426,6 +426,86 @@ Record important decisions here. Add new entries at the top. Do not silently rev
 - Verification needed: the user's eye on phone colours on a real iPhone; a bookkeeper trying the payment flow.
 
 ## Decision template
+### DEC-047 — The Bank feed asks the Close-the-books engine; payees are read from bank wording; far matches are not automatic
+- Date: 2026-11-23
+- Status: Accepted
+- Context: on a client with 11 years of QuickBooks history and a 1,329-line statement, the Bank feed suggested almost nothing, because it only learned from lines posted through the feed. The engine that learns payee habits from the whole ledger existed, but only inside Close the books.
+- Decision: one engine. The Bank feed takes, in order: an entry already in the books, a bank rule, last-time history, then OB.close.forFeed (payee habit, then common merchant). Payee reading (hints.js) compares names with spaces and punctuation removed, accepts a name the bank cut short from 8 letters, and drops card, ACH and wire noise. Habits are filed under the contact, and deposits use the payer on the deposit line. "Sure" keeps the strict rule from DEC-043 and is refused for a name found in the middle of the text and for money back. A register entry more than 10 days from the bank date is never auto-chosen unless the check number agrees. Nothing posts by itself: Sure lines are ticked with one button and posted by the user.
+- Alternatives considered: a second engine for the feed (rejected: two answers for one line); using the supplied third-party merchant-to-ledger tool as the engine (rejected: it maps brand names to a fixed chart and knows nothing of this company's books; 185 of its brand names that VaultBook lacked were added to js/merchants.js, the rest were duplicates, generic words, marketplaces, payroll or life and pet insurers).
+- Risks: a wrong Sure line posts if the user posts without looking; measured 94.5% right on the user's 2025 (learned from earlier years), so Sure lines should still be skimmed, sorted by payee. Suggestions depend on payee names in the books being spelled like the bank's.
+- Impact on requirements/tasks: js/hints.js, js/close.js, js/bankfeed.js, js/bankplus.js, js/ui-bankfeed.js, js/merchants.js; tests/close.tests.js, tests/dev/feedengine_ui.py, tests/dev/hints_ui.py.
+- Verification needed: the user's review of the Sure lines on the real company.
+
+### DEC-048 — Send to QuickBooks from a date; an entry imported from QuickBooks is already in QuickBooks
+- Date: 2026-11-24
+- Status: Accepted
+- Context: sending needed a snapshot and month ticks, or item filters. The user wants to give one date and send everything from it without duplicates.
+- Decision: Q.fromDate(book, from) lists every sendable entry from that day that is not marked as in QuickBooks, adds earlier invoices that an included payment pays, and counts what is left out. A transaction whose importRef carries a QuickBooks TxnID is treated as in QuickBooks everywhere the send list is used. Duplicate protection stays in two places: VaultBook's record (result file, snapshot, import) and the connector's own check before each record.
+- Alternatives considered: asking for the date inside the connector script (rejected: the script cannot be tested in this environment, and VaultBook already knows what was sent).
+- Risks: an entry changed in VaultBook after it reached QuickBooks is not sent again (Update QuickBooks covers that). A hand-typed QuickBooks entry on another date is not recognised and would be recorded.
+- Impact on requirements/tasks: js/qbsend.js, js/ui-qbsend.js, js/ui-menubar.js; tests/qbsend.tests.js, tests/dev/qbfrom_ui.py.
+- Verification needed: one real send on Windows with QuickBooks open.
+
+### DEC-049 — Send by date goes through the existing local link; no new network access
+- Date: 2026-11-24
+- Status: Accepted
+- Context: the user wants the connector to take the entries from VaultBook directly, for a date, a period or custom dates, instead of downloading a file and picking it in the tool.
+- Decision: the By date tab posts its batch to the link the connector already offers (http://127.0.0.1:47321, action apply, 6-digit code typed by the user; DEC-044), then applies the result it returns. Periods are worked out in VaultBook. The PowerShell script is not changed. Downloading the file stays for a QuickBooks PC that is not this computer.
+- Alternatives considered: asking for the dates inside the script (rejected: untestable here, and VaultBook already holds what was sent); a new link action (not needed: apply accepts any vaultbook-qb-batch).
+- Risks: a long send keeps the browser request open for minutes; if the page is closed meanwhile the tool still records and saves its result file, which can be loaded by hand.
+- Impact on requirements/tasks: js/qbsend.js, js/ui-qbsend.js; tests/dev/qbfrom_ui.py.
+- Verification needed: one real linked send on Windows.
+
+### DEC-050 — The connector menu is ordered by what the user wants to do
+- Date: 2026-11-24
+- Status: Accepted
+- Context: the 8-line menu listed modes in the order they were built (Read, Send, Read-send-read, Check, Export, Reports, Connect, Install). The user could not tell which line to use.
+- Decision: seven lines: 1 Connect to VaultBook, 2 QuickBooks -> VaultBook, 3 VaultBook -> QuickBooks, 4 Preview a VaultBook file, 5 What QuickBooks has, 6 Reports to Excel, 7 Set up one-click open. The modes behind them are unchanged. Cycle is reachable only with -Mode Cycle.
+- Alternatives considered: section headings inside the menu and returning to the menu after each action (deferred: both change the menu loop, which cannot be tested without Windows).
+- Risks: the script was edited without being run; a typing mistake in the menu block would stop it at start. Users with the old numbers in mind pick a different action: 2 was Send and is now export (it writes nothing to QuickBooks), 3 was the cycle and is now Send.
+- Impact on requirements/tasks: tools/VaultBook-QB.ps1 and every screen or guide line that named a menu choice.
+- Verification needed: start the tool on Windows and try each line once.
+
+### DEC-051 — VaultBook drives a long send in parts; the tool answers yes after the first part
+- Date: 2026-11-25
+- Status: Accepted
+- Context: QuickBooks Desktop stopped after 54 of 1,329 entries sent in one run. Starting over each time is not workable, and the PowerShell script cannot be tested in this environment.
+- Decision: the logic lives in VaultBook, where it is tested: Q.chunks cuts the list into parts of 25 (invoices, then payments, then bank entries), runSend posts one part at a time to the link (each part is a new tool process and QuickBooks session), applies each result at once, rests 2 seconds, and stops cleanly on a QuickBooks stop, a No in the tool, or the user's request. Pressing Send again resumes. The link's apply action passes -Yes to the tool when the request carries yes: true, which VaultBook sets for every part after the first.
+- Alternatives considered: session refresh and retry inside the script (rejected for now: larger untested change); one confirmation per part (rejected: 54 questions).
+- Risks: with -Yes the tool also answers yes to creating a missing customer or item in later parts. A file sent from the tool's menu still runs in one go.
+- Impact on requirements/tasks: js/qbsend.js, js/ui-qbsend.js, tools/VaultBook-QB.ps1; tests.
+- Verification needed: a real send on Windows; qbsdklog.txt if QuickBooks stops again.
+
+### DEC-052 — Bank transactions as one .iif; marked only on the user's word
+- Date: 2026-11-25
+- Status: Accepted
+- Context: QuickBooks Desktop stops during long connector sends. The user asked for an .iif of all bank transactions for a chosen period, which QuickBooks imports in one step.
+- Decision: By date offers the period's bank transactions not yet in QuickBooks as one .iif (the existing bank .iif writer, fed with transaction ids). An .iif import gives no answer back, so VaultBook asks afterwards; Yes stores company.qbSent[id] = { qbTxnId: '', iif, at }. Everything that decides "already in QuickBooks" goes through Q.inQB, including the Bank feed export.
+- Alternatives considered: marking on download (rejected: a failed import would hide entries forever); only the Bank feed export (rejected: it is per account, bank lines only, and did not know the connector's marks).
+- Risks: an .iif import does not check duplicates; importing the same file twice doubles it. Names in the file that QuickBooks lacks are created by QuickBooks. Update QuickBooks has no QuickBooks id for .iif entries until a snapshot or export matches them.
+- Impact on requirements/tasks: js/qbsend.js, js/qbexport.js, js/ui-qbsend.js; tests.
+- Verification needed: the user's import of the 2026 file.
+
+### DEC-053 — The connector removes only what VaultBook sent, for chosen dates, after a typed DELETE
+- Date: 2026-11-25
+- Status: Accepted
+- Context: entries sent by the connector arrived with check numbers QuickBooks invented. The user asked for a way to delete entries in a date range from QuickBooks so they can be sent again.
+- Decision: option 8 removes only entries carrying [VB:key] in the memo (written by the connector, and now by bank .iif files from By date). It never removes by date alone, refuses All dates, needs DELETE typed (not answered by -Yes), deletes deposits before payments and payments before invoices, and writes a result file; VaultBook clears the sent mark for each Deleted item.
+- Alternatives considered: removing every transaction in the range (rejected: it would also delete the client's own entries and history brought from QuickBooks); renumbering instead of removing (rejected: CheckMod with an empty number is as untested as the add).
+- Risks: untested on Windows. An entry QuickBooks will not delete (linked, reconciled, in a closed period) is reported and kept.
+- Impact on requirements/tasks: tools/VaultBook-QB.ps1, js/qbsend.js, js/qbexport.js, js/ui-qbd.js.
+- Verification needed: one removal on a backed-up company file.
+
+### DEC-054 — Citi card statements get their own reader, run before the general one
+- Date: 2026-11-27
+- Status: Accepted
+- Context: on a Citi card PDF the general reader dropped the one-date autopay, glued words, took rewards-panel and footer text into descriptions and did not reconcile.
+- Decision: readCitiCard runs only when the issuer is Citibank (or citicards.com is printed) and the Sale/Post Date header is found; otherwise it returns null and the general reader runs unchanged. It reads words from the glyph runs by their real gaps, stops each line at its amount, and takes totals from the Account summary.
+- Alternatives considered: changing the general row builder's word gluing (rejected: it fixes split numbers on other banks' PDFs); copying Studio's whole newer engine into VaultBook (rejected: the vendored copy has VaultBook adaptations).
+- Risks: other Citi layouts (checking, Citi Flex Pay plans) are untested and fall back to the general reader only when the header is missing.
+- Impact on requirements/tasks: js/vendor/statement-engine.js; Statement Studio V8.16.
+- Verification needed: the user imports the real statement.
+
 ### DEC-XXX — Title
 - Date:
 - Status: Proposed / Accepted / Superseded

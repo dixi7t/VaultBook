@@ -73,7 +73,7 @@
     if (!files.length) return null;
     const model = Q.read(files.filter((f) => !f.isPdf));
     const known = model.files.filter((f) => f.kind !== 'unknown').length + files.filter((f) => f.isPdf).length;
-    if (!known) throw new Error('None of these files is a QuickBooks export VaultBook knows. Use the connector\'s Export everything file (VaultBook-QB-full-….json), or send the Journal, Trial Balance, Balance Sheet and Profit and Loss from QuickBooks Online (Excel), or the IIF lists and General Ledger from QuickBooks Desktop.');
+    if (!known) throw new Error('None of these files is a QuickBooks export VaultBook knows. Use the connector\'s QuickBooks -> VaultBook file (VaultBook-QB-full-….json), or send the Journal, Trial Balance, Balance Sheet and Profit and Loss from QuickBooks Online (Excel), or the IIF lists and General Ledger from QuickBooks Desktop.');
     const guess = model.company.name || '';
     return (guess ? Promise.resolve(guess) : UI.prompt('Create a company from QuickBooks files', 'Company name', '', { ok: 'Create company', help: 'These files do not name the company.' })).then((name) => {
       name = String(name || '').trim(); if (!name) return null;

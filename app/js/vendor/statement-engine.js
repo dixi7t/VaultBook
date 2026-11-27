@@ -76,6 +76,7 @@
       // a single token. Some PDFs split a single visual word/number across
       // multiple text-show operators (e.g. "1" + "1,120.42" -> "11,120.42"),
       // which would otherwise silently corrupt amount parsing.
+      row.raw = deduped.map((i) => ({ text: i.text, x: i.x, width: i.width }));
       const merged = [];
       for (const it of deduped) {
         const prev = merged[merged.length - 1];
@@ -266,7 +267,7 @@
     { name: 'Chase', re: /\bchase\b|jpmorgan chase/i },
     { name: 'ConnectOne Bank', re: /connectone\s*bank/i },
     { name: 'Citizens Bank', re: /\bcitizens\b/i },
-    { name: 'Citibank', re: /citibank|citi\s*business/i },
+    { name: 'Citibank', re: /citibank|citi\s*business|citicards\.com|\bby\s+citi\b/i },
     { name: 'US Bank', re: /\bu\.?s\.?\s*bank\b(?!\s+(and|or|,))/i },
     { name: 'PNC Bank', re: /\bpnc\b/i },
     { name: 'Capital One', re: /capital one/i },
@@ -1835,6 +1836,110 @@
   let OCR_ENABLED = false;
   function setOcrEnabled(v) { OCR_ENABLED = v; }
 
+  // ==========================================================================
+  // Citi card statements (Costco Anywhere Visa and other Citi cards)
+  // ==========================================================================
+  // Layout: "Sale Date | Post Date | Description | Amount", credits printed
+  // with a minus sign, a payment with only a post date, one "Standard
+  // Purchases" block per cardholder, and a rewards panel printed beside the
+  // list on the same lines. A long merchant name can wrap: its first part
+  // sits on the line above the dates and the rest on the line below. The
+  // general reader drops the one-date payment and pulls the rewards panel
+  // into descriptions, so these statements are read here instead. Returns
+  // null for any other statement, which then takes the general path.
+  function readCitiCard(rows, bank, fullText) {
+    if (bank !== 'Citibank' && !/citicards\.com|\bciti\s+cards\b/i.test(fullText.slice(0, 4000))) return null;
+    const DATE = /^\d{2}\/\d{2}$/;
+    const AMT = /^[-+]?\$[\d,]+\.\d{2}$/;
+    const startIdx = rows.findIndex((r) => /\bDate\s+Date\s+Description\b.*\bAmount\b/.test(r.text) || /^Sale\s+Post\b/.test(r.text));
+    if (startIdx < 0) return null;
+    const stopRe = /^(Interest charge calculation|\d{4} totals year-to-date|Your Annual Percentage Rate)/i;
+    const SECTION_RE = /^(Payments, Credits and Adjustments|Standard Purchases(?:, cont'd)?|Cash Advances(?:, cont'd)?|Balance Transfers|Fees Charged|Interest Charged|Citi Flex Pay[^$]*)\b/i;
+    const NAME_RE = /^[A-Z][A-Z.'\-]+(?: [A-Z][A-Z.'\-]*){1,4}$/;
+    const money = (t) => parseFloat(t.replace(/[$,+]/g, ''));
+    // the amount token of a transaction row; "-" may be its own glyph just before "$"
+    // glyph runs with a visible gap are separate words (the shared row builder glues "AMAZON" "MKTPLACE")
+    const words = (row) => {
+      const out = [];
+      for (const i of (row.raw || row.items)) {
+        const p = out[out.length - 1];
+        if (p && i.x - (p.x + (p.width || 0)) < 0.6) { p.text += i.text; p.width = i.x + (i.width || 0) - p.x; }
+        else out.push({ text: i.text, x: i.x, width: i.width || 0 });
+      }
+      return out.filter((i) => i.x > 40 && i.text.trim());   // a page-margin batch number sits at the far left
+    };
+    const parseRow = (row) => {
+      const its = words(row);
+      let k = 0; const dates = [];
+      while (k < its.length && dates.length < 2 && DATE.test(its[k].text.trim())) dates.push(its[k++].text.trim());
+      if (!dates.length) return null;
+      const desc = [];
+      for (; k < its.length; k++) {
+        let t = its[k].text.trim();
+        if (t === '-' && its[k + 1] && /^\$[\d,]+\.\d{2}$/.test(its[k + 1].text.trim())) { t = '-' + its[k + 1].text.trim(); k++; }
+        if (AMT.test(t)) return { dates, desc: desc.join(' '), amount: money(t), amountX: its[k].x, row };
+        desc.push(t);
+      }
+      return null;
+    };
+    const textBefore = (row, maxX) => words(row).filter((i) => i.x < maxX).map((i) => i.text.trim()).join(' ').replace(/\s+/g, ' ').trim();
+    let section = 'Transactions', holder = '';
+    const txns = [];
+    for (let i = startIdx + 1; i < rows.length; i++) {
+      const row = rows[i], text = row.text.trim();
+      if (stopRe.test(text)) break;
+      const tx = parseRow(row);
+      if (!tx) {
+        const left = textBefore(row, 330);
+        const sec = SECTION_RE.exec(left);
+        if (sec) {
+          section = sec[1].replace(/, cont'd$/i, '');
+          // "NADIR SHERALI" on the line just above "Standard Purchases" names the cardholder
+          const prev = rows[i - 1] && textBefore(rows[i - 1], 330);
+          if (/^Standard Purchases$/i.test(section) && !/cont'd/i.test(left)) holder = prev && NAME_RE.test(prev) ? prev : holder;
+          if (/^Payments/i.test(section)) holder = '';
+        }
+        continue;
+      }
+      let description = tx.desc;
+      if (!description) {   // wrapped merchant name: the line above the dates and the line below
+        const above = rows[i - 1] ? textBefore(rows[i - 1], tx.amountX) : '', below = rows[i + 1] ? textBefore(rows[i + 1], tx.amountX) : '';
+        description = [above, below].filter((s) => s && !DATE.test(s.split(' ')[0])).join(' ');
+        if (below && rows[i + 1] && !parseRow(rows[i + 1])) i++;
+      }
+      // The statement prints a charge as + and a payment or credit as -.
+      // On the account a charge is money out (Debit), a payment money in (Credit).
+      const out = tx.amount > 0;
+      const secName = /^Standard Purchases$/i.test(section) && holder ? `Purchases · ${holder}` : section;
+      txns.push({
+        dateRaw: tx.dates[tx.dates.length - 1],   // the post date (the payment has only that one)
+        description: description.replace(/\s+/g, ' ').trim(),
+        type: out ? 'Debit' : 'Credit',
+        amount: out ? -Math.abs(tx.amount) : Math.abs(tx.amount),
+        balance: null,
+        section: secName,
+        signSource: 'exact',
+        checkNumber: '',
+        src: window.SSX && window.SSX.srcBox ? window.SSX.srcBox([row]) : undefined,
+      });
+    }
+    if (!txns.length) return null;
+    // Account Summary on page 1: Previous balance, Payments, Credits, Purchases, Cash advances, Fees, Interest, New balance
+    const pick = (re) => { const m = re.exec(fullText); return m ? money(m[1]) : 0; };
+    const has = (re) => re.test(fullText);
+    const totals = {};
+    if (has(/Previous balance\s+-?\$[\d,]+\.\d{2}/i)) {
+      const prev = /Previous balance\s+(-?)\$([\d,]+\.\d{2})/i.exec(fullText);
+      totals.beginningBalance = (prev[1] ? -1 : 1) * money(prev[2]);
+      totals.totalCredits = Math.round((pick(/\bPayments\s+-\$([\d,]+\.\d{2})/) + pick(/\bCredits\s+-\$([\d,]+\.\d{2})/)) * 100) / 100;
+      totals.totalDebits = Math.round((pick(/\bPurchases\s+\+\$([\d,]+\.\d{2})/) + pick(/Cash advances\s+\+\$([\d,]+\.\d{2})/i) +
+        pick(/\bFees\s+\+\$([\d,]+\.\d{2})/) + pick(/\bInterest\s+\+\$([\d,]+\.\d{2})/) + pick(/Balance transfers\s+\+\$([\d,]+\.\d{2})/i)) * 100) / 100;
+      const nb = /New balance\s+(-?)\$([\d,]+\.\d{2})/i.exec(fullText);
+      if (nb) totals.endingBalance = (nb[1] ? -1 : 1) * money(nb[2]);
+    }
+    return { txns, totals };
+  }
+
   async function parseStatement(file, log) {
     log(`Reading ${file.name}...`);
     let rows = await extractRows(file);
@@ -1891,7 +1996,9 @@
     const range = periodToRange(period);
     const statedTotals = scanStatedTotals(rows);
 
-    const rawTxns = extractTransactions(rows, bank);
+    const citi = readCitiCard(rows, bank, fullText);
+    if (citi) Object.assign(statedTotals, citi.totals);
+    const rawTxns = citi ? citi.txns : extractTransactions(rows, bank);
 
     let transactions = rawTxns.map((tx) => {
       const d = normalizeTxnDate(tx.dateRaw, range);

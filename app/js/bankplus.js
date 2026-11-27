@@ -172,6 +172,10 @@
 
   var cands0 = Book.prototype.bankCandidates;
   Book.prototype.bankCandidates = function (lineId) {
+    var mm = this._bfMemo || (this._bfMemo = { cands: {}, win: {}, docs: {} });
+    return mm.cands[lineId] || (mm.cands[lineId] = allCandidates.call(this, lineId));
+  };
+  function allCandidates(lineId) {
     var self = this, l = this.bankLineById[lineId];
     var out = cands0.call(this, lineId); if (!l || l.status !== 'review') return out;
     var linked = this._bankLinked(), acc = this.accById[l.accountId];
@@ -194,7 +198,7 @@
       }
     }
     // (b) several entries already in this account that add up to the bank line (e.g. two payments, one bank deposit)
-    var near = (this.splitIndex()[l.accountId] || []).filter(function (e) {
+    var near = this._bankWindow(l.accountId, U.addDays(l.date, -10), U.addDays(l.date, 3)).filter(function (e) {
       if (e.t.status !== 'posted' || e.s.cleared === 'R' || linked[e.t.id + ':' + e.i] || !e.s.amount || (e.s.amount > 0) !== (l.amount > 0) || Math.abs(e.s.amount) >= Math.abs(l.amount)) return false;
       var dd = U.daysBetween(l.date, e.t.date); return dd >= -10 && dd <= 3;
     }).map(function (e) { return { e: e, amount: e.s.amount }; });
@@ -276,9 +280,12 @@
     var newest = function (c) { return (c.txnIds || [c.txnId]).reduce(function (m, id) { var t = self.txById[id]; return t && t.date > m ? t.date : m; }, ''); };
     out.forEach(function (c) { delete c.best; });
     out.sort(function (a, b) { return b.score - a.score || (newest(a) < newest(b) ? -1 : newest(a) > newest(b) ? 1 : 0); });
-    if (out.length && (out.length === 1 || out[0].score - out[1].score >= 3)) out[0].best = true;
+    // 1.57: an entry more than 10 days from the bank date is only offered, never chosen by itself, unless the check number
+    // agrees: a monthly charge of the same amount was being matched to last month's entry instead of being added
+    var top = out[0], far = top && top.kind === 'register' && self.txById[top.txnId] && Math.abs(U.daysBetween(l.date, self.txById[top.txnId].date)) > 10 && !/^check number/.test(top.reasons[0]);
+    if (top && !far && (out.length === 1 || top.score - out[1].score >= 3)) top.best = true;
     return out;
-  };
+  }
   /** Open invoices (money in) or bills (money out) for matching a For review line by hand: {contactId, docs, contacts}.
    *  contactId = the one asked for, else the customer/vendor the bank text names; docs = that contact's open items,
    *  oldest first (all contacts' when all is true). contacts = everyone with open items, for the picker. */

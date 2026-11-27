@@ -161,4 +161,89 @@
       return b.saveTransaction({ type: 'journal', date: '2025-12-31', memo: 'Depreciation 2025', jlines: [{ accountId: acc(b, 'Depreciation'), debit: '1300' }, { accountId: acc(b, 'Accumulated Depreciation'), credit: '1300' }] });
     }).then(function () { eq(C.checklist(b, YEAR, '2026-01-10').adjust.list[0].done, true, 'an entry to the same accounts this year counts as done'); });
   });
+  /* 1.57.0 — the same engine now feeds the Bank feed. Made-up names only. */
+  function shop() {
+    var b, v = {}, ck;
+    var names = ['Circle K', "Bo Marlow's", 'Tallgrass Corporation', 'Lantern Food Yard', 'T- Mobile', 'Pilot', 'ABC Shop', 'Northwind Staffing', 'Costco', 'Granite Property', 'Interest Earned'];
+    return OB.Book.create(new OB.MemoryAdapter(), { name: 'Shop Co' }).then(function (x) {
+      b = x; ck = acc(b, 'Checking');
+      return seq(names, function (n) { return b.saveContact({ kind: 'vendor', name: n }).then(function (c) { v[n] = c.id; }); });
+    }).then(function () {
+      var past = [];
+      for (var m = 1; m <= 6; m++) {
+        var d = '2024-0' + m + '-05';
+        past.push({ type: 'expense', date: d, accountId: ck, contactId: v['Circle K'], lines: [{ accountId: acc(b, 'Meals'), amount: '20' }] });
+        past.push({ type: 'expense', date: d, accountId: ck, contactId: v['Costco'], lines: [{ accountId: acc(b, 'Office Supplies & Software'), amount: '90' }] });
+        past.push({ type: 'expense', date: d, accountId: ck, contactId: v['T- Mobile'], lines: [{ accountId: acc(b, 'Utilities'), amount: '70' }] });
+        past.push({ type: 'expense', date: d, accountId: ck, contactId: v['Granite Property'], lines: [{ accountId: acc(b, 'Rent & Lease'), amount: '2000' }] });
+        // QuickBooks deposits carry the payer on the deposit line, not on the deposit
+        past.push({ type: 'deposit', date: d, accountId: ck, memo: 'Deposit', lines: [{ accountId: acc(b, 'Services'), amount: '5000', contactId: v['Northwind Staffing'] }] });
+        past.push({ type: 'deposit', date: d, accountId: ck, memo: 'Deposit', lines: [{ accountId: acc(b, 'Uncategorized Income'), amount: '0.01', contactId: v['Interest Earned'] }] });
+      }
+      return seq(past, function (t) { return b.saveTransaction(t); });
+    }).then(function () {
+      return b.importBankLines(ck, [
+        { date: '2025-01-03', description: 'Checkcard 0105 Circlek — CHECKCARD 0105 CIRCLEK #10001 ANYTOWN TX CKCD 5542 XXXXXXXXXXXX1111 XXXX XXXX XXXX 1111', amount: -2006 },
+        { date: '2025-01-04', description: 'Northwind Staffi DES:EDI — NORTHWIND STAFFI DES:EDI PYMTS ID:PAY0001 INDN:SHOP CO CO ID:XXXXX39478 CCD', amount: 500000 },
+        { date: '2025-01-05', description: 'Mobile Purchase 0129 — MOBILE PURCHASE 0129 MAVI CAFE SANAYI VE T ISTANBUL', amount: -1018 },
+        { date: '2025-01-06', description: 'Zephyr Staffing Inc. DES:Direct — ZEPHYR STAFFING INC. DES:DIRECT PAY ID:X0001 INDN:ABC SHOP WORLDWIDE CO ID:1234', amount: 640000 },
+        { date: '2025-01-07', description: 'Costco — PURCHASE REFUND 0224 COSTCO WHSE #1000 ANYTOWN TX', amount: 999 },
+        { date: '2025-01-08', description: 'Wire Type:Book IN — WIRE TYPE:BOOK IN DATE:250108 TIME:1602 ET TRN:1 RELATED REF:GRANITE PROPERTY RENT', amount: -200000 },
+        { date: '2025-01-09', description: 'Checkcard 0802 TST — CHECKCARD 0802 TST* LANTERN FOOD YARD PILOT POINT TX 24000001 CKCD 5812', amount: -3100 },
+        { date: '2025-01-10', description: 'Interest Earned', amount: 1 },
+        { date: '2025-01-11', description: 'T-Mobile — T-MOBILE*AUTO PAY 800-555-0100 WA', amount: -7000 }], { fileName: 'jan.qbo' });
+    }).then(function () { return { b: b, ck: ck, v: v }; });
+  }
+  test('CL-08 reading the payee out of bank wording: joined and cut-off names, card and ACH noise, and no false finds', function () {
+    return shop().then(function (f) {
+      var b = f.b, H = OB.hints, name = function (d) { var m = H.vendorMatch(b, d); return m ? m.contact.name + '/' + m.how : ''; };
+      eq(name('CHECKCARD 0105 CIRCLEK #10001 ANYTOWN TX CKCD 5542 XXXXXXXXXXXX1111'), 'Circle K/start', 'two words written as one');
+      eq(name('CHECKCARD 1231 BO MARLOWS DISCOUNT MART SPRINGFIELDNJ 2400000001'), "Bo Marlow's/start", 'apostrophe');
+      eq(name('TALLGRASS CORPORATI DES:EDI PYMTS ID:77 INDN:SHOP CO'), 'Tallgrass Corporation/start', 'the bank cut the name short');
+      eq(name('CHECKCARD 0802 TST* LANTERN FOOD YARD PILOT POINT TX 24000001'), 'Lantern Food Yard/start', 'processor prefix dropped; the town Pilot Point is not the vendor Pilot');
+      eq(name('MOBILE PURCHASE 0129 MAVI CAFE SANAYI VE T ISTANBUL'), '', '"Mobile purchase" is not T- Mobile');
+      eq(name('T-MOBILE*AUTO PAY 800-555-0100 WA'), 'T- Mobile/start');
+      eq(name('ZEPHYR STAFFING INC. DES:DIRECT PAY ID:X0001 INDN:ABC SHOP WORLDWIDE CO ID:1234'), '', 'the company\'s own name after INDN: is not a payee');
+      eq(name('WIRE TYPE:BOOK IN DATE:250108 TIME:1602 ET TRN:1 RELATED REF:GRANITE PROPERTY RENT'), 'Granite Property/inside');
+      eq(name('Zelle payment to Granite Property Conf# abc123'), 'Granite Property/start', 'Zelle names the payee after "payment to"');
+      eq(H.vendorIn(b, 'COSTCO WHSE #1097').name, 'Costco', 'the old call still answers with the contact');
+    });
+  });
+  test('CL-09 deposits learn from the payer on the deposit line; generic names like Interest Earned work; money back uses the same account but waits', function () {
+    return shop().then(function (f) {
+      var b = f.b, plans = C.prepare(b, { accountId: f.ck, auto: true });
+      var dep = byDesc(plans, /NORTHWIND/); eq(dep.kind, 'habit'); eq(dep.categoryId, acc(b, 'Services')); eq(dep.contactId, f.v['Northwind Staffing']); eq(dep.auto, true, dep.why);
+      var int = byDesc(plans, /^Interest Earned/); eq(int.kind, 'habit'); eq(int.categoryId, acc(b, 'Uncategorized Income'));
+      var back = byDesc(plans, /REFUND 0224 COSTCO/); eq(back.kind, 'habit'); eq(back.categoryId, acc(b, 'Office Supplies & Software')); eq(back.auto, false); ok(/money back/i.test(back.why), back.why);
+      var wire = byDesc(plans, /WIRE TYPE/); eq(wire.categoryId, acc(b, 'Rent & Lease')); eq(wire.auto, false, 'a name found in the middle of the text is never sure'); ok(/middle/.test(wire.why), wire.why);
+      eq(byDesc(plans, /CIRCLEK/).auto, true); eq(byDesc(plans, /MAVI CAFE/).kind, 'ask'); eq(byDesc(plans, /ZEPHYR/).kind, 'ask');
+    });
+  });
+  test('CL-10 the Bank feed asks the same engine: one answer per line, kept until the books change', function () {
+    return shop().then(function (f) {
+      var b = f.b, m = C.forFeed(b, f.ck), l = b.bankLinesFor(f.ck, 'review').find(function (x) { return /CIRCLEK/.test(x.description); });
+      eq(m[l.id].categoryId, acc(b, 'Meals')); eq(m[l.id].auto, true); ok(C.forFeed(b, f.ck) === m, 'kept between redraws');
+      return b.postBankLine(l.id, m[l.id].d).then(function () { var m2 = C.forFeed(b, f.ck); ok(m2 !== m && !m2[l.id], 'rebuilt after a post'); clean(b); });
+    });
+  });
+  test('CL-11 an entry far from the bank date is offered but not chosen (monthly charges of one amount); answers are kept until the books change', function () {
+    var b, ck, v;
+    return OB.Book.create(new OB.MemoryAdapter(), { name: 'Far Co' }).then(function (x) {
+      b = x; ck = acc(b, 'Checking'); return b.saveContact({ kind: 'vendor', name: 'Orchard Apps' });
+    }).then(function (c) {
+      v = c.id; return b.saveTransaction({ type: 'expense', date: '2024-11-05', accountId: ck, contactId: v, lines: [{ accountId: acc(b, 'Office Supplies & Software'), amount: '0.99' }] });
+    }).then(function () {
+      return b.importBankLines(ck, [{ date: '2025-01-05', description: 'ORCHARD APPS BILL', amount: -99 }], { fileName: 'jan.csv' });
+    }).then(function () {
+      var jan = b.bankLines.find(function (l) { return l.date === '2025-01-05'; });
+      eq(jan.status, 'review', 'not matched to the November entry by itself');
+      var cj = b.bankCandidates(jan.id); eq(cj.length, 1); ok(!cj[0].best, 'two months away: offered only');
+      ok(b.bankCandidates(jan.id) === cj, 'kept between redraws');
+      return b.importBankLines(ck, [{ date: '2024-11-07', description: 'ORCHARD APPS BILL', amount: -99 }], { fileName: 'nov.csv' }).then(function () {
+        var nov = b.bankLines.find(function (l) { return l.date === '2024-11-07'; }), cn = nov.status === 'review' ? b.bankCandidates(nov.id) : [];
+        ok(nov.status === 'posted' || cn[0].best, 'two days away: matched');
+        return nov.status === 'posted' ? null : b.postBankLine(nov.id, { kind: 'match', txnId: cn[0].txnId, splitIndex: cn[0].splitIndex });
+      }).then(function () { eq(b.bankCandidates(jan.id).length, 0, 'rebuilt after the books changed: the entry is taken'); clean(b); });
+    });
+  });
 })(typeof window !== 'undefined' ? window : global);

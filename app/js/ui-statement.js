@@ -136,7 +136,7 @@
       .then((r) => {
         st.queue = []; st.results = []; st.log = '';
         UI.toast(r.added + ' line' + (r.added === 1 ? '' : 's') + ' added to For review' + (r.duplicates ? ' · ' + r.duplicates + ' already imported' : '') + '.');
-        UI.go((UI.feedReviewHash && UI.feedReviewHash(accId)) || '#/bankfeed?account=' + encodeURIComponent(accId));
+        UI.go('#/bankfeed?account=' + encodeURIComponent(accId));
       })).catch(UI.error);
   }
 

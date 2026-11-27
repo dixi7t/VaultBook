@@ -7,15 +7,9 @@
   const st = { picked: null, months: null };   // picked: Set of keys for the current list, null = all; months: Set of ticked months
   const snapKey = (b) => 'qbSnapshot:' + b.company.id;
 
-  /* The connector as one download (1.59.1): the published site has no tools folder to copy, so every place that
-   * names VaultBook QuickBooks.cmd links to tools/VaultBook-QuickBooks-Connector.zip (built by tools/build-site.py:
-   * the .cmd and the .ps1 it runs, together in one folder). Same address as the page, so it also works offline. */
-  UI.qbToolHref = 'tools/VaultBook-QuickBooks-Connector.zip';
-  UI.qbToolButton = (cls) => `<a class="${cls || 'btn'}" href="${UI.qbToolHref}" download data-testid="qb-tool-download" title="Both connector files in one zip. On the PC with QuickBooks Desktop: unzip it (right-click › Extract All), then double-click VaultBook QuickBooks.cmd.">Download the QuickBooks tool</a>`;
-  UI.qbToolWhere = `(<a href="${UI.qbToolHref}" download data-testid="qb-tool-link">download it</a> once and unzip it on that PC)`;
-
   UI.routes.qbsend = (el, r) => {
     const b = UI.book, p = Object.assign({ kinds: 'invoice,payment,bank', status: 'new', range: 'all', tab: 'months' }, r.params || {});
+    if (p.tab === 'date') return dateView(el, b, p);
     if (p.tab === 'months') return monthsView(el, b, p);
     const ranges = UI.ranges();
     if (p.range !== 'custom' && p.range !== 'all' && ranges[p.range]) { p.from = ranges[p.range][1]; p.to = ranges[p.range][2]; }
@@ -34,7 +28,7 @@
     const sentCount = Object.keys((b.company.qbSent || {})).filter((k) => b.company.qbSent[k].qbTxnId).length;
     const badge = (x) => x.status === 'Sent' ? `<span class="qs-st qs-sent" title="Sent ${esc(new Date(x.sentAt).toLocaleString())} · QuickBooks id ${esc(x.qbTxnId)}">Sent</span>` : x.status === 'Problem' ? `<span class="qs-st qs-problem" title="${esc(x.problem)}">Problem</span>` : '<span class="qs-st qs-new">Not sent</span>';
     el.innerHTML = UI.page('Send to QuickBooks Desktop',
-      `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
+      `<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
        <button class="btn primary" id="qs-download" data-testid="qs-download" ${chosen.length ? '' : 'disabled'}>Download for QuickBooks (${chosen.length})</button>`,
       tabs(p, 'items') + `<form class="toolbar wrap" id="qs-form" data-testid="qs-form">
         <fieldset class="qs-kinds"><legend class="sr-only">What to send</legend>
@@ -49,7 +43,7 @@
         <label>Amount from <input type="text" id="qs-min" inputmode="decimal" size="9" value="${esc(p.min || '')}"></label><label>to <input type="text" id="qs-max" inputmode="decimal" size="9" value="${esc(p.max || '')}"></label>
         <button class="btn" type="submit">Show</button>
       </form>
-      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere}, choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
+      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder), choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
       ${list.length ? `<div class="scroll-area table-wrap"><table class="data compact qs-table" data-testid="qs-table"><thead><tr>
           <th><input type="checkbox" id="qs-all" aria-label="Select all" ${chosen.length === list.length ? 'checked' : ''}></th><th>Type</th><th>Date</th><th>No.</th><th>Name</th><th>Pays / account</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
         ${list.map((x) => `<tr class="${picked.has(x.key) ? '' : 'inactive'}"><td><input type="checkbox" data-k="${esc(x.key)}" ${picked.has(x.key) ? 'checked' : ''} aria-label="Send ${esc(x.kind)} ${esc(x.number)}"></td>
@@ -85,7 +79,7 @@
     UI.toast(`${n(batch.invoices.length, 'invoice')}, ${n(batch.payments.length, 'payment')} and ${n((batch.bank || []).length, 'bank transaction')} saved. On the QuickBooks PC, run VaultBook QuickBooks.cmd › Send and choose this file.` +
       (batch.skipped.length ? ` Left out (the connector cannot record these yet): ${Object.keys(left).map((k) => left[k] + ' ' + ((OB.schema.TXN_TYPES[k] || {}).label || k)).join(', ')}.` : ''), batch.skipped.length ? 'error' : undefined);
   }
-  const tabs = (p, cur) => `<div class="segmented qs-tabs" role="tablist"><a role="tab" class="btn-tab" aria-selected="${cur === 'months'}" href="#/qbsend?tab=months" data-testid="qs-tab-months">Months</a><a role="tab" class="btn-tab" aria-selected="${cur === 'items'}" href="#/qbsend?${UI.qs(Object.assign({}, p, { tab: 'items' }))}" data-testid="qs-tab-items">Items</a></div>`;
+  const tabs = (p, cur) => `<div class="segmented qs-tabs" role="tablist"><a role="tab" class="btn-tab" aria-selected="${cur === 'date'}" href="#/qbsend?tab=date" data-testid="qs-tab-date">By date</a><a role="tab" class="btn-tab" aria-selected="${cur === 'months'}" href="#/qbsend?tab=months" data-testid="qs-tab-months">Months</a><a role="tab" class="btn-tab" aria-selected="${cur === 'items'}" href="#/qbsend?${UI.qs(Object.assign({}, p, { tab: 'items' }))}" data-testid="qs-tab-items">Items</a></div>`;
 
   /** Load result file / snapshot: both are JSON from the connector; the format field says which. */
   /** One loader for every connector file: a snapshot (months), a result (sent / problems) or a full export (import). */
@@ -110,16 +104,113 @@
     el.querySelector('#qs-result').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) UI.qbLoadFile(b, f); e.target.value = ''; });
   }
 
+  /**
+   * 1.61: hand the entries to the QuickBooks tool in parts (Q.chunks), each in a fresh QuickBooks session, with a short
+   * rest between parts. The tool asks its question for the first part only. Each part's result is saved at once, so a
+   * stop loses nothing: Send again goes on with what is left. Progress lives in st.run and survives leaving the screen.
+   */
+  function runSend(b, r, code) {
+    const parts = Q.chunks(r), run = st.run = { co: b.company.id, total: r.keys.length, done: 0, recorded: 0, dup: 0, prob: 0, state: 'running' };
+    const show = () => { if (UI.parseHash().name === 'qbsend') UI.render(); }, wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    let i = 0;
+    const next = () => {
+      if (i >= parts.length) { run.state = 'done'; run.at = new Date().toISOString(); return null; }
+      if (run.halt) { run.state = 'halted'; return null; }
+      const part = parts[i], text = OB.qbupdate.toText(Q.batch(b, part, { names: b.company.qbNames || {} }));
+      return UI.qbLink('/run', { code, action: 'apply', batchText: text, yes: i > 0 }).then((res) => {
+        if (res.format !== 'vaultbook-qb-result') throw new Error(res.error || 'The tool did not send a result.');
+        const sum = Q.resultSummary(res);
+        return Q.applyResult(b, res).then(() => {
+          run.done += part.length; run.recorded += sum.recorded; run.dup += sum.dup; run.prob += sum.prob;
+          if (sum.stopped) { run.state = 'stopped'; return null; }
+          if (sum.declined) { run.state = 'declined'; return null; }
+          i++; show(); return wait(i < parts.length ? Q.REST_MS : 0).then(next);
+        });
+      });
+    };
+    show();
+    return UI.qbLink('/hello').then((h) => { run.old = !(parseFloat(h && h.version) >= 1.61); }).then(next).catch((e) => { run.state = 'error'; run.msg = e.message; }).then(show);
+  }
+
+  /** By date tab (1.58, 1.59): choose the dates, then send straight to the connected QuickBooks tool or download the file. */
+  const PERIODS = [['since', 'From a date onward'], ['day', 'One day'], ['last12', 'Last 12 months'], ['fyToDate', 'This fiscal year to date'], ['lastFY', 'Last fiscal year'], ['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['custom', 'Custom period']];
+  function dateView(el, b, p) {
+    const pref = 'qbFrom:' + b.company.id, isDay = (v) => /^\d{4}-\d\d-\d\d$/.test(v || ''), today = U.today();
+    let saved = OB.prefs.get(pref); if (typeof saved === 'string') saved = { per: 'since', from: saved };   // 1.58 kept the date alone
+    saved = saved || {};
+    const per = PERIODS.some((x) => x[0] === p.per) ? p.per : isDay(p.from) ? 'since' : saved.per || 'since';
+    let from = isDay(p.from) ? p.from : isDay(saved.from) ? saved.from : today.slice(0, 4) + '-01-01', to = isDay(p.to) ? p.to : isDay(saved.to) ? saved.to : today;
+    if (per === 'since') to = ''; else if (per === 'day') to = from; else if (per !== 'custom') { const rr = UI.ranges()[per]; from = rr[1]; to = rr[2]; }
+    if (to && to < from) to = from;
+    const r = Q.fromDate(b, from, to), row = (label, n, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td><td class="num">${n}</td></tr>`;
+    const left = Object.keys(r.left).map((k) => r.left[k] + ' ' + ((OB.schema.TXN_TYPES[k] || {}).label || k).toLowerCase()).join(', ');
+    // 1.62: the bank transactions of the period as one .iif (File > Utilities > Import > IIF Files in QuickBooks)
+    const bankIds = r.items.filter((x) => x.kind === 'bank').map((x) => x.id), ask = st.iif && st.iif.co === b.company.id ? st.iif : null;
+    const iifAsk = !ask ? '' : `<div class="banner warn qs-run" role="status" data-testid="qs-iif-ask"><span>${ask.done ? `<strong>${ask.done}</strong> bank transaction${ask.done === 1 ? '' : 's'} marked as in QuickBooks.` : `Saved <strong>${esc(ask.file)}</strong> with ${ask.keys.length} bank transaction${ask.keys.length === 1 ? '' : 's'}. In QuickBooks: File › Utilities › Import › IIF Files. Did QuickBooks import it without errors?`}</span>
+      ${ask.done ? '<button class="btn small" id="qs-iif-ok" data-testid="qs-iif-ok">OK</button>' : '<button class="btn small primary" id="qs-iif-yes" data-testid="qs-iif-yes">Yes, mark them as in QuickBooks</button><button class="btn small" id="qs-iif-no" data-testid="qs-iif-no">No</button>'}</div>`;
+    const typed = per === 'since' || per === 'day' || per === 'custom', run = st.run && st.run.co === b.company.id ? st.run : null, busy = !!run && run.state === 'running';
+    const tally = run ? `<strong>${run.recorded}</strong> recorded, <strong>${run.dup}</strong> already there and skipped, <strong>${run.prob}</strong> with problems${run.prob ? ` (<a href="#/qbsend?tab=items&amp;status=problem&amp;range=all">see them</a>)` : ''}` : '';
+    const runLine = !run ? '' : `<div class="banner ${{ running: 'info', done: 'ok', halted: 'info' }[run.state] || 'warn'} qs-run" role="status" data-testid="qs-run"><span>${{
+      running: `Sending to QuickBooks: ${run.done} of ${run.total} handed over. ${tally}.${run.old ? ' This copy of the QuickBooks tool is older and asks before every part; the tools folder of this version asks once.' : ''}`,
+      done: `Finished ${esc(new Date(run.at).toLocaleString())}: ${tally}.`,
+      halted: `Stopped at your request: ${tally}. Send again to go on.`,
+      declined: `Nothing more was recorded: the question in the QuickBooks tool was answered No. So far: ${tally}.`,
+      stopped: `QuickBooks stopped answering. So far: ${tally}. Reopen QuickBooks and the company file, choose Window › Close All, then press Send again: what is already recorded is skipped.`,
+      error: `${esc(run.msg || 'The send did not finish.')} So far: ${tally}. If QuickBooks closed, reopen it and the company file, then press Send again.` }[run.state]}</span>${busy ? '<button class="btn small" id="qs-halt" data-testid="qs-halt">Stop after this part</button>' : ''}</div>`;
+    el.innerHTML = UI.page('Send to QuickBooks Desktop',
+      `<a class="btn" href="vaultbook-qb://link" data-testid="qs-open">Open the QuickBooks tool</a>
+       <label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`,
+      tabs(p, 'date') + `<div class="toolbar wrap">
+        <label>Send <select id="qs-per" data-testid="qs-per">${PERIODS.map(([k, t]) => `<option value="${k}"${k === per ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        ${typed ? `<label>${per === 'day' ? 'Date' : 'From'} <input type="date" id="qs-since" data-testid="qs-since" value="${esc(from)}"></label>` : `<span data-testid="qs-range">${esc(U.fmtDate(from))} – ${esc(U.fmtDate(to))}</span>`}
+        ${per === 'custom' ? `<label>To <input type="date" id="qs-until" data-testid="qs-until" value="${esc(to)}"></label>` : ''}</div>
+      <div class="table-wrap qs-since"><table class="data compact" data-testid="qs-since-table"><tbody>
+        ${row('Invoices', r.counts.invoice)}${row('Customer payments', r.counts.payment)}${row('Bank transactions', r.counts.bank)}
+        ${r.extra.length ? row('Earlier invoices these payments pay', r.extra.length) : ''}
+        ${row('To send', r.keys.length, 'grand')}
+        ${row('Already in QuickBooks, left out', r.already)}
+        ${left ? row('Cannot be sent yet: ' + esc(left), U.sum(Object.keys(r.left), (k) => r.left[k])) : ''}
+      </tbody></table></div>
+      <div class="toolbar wrap qs-go"><label>Link code <input id="qs-code" data-testid="qs-code" inputmode="numeric" maxlength="6" autocomplete="off" size="7" value="${esc(st.code || '')}"></label>
+        <button class="btn primary" id="qs-send" data-testid="qs-send" ${r.keys.length && !busy ? '' : 'disabled'}>Send to QuickBooks now (${r.keys.length})</button>
+        <button class="btn" id="qs-download" data-testid="qs-download" ${r.keys.length ? '' : 'disabled'}>Download the file instead</button>
+        <button class="btn" id="qs-iif" data-testid="qs-iif" ${bankIds.length && !busy ? '' : 'disabled'}>Download bank transactions as .iif (${bankIds.length})</button></div>
+      ${iifAsk}
+      ${runLine}`);
+    const $ = (q) => el.querySelector(q);
+    const go = () => { const q = { tab: 'date', per: $('#qs-per').value }, f = $('#qs-since'), u = $('#qs-until');
+      if (q.per === 'since' || q.per === 'day' || q.per === 'custom') q.from = (f && f.value) || from;
+      if (q.per === 'custom') q.to = (u && u.value) || to || today;
+      OB.prefs.set(pref, { per: q.per, from: q.from || from, to: q.to || '' }); UI.go('#/qbsend?' + UI.qs(q)); };
+    $('#qs-per').addEventListener('change', go);
+    ['#qs-since', '#qs-until'].forEach((q) => { if ($(q)) U.dateCommit($(q), () => {}, go); });
+    $('#qs-download').addEventListener('click', () => download(b, r.keys, (to ? from + '_' + to : 'from-' + from)));
+    $('#qs-iif').addEventListener('click', () => {
+      const out = OB.qbexport.txnsIIF(b, bankIds, { names: b.company.qbNames || {} }), co = (b.company.name || 'VaultBook').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+      const file = `${co}-bank-${to ? from + '_' + to : 'from-' + from}.iif`;
+      U.download(file, new Blob([OB.qbexport.toAnsi(out.text)], { type: 'text/plain' }));
+      st.iif = { co: b.company.id, keys: bankIds.slice(), file }; UI.render();
+    });
+    if ($('#qs-iif-yes')) $('#qs-iif-yes').addEventListener('click', () => UI.busy($('#qs-iif-yes'), () => Q.markIIF(b, st.iif.keys).then((n) => { st.iif.done = n; UI.render(); })));
+    if ($('#qs-iif-no')) $('#qs-iif-no').addEventListener('click', () => { st.iif = null; UI.render(); });
+    if ($('#qs-iif-ok')) $('#qs-iif-ok').addEventListener('click', () => { st.iif = null; UI.render(); });
+    if ($('#qs-halt')) $('#qs-halt').addEventListener('click', () => { st.run.halt = true; $('#qs-halt').disabled = true; });
+    $('#qs-send').addEventListener('click', () => {
+      const code = $('#qs-code').value.trim(); if (!/^\d{6}$/.test(code)) return UI.toast('Type the 6-digit link code the QuickBooks tool shows.', 'warn');
+      st.code = code; runSend(b, r, code);
+    });
+    bindResult(el, b);
+  }
+
   /** Months tab: what QuickBooks has per month (from the snapshot) against VaultBook; tick months, download the gap. */
   function monthsView(el, b, p) {
     const snap = OB.prefs.get(snapKey(b));
     let cmp = null, err = '';
     if (snap) { try { cmp = OB.qbsync.compare(b, snap); } catch (e) { err = e.message; } }
-    const head = `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
+    const head = `<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
     if (!cmp) {
       el.innerHTML = UI.page('Send to QuickBooks Desktop', head, tabs(p, 'months') + `<div class="empty"><p><strong>Start by reading QuickBooks.</strong></p>
-        <p>First time? ${UI.qbToolButton('btn primary')}</p>
-        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere} and choose <strong>1 Read QuickBooks</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
+        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder) and choose <strong>5 What QuickBooks has</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
         <p class="muted small">The Months tab then shows, month by month, what QuickBooks already has and what is still only in VaultBook, so you send only the gap, in any order. ${err ? `<br><span class="warn-text">${esc(err)}</span>` : ''}Prefer to pick items yourself? Use the <a href="#/qbsend?tab=items">Items</a> tab.</p></div>`,
         'Records VaultBook transactions in QuickBooks Desktop. Nothing is written until you run the script and confirm.');
       bindResult(el, b); return;

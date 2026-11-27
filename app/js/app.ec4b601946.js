@@ -320,6 +320,17 @@
   };
 
   /* ---------- Misc ---------- */
+  /**
+   * Text QuickBooks Desktop can read. Its request reader accepts Latin-1 only and refuses the WHOLE request
+   * ("error when parsing the provided XML text stream") on one long dash, curly quote or other character beyond it.
+   * Typographic marks become their plain form; anything else outside Latin-1 becomes a space.
+   */
+  U.qbText = function (s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/[\u2018\u2019\u201A\u2032]/g, "'").replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+      .replace(/\u2026/g, '...').replace(/[\u2022\u00B7]/g, '-').replace(/[\u00A0\u2000-\u200B\u202F]/g, ' ')
+      .replace(/[^\x09\x0A\x0D\x20-\x7E\xA1-\xFF]/g, ' ');
+  };
   U.esc = function (s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -345,7 +356,7 @@
   var OB = root.OB = root.OB || {};
   var S = OB.schema = {};
 
-  S.APP_VERSION = '1.59.1';
+  S.APP_VERSION = '1.65.0';
   S.DATA_VERSION = 8;        // company data schema version (see migrations below)
   S.BACKUP_FORMAT = 'OfflineBooksUS-Backup';
 
@@ -742,279 +753,6 @@
   C.unlock = function (security, secret, mode) {
     return mode === 'recovery' ? C.unwrap(security.recovery, C.normalizeRecoveryKey(secret)).catch(function (e) { e.message = 'That recovery key is not correct.'; throw e; })
       : C.unwrap(security.password, secret);
-  };
-})(typeof window !== 'undefined' ? window : globalThis);
-
-;
-/* == js/secrets.js == */
-/* VaultBook — connection secrets (1.58.0): where keys for outside services (for example a SimpleFIN Access URL) are kept.
- *
- * - Separate from the books: a database of its own ("VaultBookSecrets"), never part of a company, so a secret is never
- *   in a backup, an export, a QuickBooks file or anything else VaultBook writes out.
- * - Encrypted at rest with AES-GCM under a device key the browser generates as NON-EXTRACTABLE: code can ask the
- *   browser to decrypt with it, but can never read the key itself, so the stored bytes are useless off this device.
- * - Listing returns names and dates only. Each record belongs to one company and can be removed (revoked) at any time.
- * - Limits, stated plainly: a script that runs inside VaultBook could still ask for a secret while the page is open.
- *   That is why the page's security policy forbids inline and injected scripts (see index.src.html).
- * Classic script; works in browsers and in Node (tests swap in an in-memory store with OB.secrets._useStore).
- */
-(function (root) {
-  'use strict';
-  var OB = root.OB = root.OB || {};
-  var subtle = root.crypto && root.crypto.subtle;
-  var DB = 'VaultBookSecrets', KEY_ID = 'device-key';
-
-  /* ---------- storage: IndexedDB in the browser, a Map in tests ---------- */
-  function idbStore() {
-    var dbp = null;
-    function db() {
-      if (!dbp) dbp = new Promise(function (res, rej) {
-        var r = root.indexedDB.open(DB, 1);
-        r.onupgradeneeded = function () { var d = r.result; d.createObjectStore('keys'); d.createObjectStore('secrets', { keyPath: 'id' }); };
-        r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
-      });
-      return dbp;
-    }
-    function tx(store, mode, fn) {
-      return db().then(function (d) { return new Promise(function (res, rej) {
-        var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s);
-        t.oncomplete = function () { res(out && 'result' in out ? out.result : undefined); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error); };
-      }); });
-    }
-    return {
-      getKey: function () { return tx('keys', 'readonly', function (s) { return s.get(KEY_ID); }); },
-      putKey: function (k) { return tx('keys', 'readwrite', function (s) { return s.put(k, KEY_ID); }); },
-      get: function (id) { return tx('secrets', 'readonly', function (s) { return s.get(id); }); },
-      put: function (rec) { return tx('secrets', 'readwrite', function (s) { return s.put(rec); }); },
-      del: function (id) { return tx('secrets', 'readwrite', function (s) { return s.delete(id); }); },
-      all: function () { return tx('secrets', 'readonly', function (s) { return s.getAll(); }); }
-    };
-  }
-  function memoryStore() {
-    var keys = new Map(), recs = new Map();
-    return {
-      getKey: function () { return Promise.resolve(keys.get(KEY_ID)); },
-      putKey: function (k) { keys.set(KEY_ID, k); return Promise.resolve(); },
-      get: function (id) { return Promise.resolve(recs.get(id)); },
-      put: function (rec) { recs.set(rec.id, rec); return Promise.resolve(); },
-      del: function (id) { recs.delete(id); return Promise.resolve(); },
-      all: function () { return Promise.resolve(Array.from(recs.values())); },
-      _raw: recs
-    };
-  }
-  var store = null;
-  function st() { if (!store) store = root.indexedDB ? idbStore() : memoryStore(); return store; }
-
-  /* ---------- the device key ---------- */
-  var keyP = null;
-  function deviceKey() {
-    if (!keyP) keyP = st().getKey().then(function (k) {
-      if (k) return k;
-      return subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])   // false = not extractable
-        .then(function (nk) { return st().putKey(nk).then(function () { return nk; }); });
-    });
-    return keyP;
-  }
-  var enc = function (s) { return new TextEncoder().encode(s); };
-  var dec = function (b) { return new TextDecoder().decode(b); };
-  function aad(rec) { return enc('vaultbook-secret|' + rec.id + '|' + rec.companyId + '|' + rec.kind); }   // binds the bytes to this record
-
-  function clean(rec) { return { id: rec.id, companyId: rec.companyId, kind: rec.kind, label: rec.label, createdAt: rec.createdAt, lastUsedAt: rec.lastUsedAt || '' }; }
-
-  var S = OB.secrets = {
-    /** True when this browser can keep secrets (WebCrypto plus IndexedDB, or the test store). */
-    available: function () { return !!subtle && (!!root.indexedDB || !!store); },
-    /** Save (or replace) a secret. info: { companyId, kind, label }. Resolves with the record, without the value. */
-    put: function (id, value, info) {
-      info = info || {};
-      if (!id || typeof value !== 'string' || !value) return Promise.reject(new Error('A secret needs an id and a value.'));
-      var rec = { id: String(id), companyId: String(info.companyId || ''), kind: String(info.kind || 'other'), label: String(info.label || id), createdAt: new Date().toISOString() };
-      var iv = root.crypto.getRandomValues(new Uint8Array(12));
-      return deviceKey().then(function (k) { return subtle.encrypt({ name: 'AES-GCM', iv: iv, additionalData: aad(rec) }, k, enc(value)); })
-        .then(function (ct) { rec.iv = Array.from(iv); rec.data = new Uint8Array(ct); return st().put(rec); })
-        .then(function () { return clean(rec); });
-    },
-    /** The decrypted value, or null when there is no such secret. */
-    get: function (id) {
-      return st().get(String(id)).then(function (rec) {
-        if (!rec) return null;
-        return deviceKey().then(function (k) { return subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(rec.iv), additionalData: aad(rec) }, k, rec.data); })
-          .then(function (pt) { rec.lastUsedAt = new Date().toISOString(); return st().put(rec).then(function () { return dec(pt); }); });
-      });
-    },
-    /** Names and dates of the stored secrets (never the values), optionally for one company, newest first. */
-    list: function (companyId) {
-      return st().all().then(function (all) {
-        return (all || []).filter(function (r) { return companyId === undefined || r.companyId === companyId; }).map(clean)
-          .sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
-      });
-    },
-    /** Remove one secret (revoke it on this device). */
-    remove: function (id) { return st().del(String(id)); },
-    /** Remove every secret of a company (used when a company is deleted). */
-    removeCompany: function (companyId) {
-      return S.list(companyId).then(function (list) { return Promise.all(list.map(function (r) { return st().del(r.id); })); });
-    },
-    _useStore: function (s) { store = s || memoryStore(); keyP = null; return store; },
-    _memoryStore: memoryStore
-  };
-})(typeof window !== 'undefined' ? window : globalThis);
-
-;
-/* == js/simplefin.js == */
-/* VaultBook — optional bank sync through SimpleFIN Bridge (1.59.0). Off until the person connects it.
- *
- * How it works (https://www.simplefin.org/protocol.html): the person pays SimpleFIN Bridge, links their banks there and
- * makes a one-time "setup token" for VaultBook. The token is a Base64 claim URL; VaultBook POSTs to it once and gets an
- * Access URL (credentials inside), which is kept encrypted by OB.secrets on this device. Syncing GETs /accounts straight
- * from the browser (SimpleFIN allows this origin); no VaultBook server is involved. Lines go to the bank feed's For review
- * list through Book.importBankLines, with the same duplicate check as a file import.
- *
- * Engine only (no screens); fetch is injectable so tests run without the network.
- */
-(function (root) {
-  'use strict';
-  var OB = root.OB = root.OB || {};
-  var HOSTS = ['beta-bridge.simplefin.org'];       // also listed in the page's connect-src policy
-  var WINDOW_DAYS = 45;                             // SimpleFIN's recommended range per request
-  var DAY = 86400;
-
-  function err(msg) { var e = new Error(msg); e.name = 'SimpleFINError'; return e; }
-  function b64decode(s) {
-    if (typeof root.atob === 'function') return root.atob(s);
-    return Buffer.from(s, 'base64').toString('binary');
-  }
-  function b64encode(s) {
-    if (typeof root.btoa === 'function') return root.btoa(s);
-    return Buffer.from(s, 'binary').toString('base64');
-  }
-  function allowedUrl(u) {
-    var url; try { url = new URL(u); } catch (e) { return null; }
-    if (url.protocol !== 'https:' || HOSTS.indexOf(url.hostname) < 0) return null;
-    return url;
-  }
-  /** Text from SimpleFIN shown to the person: plain text only, short. */
-  function clean(s) { return String(s == null ? '' : s).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240); }
-
-  var SF = OB.simplefin = {
-    HOSTS: HOSTS,
-    WINDOW_DAYS: WINDOW_DAYS,
-    clean: clean,
-
-    /** Setup token -> claim URL. Throws a readable error for anything that is not a SimpleFIN Bridge token. */
-    claimUrl: function (token) {
-      var t = String(token || '').replace(/\s+/g, '');
-      if (!t) throw err('Paste the setup token from SimpleFIN Bridge.');
-      var decoded;
-      try { decoded = b64decode(t); } catch (e) { throw err('That is not a SimpleFIN setup token (it should be a long block of letters and numbers).'); }
-      var url = allowedUrl(decoded);
-      if (!url || !/\/claim\//.test(url.pathname)) throw err('That token does not point to SimpleFIN Bridge (' + HOSTS.join(', ') + '). VaultBook only connects there.');
-      return url.href;
-    },
-
-    /** One-time claim: setup token -> Access URL. A token can be claimed only once. */
-    claim: function (token, fetchFn) {
-      var f = fetchFn || root.fetch.bind(root), u;
-      try { u = SF.claimUrl(token); } catch (e) { return Promise.reject(e); }
-      return f(u, { method: 'POST' }).then(function (res) {
-        if (res.status === 403) throw err('SimpleFIN refused this token: it was already used or is not valid. Make a new setup token in SimpleFIN Bridge. If you did not use this token yourself, someone else may have it: revoke it there.');
-        if (!res.ok) throw err('SimpleFIN did not accept the token (error ' + res.status + '). Try again in a few minutes.');
-        return res.text();
-      }).then(function (text) {
-        var access = String(text || '').trim();
-        if (!SF.parseAccess(access)) throw err('SimpleFIN answered with something VaultBook did not expect. Make a new setup token and try again.');
-        return access;
-      });
-    },
-
-    /** Access URL -> { base, auth } (base without credentials; auth for the Authorization header), or null. */
-    parseAccess: function (access) {
-      var url = allowedUrl(access);
-      if (!url || !url.username) return null;
-      var user = decodeURIComponent(url.username), pass = decodeURIComponent(url.password);
-      url.username = ''; url.password = '';
-      return { base: url.href.replace(/\/$/, ''), auth: 'Basic ' + b64encode(user + ':' + pass) };
-    },
-
-    /** Day windows of at most WINDOW_DAYS covering [startSec, endSec], oldest first. */
-    windows: function (startSec, endSec) {
-      var out = [], s = startSec;
-      while (s < endSec) { var e = Math.min(endSec, s + WINDOW_DAYS * DAY); out.push([s, e]); s = e; }
-      return out.length ? out : [[startSec, endSec]];
-    },
-
-    /** GET /accounts for one window. opts: { start, end (unix seconds), balancesOnly } */
-    accounts: function (access, opts, fetchFn) {
-      var f = fetchFn || root.fetch.bind(root), a = SF.parseAccess(access);
-      if (!a) return Promise.reject(err('The saved SimpleFIN connection is not valid. Disconnect and connect again.'));
-      opts = opts || {};
-      var q = ['version=2'];
-      if (opts.balancesOnly) q.push('balances-only=1');
-      if (opts.start) q.push('start-date=' + Math.floor(opts.start));
-      if (opts.end) q.push('end-date=' + Math.floor(opts.end));
-      return f(a.base + '/accounts?' + q.join('&'), { headers: { Authorization: a.auth } }).then(function (res) {
-        if (res.status === 403 || res.status === 401) throw err('SimpleFIN no longer accepts this connection (it may have been revoked). Disconnect and connect again with a new setup token.');
-        if (res.status === 402) throw err('SimpleFIN says the subscription needs attention. Check your account at SimpleFIN Bridge.');
-        if (!res.ok) throw err('SimpleFIN could not be reached (error ' + res.status + '). Try again later.');
-        return res.json();
-      }).then(function (d) {
-        var conns = {}; (d.connections || []).forEach(function (c) { conns[c.conn_id] = c; });
-        var msgs = (d.errlist || []).map(function (x) { return clean(x && (x.msg || x.message || x)); })
-          .concat((d.errors || []).map(clean)).filter(function (m) { return m && !/recommended range/i.test(m); });
-        var accounts = (d.accounts || []).map(function (x) {
-          var c = conns[x.conn_id] || {};
-          return { id: String(x.id), name: clean(x.name), org: clean(c.org_name || (x.org && x.org.name) || c.name || ''), currency: x.currency || 'USD',
-            balance: SF.cents(x.balance), balanceDate: x['balance-date'] || 0, transactions: x.transactions || [] };
-        });
-        return { accounts: accounts, messages: msgs };
-      });
-    },
-
-    /** "-120.00" -> -12000 */
-    cents: function (v) {
-      var s = String(v == null ? '0' : v).trim(), neg = s.charAt(0) === '-';
-      s = s.replace(/^[-+]/, '');
-      var p = s.split('.'), c = parseInt(p[0] || '0', 10) * 100 + parseInt(((p[1] || '') + '00').slice(0, 2), 10);
-      if (isNaN(c)) return 0;
-      return neg ? -c : c;
-    },
-    /** Unix seconds -> yyyy-mm-dd in the device's time zone. */
-    day: function (sec) {
-      var d = new Date(sec * 1000);
-      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    },
-    /** SimpleFIN transactions -> bank feed rows (positive = money into the account), pending ones left out. */
-    rows: function (transactions) {
-      var seen = {};
-      return (transactions || []).filter(function (t) {
-        if (!t || t.pending || !t.posted) return false;
-        if (seen[t.id]) return false; seen[t.id] = 1; return true;
-      }).map(function (t) {
-        var text = clean(t.memo) || clean(t.description) || clean(t.payee) || '(no description)';
-        return { date: SF.day(t.posted), description: text, amount: SF.cents(t.amount), checkNo: '', balance: null };
-      }).filter(function (r) { return r.amount; });
-    },
-
-    /**
-     * Fetch every window from startSec to now, merge transactions per SimpleFIN account (by transaction id).
-     * Resolves { accounts: [{id, name, org, balance, transactions}], messages, requests }.
-     */
-    fetchRange: function (access, startSec, endSec, fetchFn) {
-      var wins = SF.windows(startSec, endSec), byId = {}, order = [], messages = [];
-      return wins.reduce(function (p, w) {
-        return p.then(function () { return SF.accounts(access, { start: w[0], end: w[1] }, fetchFn); }).then(function (r) {
-          r.messages.forEach(function (m) { if (messages.indexOf(m) < 0) messages.push(m); });
-          r.accounts.forEach(function (a) {
-            if (!byId[a.id]) { byId[a.id] = { id: a.id, name: a.name, org: a.org, balance: a.balance, transactions: [] }; order.push(a.id); }
-            var have = {}; byId[a.id].transactions.forEach(function (t) { have[t.id] = 1; });
-            a.transactions.forEach(function (t) { if (!have[t.id]) byId[a.id].transactions.push(t); });
-            byId[a.id].balance = a.balance;
-          });
-        });
-      }, Promise.resolve()).then(function () {
-        return { accounts: order.map(function (id) { return byId[id]; }), messages: messages, requests: wins.length };
-      });
-    }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -5188,7 +4926,7 @@
   'use strict';
   var OB = root.OB = root.OB || {};
   var U = OB.util, Q = OB.qbsend = {};
-  var clean = function (s) { return String(s === null || s === undefined ? '' : s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").trim(); };
+  var clean = function (s) { return U.qbText(s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").replace(/ {2,}/g, ' ').trim(); };   // 1.60.1: U.qbText, or one long dash stops the whole send
   var qbName = function (s) { return clean(s).replace(/:/g, '-').slice(0, 41); };
   var money = function (c) { return (c / 100).toFixed(2); };
   var termsText = function (t) {
@@ -5221,6 +4959,23 @@
     return { kind: 'journal', head: m[0] || splits[0], headId: (m[0] || splits[0]).accountId, amount: U.sum(splits, function (x) { return x.amount > 0 ? x.amount : 0; }), splits: splits };
   };
 
+  /**
+   * Is this entry in QuickBooks already? → { qbTxnId, at } (a result file, a snapshot match, or imported from QuickBooks:
+   * 1.58) or { iif, at } (1.62: in an .iif file the user said QuickBooks imported), else null.
+   */
+  Q.inQB = function (book, t) {
+    var s = ((book.company && book.company.qbSent) || {})[t.id];
+    if (s && (s.qbTxnId || s.iif)) return s;
+    var m = /^QuickBooks .*TxnID (\S+)/.exec(t.importRef || '');
+    return m ? { qbTxnId: m[1], at: t.createdAt || '' } : null;
+  };
+  /** 1.62: the user says QuickBooks imported the .iif: mark its entries (no QuickBooks id is known; a later snapshot or result adds it). */
+  Q.markIIF = function (book, keys, at) {
+    var ch = {}; at = at || new Date().toISOString();
+    keys.forEach(function (k) { if (book.txById[k] && !Q.inQB(book, book.txById[k])) ch[k] = { qbTxnId: '', iif: at, at: at }; });
+    return book.saveCompanySent(ch).then(function () { return Object.keys(ch).length; });
+  };
+
   Q.sendList = function (book, opts) {
     opts = opts || {};
     var kinds = opts.kinds && opts.kinds.length ? opts.kinds : ['invoice', 'payment'], sent = (book.company && book.company.qbSent) || {}, rows = [];
@@ -5235,7 +4990,8 @@
       var amount = shape ? shape.amount : kind === 'invoice' ? t.total : Math.abs(t.amount || t.total || 0);
       if (opts.min && amount < opts.min) return;
       if (opts.max && amount > opts.max) return;
-      var s = sent[t.id] || {}, isSent = !!s.qbTxnId, status = isSent ? 'Sent' : s.problem ? 'Problem' : 'Not sent';
+      var s = Q.inQB(book, t) || sent[t.id] || {};
+      var isSent = !!(s.qbTxnId || s.iif), status = isSent ? 'Sent' : s.problem ? 'Problem' : 'Not sent';
       if (opts.status === 'new' && isSent) return;
       if (opts.status === 'sent' && !isSent) return;
       if (opts.status === 'problem' && status !== 'Problem') return;
@@ -5245,6 +5001,56 @@
     });
     rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.kind === 'invoice' ? -1 : 1) - (b.kind === 'invoice' ? -1 : 1) || String(a.number).localeCompare(String(b.number), undefined, { numeric: true }); });
     return rows;
+  };
+
+  /**
+   * 1.58: everything dated from a day onward (1.59: or within from..to) that QuickBooks does not have yet (not marked sent by a result file or a
+   * snapshot). Invoices dated earlier that an included payment pays come along, or the payment could not close them.
+   * → { keys, items, extra, counts: { invoice, payment, bank }, already (from that day, in QuickBooks), left: { type: n } (types the connector cannot record) }
+   * The connector checks each item against QuickBooks again before recording, so an entry typed there by hand is skipped too.
+   */
+  Q.fromDate = function (book, from, to) {
+    var out = { keys: [], items: [], extra: [], counts: { invoice: 0, payment: 0, bank: 0 }, already: 0, left: {} };
+    if (!/^\d{4}-\d\d-\d\d$/.test(String(from || ''))) return out;
+    to = /^\d{4}-\d\d-\d\d$/.test(String(to || '')) ? to : '';   // 1.59: an end date makes it a period (one day when both are the same)
+    var all = Q.sendList(book, { kinds: ['invoice', 'payment', 'bank'], from: from, to: to }), have = {}, seen = {};
+    all.forEach(function (x) { seen[x.id] = 1; if (x.sent) { out.already++; have[x.id] = 1; } else { out.items.push(x); out.keys.push(x.id); out.counts[x.kind]++; } });
+    var sent = (book.company && book.company.qbSent) || {};
+    out.items.forEach(function (x) {
+      if (x.kind !== 'payment') return;
+      (x.t.applications || []).forEach(function (a) {
+        var d = book.txById[a.txnId];
+        if (!d || d.type !== 'invoice' || seen[d.id] || d.status !== 'posted' || Q.inQB(book, d)) return;
+        seen[d.id] = 1; out.keys.push(d.id); out.extra.push({ id: d.id, number: d.number || '', date: d.date, t: d });
+      });
+    });
+    book.posted().forEach(function (t) { if (t.date >= from && (!to || t.date <= to) && !seen[t.id] && !t.voidedBy && t.type !== 'invoice' && t.type !== 'payment' && !Q.BANK_TYPES[t.type]) out.left[t.type] = (out.left[t.type] || 0) + 1; });
+    return out;
+  };
+
+  /**
+   * 1.61: a long send goes to QuickBooks in small parts, each in a fresh QuickBooks session (QuickBooks Desktop tends to
+   * stop when hundreds of entries arrive in one go). Order matters across parts: invoices first (the earlier ones a
+   * payment needs before the rest), then payments, then bank entries; by date inside each.
+   */
+  Q.CHUNK = 25; Q.REST_MS = 2000;   // entries per part; rest between parts
+  Q.chunks = function (r, size) {
+    size = size || Q.CHUNK;
+    var rank = { invoice: 0, payment: 1, bank: 2 }, list = r.extra.map(function (x) { return { id: x.id, k: -1, date: x.date }; })
+      .concat(r.items.map(function (x) { return { id: x.id, k: rank[x.kind], date: x.date }; }));
+    list.sort(function (a, b) { return a.k - b.k || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0); });
+    var out = []; for (var i = 0; i < list.length; i += size) out.push(list.slice(i, i + size).map(function (x) { return x.id; }));
+    return out;
+  };
+  /** What one part's result says: { recorded, dup, prob, stopped (QuickBooks stopped answering), declined (the user answered No) }. */
+  Q.resultSummary = function (res) {
+    var s = { recorded: 0, dup: 0, prob: 0, stopped: false, declined: false }, items = (res && res.items) || [];
+    items.forEach(function (i) {
+      if (i.status === 'Recorded' || i.status === 'Updated') s.recorded++; else if (i.status === 'Already in QuickBooks') s.dup++; else if (i.status === 'Problem') s.prob++;
+      if (/QuickBooks stopped/i.test(i.details || '')) s.stopped = true;
+    });
+    s.declined = !s.stopped && items.length > 0 && !s.recorded && !s.dup && !s.prob;   // everything still Ready: nothing was written
+    return s;
   };
 
   Q.batch = function (book, keys, opts) {
@@ -5298,7 +5104,9 @@
     var at = result.at || new Date().toISOString(), sent = 0, problems = 0, changes = {};
     result.items.forEach(function (it) {
       if (!it || !it.key || !book.txById[it.key]) return;
+      if (it.kind === 'removed' && it.status !== 'Deleted') return;   // not removed: it is still in QuickBooks, its mark stays
       if (it.txnId && (it.status === 'Recorded' || it.status === 'Already in QuickBooks')) { changes[it.key] = { qbTxnId: String(it.txnId), at: it.status === 'Recorded' ? at : (book.company.qbSent && book.company.qbSent[it.key] && book.company.qbSent[it.key].at) || at }; sent++; }
+      else if (it.status === 'Deleted') { changes[it.key] = null; }   // 1.63: removed from QuickBooks by the tool: not sent any more
       else if (it.status === 'Problem') { changes[it.key] = { problem: clean(it.details || 'problem').slice(0, 300), at: at }; problems++; }
     });
     return book.saveCompanySent(changes).then(function () { return { sent: sent, problems: problems }; });
@@ -5307,7 +5115,7 @@
   /** Company-level record of what reached QuickBooks: company.qbSent[txnId] = { qbTxnId, at } or { problem, at }. */
   OB.Book.prototype.saveCompanySent = function (changes) {
     var self = this, c = U.clone(this.company); c.qbSent = Object.assign({}, c.qbSent || {});
-    Object.keys(changes).forEach(function (k) { c.qbSent[k] = changes[k]; });
+    Object.keys(changes).forEach(function (k) { if (changes[k] === null) delete c.qbSent[k]; else c.qbSent[k] = changes[k]; });
     var n = Object.keys(changes).length, au = this._auditEntry('qbSend', '', 'QuickBooks Desktop result loaded: ' + n + ' item' + (n === 1 ? '' : 's'));
     return this._commit([{ store: 'company', value: c }, { store: 'audit', value: au }], function () { self.company = c; self.audit.push(au); });
   };
@@ -5703,7 +5511,7 @@
   var name = function (r) { return r ? txt(r.FullName || r.Name || '') : ''; };
   var cents = function (v) { var n = parseFloat(txt(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? Math.round(n * 100) : 0; };
   var money = function (c) { return (c / 100).toFixed(2); };
-  var clean = function (m) { return txt(m).replace(/\s*\[VB:[^\]]*\]/g, '').trim(); };
+  var clean = function (m) { return U.qbText(txt(m)).replace(/\s*\[VB:[^\]]*\]/g, '').replace(/ {2,}/g, ' ').trim(); };   // 1.60.1: both sides in QuickBooks' character set, so a long dash is not an edit
   var QBTYPE = { bank: 'Bank', cc: 'CreditCard', ar: 'AccountsReceivable', ap: 'AccountsPayable', oca: 'OtherCurrentAsset', fixed: 'FixedAsset', oa: 'OtherAsset',
     ocl: 'OtherCurrentLiability', ltl: 'LongTermLiability', equity: 'Equity', income: 'Income', oi: 'OtherIncome', cogs: 'CostOfGoodsSold', expense: 'Expense', oe: 'OtherExpense' };
   var KIND = { check: 'Check', deposit: 'Deposit', journal: 'JournalEntry' };
@@ -8050,20 +7858,8 @@
       if (v.length && (/^(type|transaction type|txn type|dr ?\/ ?cr|cr ?\/ ?dr|d ?\/ ?c|c ?\/ ?d|debit ?\/ ?credit|credit ?\/ ?debit|details|indicator|sign)$/.test(name) || !name)
         && v.filter(function (x) { return signOf(x); }).length >= v.length * 0.8) m.sign = i;
     });
-    // 1.56.0: a Status column (Pending / Posted) lets pending lines be left out until they clear
-    m.status = -1;
-    h.forEach(function (name, i) {
-      if (m.status >= 0 || used[i] || i === m.sign) return;
-      var v = col(i).map(function (x) { return String(x || '').trim().toLowerCase(); }).filter(Boolean);
-      if (/^(status|transaction status|txn status|posting status|state|pending)$/.test(name) || (v.length && v.every(function (x) { return /^(pending|posted|cleared|settled|authorized|complete|completed)$/.test(x); }))) m.status = i;
-    });
     if (m.date >= 0 && rows.length) m.dateFormat = I.detectDateFormat(col(m.date)).format;
     return m;
-  };
-  /** A bank line that has not cleared yet: the Status column says pending, or the description starts with PENDING. */
-  I.isPendingRow = function (row, mapping) {
-    if (mapping.status >= 0 && /pend|authori[sz]ed/i.test(String(row[mapping.status] || ''))) return true;
-    return mapping.description >= 0 && /^\s*\*?\s*pending\b/i.test(String(row[mapping.description] || ''));
   };
 
   /* ---------- dates (BF-04) ---------- */
@@ -8128,14 +7924,13 @@
    */
   I.parseBankRows = function (table, mapping, opts) {
     opts = opts || {};
-    var rows = [], errors = [], pending = 0;
+    var rows = [], errors = [];
     var start = mapping.hasHeader ? 1 : 0, fmt = mapping.dateFormat || 'MDY';
     // the type column only decides when the file's amounts carry no minus sign of their own
     var useSign = mapping.sign >= 0 && mapping.amount >= 0 && !table.slice(start).some(function (row) { try { return amountOf(row[mapping.amount]) < 0; } catch (e) { return false; } });
     for (var r = start; r < table.length; r++) {
       var row = table[r], line = r + 1;
       if (!row.some(function (c) { return String(c || '').trim(); })) continue;
-      if (I.isPendingRow(row, mapping)) { pending++; if (opts.skipPending) continue; }
       try {
         var date = I.parseDateAs(row[mapping.date], fmt);
         if (!date) { errors.push('Line ' + line + ': unrecognized date "' + (row[mapping.date] || '') + '"'); continue; }
@@ -8154,7 +7949,7 @@
         rows.push({ date: date, description: desc || '(no description)', amount: amount, checkNo: mapping.check >= 0 ? String(row[mapping.check] || '').trim() : '', balance: bal, line: line });
       } catch (e) { errors.push('Line ' + line + ': ' + e.message); }
     }
-    return { rows: rows, errors: errors, pending: pending };
+    return { rows: rows, errors: errors };
   };
 
   /** Index of the header row: the first of the top 30 rows that names a date and an amount (or money in / out)
@@ -9873,7 +9668,7 @@
   var ITEM = { service: 'SERV', noninventory: 'PART', inventory: 'INVENTORY', othercharge: 'OTHC', discount: 'DISC', payment: 'PMT', subtotal: 'SUBT', group: 'GRP', salestax: 'STAX', fixedasset: 'OTHC' };
   X.ACC = ACC; X.ITEM = ITEM;
 
-  var clean = function (s) { return String(s === null || s === undefined ? '' : s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").trim(); };
+  var clean = function (s) { return OB.util.qbText(s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").replace(/ {2,}/g, ' ').trim(); };   // 1.62: same plain text as the connector
   var qbName = function (s) { return clean(s).replace(/:/g, '-').slice(0, 41); }; // QuickBooks name rules: no ':' in a name, 41 characters
   var money = function (c) { return (c / 100).toFixed(2); };
   var qbDate = function (d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : ''; };
@@ -9997,6 +9792,8 @@
       .sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : (x.seq || 0) - (y.seq || 0); })
       .forEach(function (l) {
         if (onlyNew && l.exportId) return skip(l, 'already exported ' + (l.exportedAt ? 'on ' + U.fmtDate(l.exportedAt.slice(0, 10)) : 'before'));
+        if (onlyNew && OB.qbsend && (l.links ? l.links.map(function (x) { return x.txnId; }) : [l.txnId]).some(function (id) { return book.txById[id] && OB.qbsend.inQB(book, book.txById[id]); }))
+          return skip(l, 'already in QuickBooks');   // 1.62: recorded by the connector, or imported from QuickBooks
         if (l.status === 'review') return skip(l, 'not posted yet (post it in the Bank feed first)'); // only what is in the books goes to QuickBooks
         var ids = l.links ? l.links.map(function (x) { return x.txnId; }) : [l.txnId];   // a group match (1.23) links several entries
         var txs = ids.map(function (id) { return book.txById[id]; });
@@ -10019,7 +9816,7 @@
    *  Returns { text, txnCount, lineIds, skipped, byAccount }. */
   X.bankIIF = function (book, opts) {
     opts = opts || {};
-    var p = pick(book, opts), names = opts.names || {}, cleared = opts.cleared !== false;
+    var p = opts.picked || pick(book, opts), names = opts.names || {}, cleared = opts.cleared !== false;
     var accName = function (id) { var a = book.accById[id]; return names[id] && String(names[id]).trim() ? clean(names[id]) : a ? clean(book.accountFullName(a)) : ''; };
     var clsName = function (id) { return id && book.classFullName ? clean(book.classFullName(id)) : ''; };
     var usedAcc = {}, usedName = {}, body = [];
@@ -10040,6 +9837,7 @@
       var clr = function (s) { return cleared && (s.cleared === 'C' || s.cleared === 'R') ? 'Y' : 'N'; };
       usedAcc[head.accountId] = 1;
       var memo = clean(t.memo || head.memo);
+      if (opts.mark) memo = (memo.slice(0, 4000) + ' [VB:' + t.id + ']').trim();   // 1.63: the same mark the tool writes, so it can find (and remove) these later
       if (asPay) { var pays = X.appliedText(book, t); memo = clean((memo && memo.indexOf(pays) < 0 ? memo + ' · ' : '') + pays).slice(0, 4000); if (!num) { var bl = book.bankLineById[it.lineIds[0]]; num = clean(t.checkNo || (bl && bl.checkNo) || ''); } }
       body.push(row(['TRNS', '', type, d, accName(head.accountId), who, clsName(head.classId || t.classId), money(head.amount), num, memo, clr(head)]));
       splits.forEach(function (s) {
@@ -10067,6 +9865,38 @@
     out.push(row(['!SPL', 'SPLID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']));
     out.push('!ENDTRNS');
     return { text: out.concat(body).join('\r\n') + '\r\n', txnCount: p.items.length, lineIds: p.lineIds, skipped: p.skipped, byAccount: p.byAccount, format: 'iif' };
+  };
+
+  /** 1.62: an .iif of chosen bank transactions (by id, as Send to QuickBooks > By date lists them), oldest first. */
+  X.txnsIIF = function (book, ids, opts) {
+    var items = [], skipped = [];
+    ids.map(function (id) { return book.txById[id]; }).filter(Boolean).sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; }).forEach(function (t) {
+      var sh = t.status === 'posted' && OB.qbsend.bankShape(book, t);
+      if (sh) items.push({ txn: t, bankAccountId: sh.headId, lineIds: [] }); else skipped.push({ txnId: t.id, date: t.date, reason: 'not a bank transaction' });
+    });
+    return X.bankIIF(book, Object.assign({ mark: true }, opts, { picked: { items: items, skipped: skipped, byAccount: {}, lineIds: [] } }));
+  };
+
+  /**
+   * 1.64: one .iif for any picked transactions (a report's tick boxes): invoices through invoicesIIF, bank transactions
+   * through txnsIIF. Left out: what QuickBooks already has (Q.inQB) and types an .iif from VaultBook cannot carry yet.
+   * → { text, count, keys (in the file), inQB (ids), cannot: { typeLabel: n } }
+   */
+  X.anyIIF = function (book, ids, opts) {
+    opts = opts || {};
+    var Q = OB.qbsend, inv = [], bank = [], inQB = [], cannot = {}, seen = {};
+    (ids || []).forEach(function (id) {
+      var t = book.txById[id]; if (!t || seen[id]) return; seen[id] = 1;
+      if (t.status !== 'posted' && !(t.type === 'invoice' && t.status === 'closed')) { cannot.Void = (cannot.Void || 0) + 1; return; }
+      if (Q.inQB(book, t)) { inQB.push(id); return; }
+      if (t.type === 'invoice') inv.push(id);
+      else if (Q.bankShape(book, t)) bank.push(id);
+      else { var k = (OB.schema.TXN_TYPES[t.type] || {}).label || t.type; cannot[k] = (cannot[k] || 0) + 1; }
+    });
+    var parts = [], count = 0;
+    if (inv.length) { var a = X.invoicesIIF(book, inv, opts); parts.push(a.text); count += a.count; }
+    if (bank.length) { var c = X.txnsIIF(book, bank, opts); parts.push(c.text); count += c.txnCount; }
+    return { text: parts.join(''), count: count, keys: inv.concat(bank), inQB: inQB, cannot: cannot };
   };
 
   /** "Pays invoice 1162 $340,074.75; invoice 1170 $30,000.00" — what a payment was applied to in VaultBook. */
@@ -10863,6 +10693,14 @@
     reindex0.apply(this, arguments);
     var self = this; this.bankLines = this.bankLines || []; this.bankImports = this.bankImports || [];
     this.bankLineById = {}; this.bankLines.forEach(function (l) { self.bankLineById[l.id] = l; });
+    this._bfMemo = null;   // 1.57: match finding is remembered until the books change (a long statement redrew in seconds, not instantly)
+  };
+  function memo(book) { return book._bfMemo || (book._bfMemo = { cands: {}, win: {}, docs: {} }); }
+  /** Posted entries of an account dated from..to (the split index is in date order: two binary searches, not a full scan). */
+  Book.prototype._bankWindow = function (accountId, from, to) {
+    var list = this.splitIndex()[accountId] || [];
+    function lower(d) { var lo = 0, hi = list.length; while (lo < hi) { var mid = (lo + hi) >> 1; if (list[mid].t.date < d) lo = mid + 1; else hi = mid; } return lo; }
+    return list.slice(lower(from), lower(U.addDays(to, 1)));
   };
 
   /** Lines of an account by status ('review' | 'posted' | 'excluded'), newest first. */
@@ -10934,7 +10772,8 @@
 
   /** Book entries already claimed by a posted bank line: "txnId:splitIndex" → line id. */
   Book.prototype._bankLinked = function () {
-    var m = {}; this.bankLines.forEach(function (l) { if (l.status === 'posted' && l.txnId) m[l.txnId + ':' + l.splitIndex] = l.id; }); return m;
+    var mm = memo(this); if (mm.linked) return mm.linked;
+    var m = {}; this.bankLines.forEach(function (l) { if (l.status === 'posted' && l.txnId) m[l.txnId + ':' + l.splitIndex] = l.id; }); return (mm.linked = m);
   };
   function words(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3; }); }
   function nameIn(name, desc) { // every significant word of the contact's name appears in the bank text
@@ -10951,7 +10790,7 @@
   Book.prototype.bankCandidates = function (lineId) {
     var self = this, l = this.bankLineById[lineId]; if (!l || l.status !== 'review') return [];
     var linked = this._bankLinked(), out = [];
-    (this.splitIndex()[l.accountId] || []).forEach(function (e) {
+    this._bankWindow(l.accountId, U.addDays(l.date, -90), U.addDays(l.date, 20)).forEach(function (e) {
       if (e.t.status !== 'posted' || e.s.amount !== l.amount || e.s.cleared === 'R' || linked[e.t.id + ':' + e.i]) return;
       var dd = U.daysBetween(l.date, e.t.date); // book date − bank date
       if (dd < -90 || dd > 20) return;
@@ -10963,7 +10802,8 @@
       out.push({ kind: 'register', txnId: e.t.id, splitIndex: e.i, score: score, reasons: reasons });
     });
     var acc = this.accById[l.accountId], wantType = l.amount > 0 ? 'invoice' : 'bill';
-    if (acc && acc.type !== 'cc') this.transactions.forEach(function (t) {
+    var mm = memo(this), docs = mm.docs[wantType] || (mm.docs[wantType] = this.transactions.filter(function (t) { return t.type === wantType && t.status === 'posted'; }));
+    if (acc && acc.type !== 'cc') docs.forEach(function (t) {
       if (t.type !== wantType || t.status !== 'posted' || self.openBalance(t) !== Math.abs(l.amount) || t.date > U.addDays(l.date, 5)) return;
       var c = self.contactById[t.contactId], score = 8, reasons = ['open ' + S.TXN_TYPES[t.type].label.toLowerCase() + (t.number ? ' ' + t.number : '') + ' for exactly this amount'];
       if (c && nameIn(c.name, l.description)) { score += 6; reasons.push(c.name + ' is in the bank text'); }
@@ -11365,6 +11205,10 @@
 
   var cands0 = Book.prototype.bankCandidates;
   Book.prototype.bankCandidates = function (lineId) {
+    var mm = this._bfMemo || (this._bfMemo = { cands: {}, win: {}, docs: {} });
+    return mm.cands[lineId] || (mm.cands[lineId] = allCandidates.call(this, lineId));
+  };
+  function allCandidates(lineId) {
     var self = this, l = this.bankLineById[lineId];
     var out = cands0.call(this, lineId); if (!l || l.status !== 'review') return out;
     var linked = this._bankLinked(), acc = this.accById[l.accountId];
@@ -11387,7 +11231,7 @@
       }
     }
     // (b) several entries already in this account that add up to the bank line (e.g. two payments, one bank deposit)
-    var near = (this.splitIndex()[l.accountId] || []).filter(function (e) {
+    var near = this._bankWindow(l.accountId, U.addDays(l.date, -10), U.addDays(l.date, 3)).filter(function (e) {
       if (e.t.status !== 'posted' || e.s.cleared === 'R' || linked[e.t.id + ':' + e.i] || !e.s.amount || (e.s.amount > 0) !== (l.amount > 0) || Math.abs(e.s.amount) >= Math.abs(l.amount)) return false;
       var dd = U.daysBetween(l.date, e.t.date); return dd >= -10 && dd <= 3;
     }).map(function (e) { return { e: e, amount: e.s.amount }; });
@@ -11469,9 +11313,12 @@
     var newest = function (c) { return (c.txnIds || [c.txnId]).reduce(function (m, id) { var t = self.txById[id]; return t && t.date > m ? t.date : m; }, ''); };
     out.forEach(function (c) { delete c.best; });
     out.sort(function (a, b) { return b.score - a.score || (newest(a) < newest(b) ? -1 : newest(a) > newest(b) ? 1 : 0); });
-    if (out.length && (out.length === 1 || out[0].score - out[1].score >= 3)) out[0].best = true;
+    // 1.57: an entry more than 10 days from the bank date is only offered, never chosen by itself, unless the check number
+    // agrees: a monthly charge of the same amount was being matched to last month's entry instead of being added
+    var top = out[0], far = top && top.kind === 'register' && self.txById[top.txnId] && Math.abs(U.daysBetween(l.date, self.txById[top.txnId].date)) > 10 && !/^check number/.test(top.reasons[0]);
+    if (top && !far && (out.length === 1 || top.score - out[1].score >= 3)) top.best = true;
     return out;
-  };
+  }
   /** Open invoices (money in) or bills (money out) for matching a For review line by hand: {contactId, docs, contacts}.
    *  contactId = the one asked for, else the customer/vendor the bank text names; docs = that contact's open items,
    *  oldest first (all contacts' when all is true). contacts = everyone with open items, for the picker. */
@@ -13277,8 +13124,6 @@
       return new Promise(function (res) { tx.oncomplete = res; });
     }).then(function () {
       return new Promise(function (resolve) { var r = root.indexedDB.deleteDatabase(DB.dbName(companyId)); r.onsuccess = r.onerror = r.onblocked = function () { resolve(); }; });
-    }).then(function () {   // 1.58.0: connection secrets of the company go with it
-      return OB.secrets && OB.secrets.available() ? OB.secrets.removeCompany(companyId).catch(function () {}) : null;
     });
   };
 
@@ -14841,7 +14686,7 @@
     const co = b.company;
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>Statement</h1></div><div class="actions">
       <label>From <input type="date" id="st-from" value="${from}"></label><label>To <input type="date" id="st-to" value="${to}"></label>
-      <button class="btn" id="st-run">Update</button><button class="btn primary" data-print data-key="p">Print / Save as PDF</button></div></div>
+      <button class="btn" id="st-run">Update</button><button class="btn primary" onclick="window.print()" data-key="p">Print / Save as PDF</button></div></div>
       <article class="doc">
         <header class="doc-head"><div><h2>${esc(co.name)}</h2><p>${esc(co.address).replace(/\n/g, '<br>')}</p><p>${esc([co.phone, co.email].filter(Boolean).join(' · '))}</p></div>
         <div class="doc-title"><h1>Statement</h1><p>${U.fmtDate(from)} – ${U.fmtDate(to)}</p></div></header>
@@ -15993,7 +15838,7 @@
     const L = OB.invoiceLayout, pages = L.pages(b, t);
     const titleMap = { invoice: 'Invoice', salesReceipt: 'Sales Receipt', creditMemo: 'Credit Memo', estimate: 'Estimate' };
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>${esc(titleMap[t.type] || 'Document')} ${esc(t.number)}</h1><p class="sub">Download the PDF, or print on US Letter paper with no scaling.</p></div>
-      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
+      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" onclick="window.print()" data-key="p">Print</button></div></div>
       <div class="inv-pages" data-testid="invoice-doc">${pages.map((ops, i) => `<div class="inv-page">${t.status === 'void' ? '<div class="void-stamp">VOID</div>' : ''}${L.svg(ops, 'class="inv-svg" role="img" aria-label="' + esc((titleMap[t.type] || 'Invoice') + ' ' + t.number + (pages.length > 1 ? ', page ' + (i + 1) : '')) + '"')}</div>`).join('')}</div></div>`;
     el.querySelector('#inv-pdf').addEventListener('click', () => {
       const logoJpeg = (src) => new Promise((res) => {
@@ -16784,7 +16629,7 @@
     return f.ready;
   };
   let bf = null; // page state, kept while the app is open (lines themselves are in the database)
-  const fresh = (b) => ({ companyId: b.company.id, accountId: '', tab: 'review', q: '', dir: 'all', onlySug: false, help: 'off', sort: { key: 'date', desc: true }, sel: new Set(), open: '', openTab: 'cat', drafts: {}, imp: null, focus: '', page: 0 });
+  const fresh = (b) => ({ companyId: b.company.id, accountId: '', tab: 'review', q: '', dir: 'all', onlySug: false, show: 'all', help: 'off', sort: { key: 'date', desc: true }, sel: new Set(), open: '', openTab: 'cat', drafts: {}, imp: null, focus: '', page: 0 });
 
   UI.routes.bankfeed = (el, r) => {
     const b = UI.book;
@@ -16852,12 +16697,23 @@
   function plan(b, l) { // what the row proposes: a best match, a suggestion, or the user's own pick
     const d = bf.drafts[l.id] || {};
     const cands = b.bankCandidates(l.id), best = cands.find((c) => c.best);
-    let sug = b.bankSuggestion(l.id);
+    let sug = b.bankSuggestion(l.id), who = '', label = '';
+    if (OB.close && l.status === 'review') {   // 1.57: the payee's habit in the books (the Close the books engine), then a common merchant
+      const cp = OB.close.forFeed(b, l.accountId)[l.id];
+      if (cp) {
+        who = cp.contactId || ''; label = cp.label || '';
+        if (!sug && !best && cp.categoryId && (cp.kind === 'habit' || cp.kind === 'common')) sug = { categoryId: cp.categoryId, contactId: who, source: cp.kind === 'habit' ? 'books' : 'common', sure: !!cp.auto, reason: cp.reason + (cp.why ? ' (' + cp.why + ')' : '') };
+      }
+    }
     const had = !!(best || sug);
     if (!had && bf.help === 'clients' && firm && firm.done) sug = OB.hints.fromClients(b, l, firm.list);
     if (!had && bf.help === 'common') sug = OB.hints.fromCommon(b, l);
-    return { had, cands, best: d.categoryId ? null : best, sug, categoryId: d.categoryId || (sug && sug.categoryId) || '', contactId: d.contactId !== undefined ? d.contactId : (sug && sug.contactId) || '' };
+    const categoryId = d.categoryId || (sug && sug.categoryId) || '';
+    // sure = a match, the user's own pick, a rule, or a steady habit; check = any other suggestion; none = nothing to offer
+    const level = (!d.categoryId && best) || d.categoryId || (sug && (sug.source === 'rule' || sug.sure)) ? 'sure' : categoryId ? 'check' : 'none';
+    return { had, cands, best: d.categoryId ? null : best, sug, categoryId, level, label: label || l.description, contactId: d.contactId !== undefined ? d.contactId : (sug && sug.contactId) || who };
   }
+  function likeIds(b, a, p) { return rowsFor(b, a).filter((x) => plan(b, x).label === p.label).map((x) => x.id); }   // the same payee (or the same bank wording when no payee is known)
   function candLabel(b, c) {
     if (c.kind === 'deposit' || c.kind === 'group') {
       const ids = c.kind === 'deposit' ? c.txnIds : c.links.map((x) => x.txnId);
@@ -16879,27 +16735,40 @@
   function linesView(b, a, pf) {
     let list = rowsFor(b, a);
     const plans = {};
-    if (bf.tab === 'review') { list.forEach((l) => { plans[l.id] = plan(b, l); }); if (bf.onlySug) list = list.filter((l) => plans[l.id].best || plans[l.id].sug); }
+    let count = { sure: 0, check: 0, none: 0 };
+    if (bf.tab === 'review') {
+      list.forEach((l) => { plans[l.id] = plan(b, l); count[plans[l.id].level]++; });
+      if (bf.onlySug) list = list.filter((l) => plans[l.id].best || plans[l.id].sug);
+      if (bf.show !== 'all') list = list.filter((l) => plans[l.id].level === bf.show);
+      const k = bf.sort.key, s = bf.sort.desc ? -1 : 1, RANK = { sure: 0, check: 1, none: 2 };
+      const val = { payee: (p) => (UI.contactName(p.contactId) || p.label || '').toLowerCase(), cat: (p) => (p.categoryId ? b.accountLabel(p.categoryId) : '\uffff').toLowerCase(), level: (p) => RANK[p.level] }[k];
+      // lines of one payee stay together (then by date), so a group can be ticked and posted in one go
+      if (val) list = list.slice().sort((x, y) => { const vx = val(plans[x.id]), vy = val(plans[y.id]); return vx < vy ? -s : vx > vy ? s : (plans[x.id].label < plans[y.id].label ? -1 : plans[x.id].label > plans[y.id].label ? 1 : x.date < y.date ? 1 : x.date > y.date ? -1 : 0); });
+    }
     const pages = Math.max(1, Math.ceil(list.length / pf.pageSize)); if (bf.page >= pages) bf.page = pages - 1;
     const shown = list.slice(bf.page * pf.pageSize, (bf.page + 1) * pf.pageSize);
     [...bf.sel].forEach((id) => { if (!list.some((l) => l.id === id)) bf.sel.delete(id); });
     const ready = bf.tab === 'review' ? list.filter((l) => plans[l.id].best || (plans[l.id].categoryId && !(plans[l.id].sug && plans[l.id].sug.extra && !bf.drafts[l.id]))) : [];
     const none = bf.tab === 'review' ? list.filter((l) => !plans[l.id].had) : [], found = none.filter((l) => plans[l.id].sug).length;
     const busy = bf.help === 'clients' && !(firm && firm.done);
-    const sortH = (k, label, cls) => `<th class="${cls || ''}"><button class="bf-sort" data-sort="${k}" aria-label="Sort by ${label}">${label}${bf.sort.key === k ? (bf.sort.desc ? ' ▾' : ' ▴') : ''}</button></th>`;
+    const sortH = (k, label, cls) => `<th class="${cls || ''}"><button class="bf-sort${bf.sort.key === k ? ' on' : ''}" data-sort="${k}" aria-label="Sort by ${label}">${label}${bf.sort.key === k ? (bf.sort.desc ? ' ▾' : ' ▴') : ''}</button></th>`;
     const ncol = 7 + (pf.cols.check ? 1 : 0) + (pf.cols.payee ? 1 : 0) + (pf.cols.balance ? 1 : 0);
     return `<div class="bf-tools">
         <input type="search" id="bf-q" placeholder="Search description, amount or check no." value="${esc(bf.q)}" aria-label="Search bank lines">
         <div class="segmented" role="group" aria-label="Direction">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out']].map(([k, t]) => `<button data-dir="${k}" aria-pressed="${bf.dir === k}">${t}</button>`).join('')}</div>
-        ${bf.tab === 'review' ? `<label class="check"><input type="checkbox" id="bf-onlysug" ${bf.onlySug ? 'checked' : ''}> Only lines with a suggestion</label>` : ''}
-        ${bf.tab === 'review' ? `<span class="bf-help"><span class="muted small">Extra help</span><span class="segmented" role="group" aria-label="Extra help for lines with no suggestion">${[['off', 'Off'], ['clients', 'Other clients'], ['common', 'Common merchants']].map(([k, t]) => `<button data-help="${k}" aria-pressed="${bf.help === k}" data-testid="bf-help-${k}">${t}</button>`).join('')}</span>
+        <label class="bf-pick"><span>Sort by</span><select id="bf-sortby" data-testid="bf-sortby">${[['date:d', 'Date, newest first'], ['date:a', 'Date, oldest first'], ...(bf.tab === 'review' ? [['payee:a', 'Payee'], ['cat:a', 'Category'], ['level:a', 'Sure first']] : []), ['amount:a', 'Amount, largest spent first'], ['amount:d', 'Amount, largest received first'], ['desc:a', 'Bank description']]
+          .map(([v, t]) => `<option value="${v}"${v === bf.sort.key + ':' + (bf.sort.desc ? 'd' : 'a') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        ${bf.tab === 'review' ? `<label class="bf-pick"><span>Show</span><select id="bf-show" data-testid="bf-show">${[['all', 'All lines'], ['sure', 'Sure (' + count.sure + ')'], ['check', 'To check (' + count.check + ')'], ['none', 'No suggestion (' + count.none + ')']].map(([v, t]) => `<option value="${v}"${v === bf.show ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label class="check"><input type="checkbox" id="bf-onlysug" ${bf.onlySug ? 'checked' : ''}> Only lines with a suggestion</label>` : ''}
+        ${bf.tab === 'review' ? `<span class="bf-help"><span class="muted small">Also ask</span><span class="segmented" role="group" aria-label="Extra help for lines with no suggestion">${[['off', 'Off'], ['clients', 'Other clients']].map(([k, t]) => `<button data-help="${k}" aria-pressed="${bf.help === k}" data-testid="bf-help-${k}">${t}</button>`).join('')}</span>
           ${bf.help !== 'off' ? `<span class="small" data-testid="bf-help-count">${busy ? 'Reading your other clients…' : `Identified <strong>${found}</strong> of ${none.length} line${none.length === 1 ? '' : 's'} with no suggestion${bf.help === 'clients' ? ` · learned from ${firm.list.length} client${firm.list.length === 1 ? '' : 's'}${firm.skipped ? `, ${firm.skipped} password-protected skipped` : ''}` : ''}`}</span>` : ''}</span>` : ''}
         <span class="spacer"></span>
         <div class="segmented" role="group" aria-label="Row density">${[['comfortable', 'Comfortable'], ['compact', 'Compact']].map(([k, t]) => `<button data-density="${k}" aria-pressed="${pf.density === k}">${t}</button>`).join('')}</div>
         <details class="bf-colmenu"><summary class="btn ghost small">Columns</summary><div class="bf-colpop">${COLS.map(([k, t]) => `<label class="check"><input type="checkbox" data-col="${k}" ${pf.cols[k] ? 'checked' : ''}> ${t}</label>`).join('')}
           <label class="field"><span>Rows per page</span><select id="bf-ps">${[50, 100, 200, 500].map((n) => `<option${n === pf.pageSize ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></details>
       </div>
-      ${bf.tab === 'review' && ready.length ? `<div class="banner info bf-ready" data-testid="bf-ready"><span><strong>${ready.length}</strong> line${ready.length === 1 ? ' has' : 's have'} a match or a category ready.</span><button class="btn small" id="bf-sel-ready">Select them</button></div>` : ''}
+      ${bf.tab === 'review' && (count.sure || count.check) ? `<div class="banner info bf-ready" data-testid="bf-ready"><span class="bf-counts" data-testid="bf-counts"><strong>${count.sure}</strong> sure · <strong>${count.check}</strong> to check · <strong>${count.none}</strong> with no suggestion</span>
+        ${count.sure ? `<button class="btn small primary" id="bf-sel-sure" data-testid="bf-sel-sure">Select the ${count.sure} sure</button>` : ''}<button class="btn small" id="bf-sel-ready">Select all ${count.sure + count.check} with a suggestion</button></div>` : ''}
       <div class="bf-batch" ${bf.sel.size ? '' : 'hidden'} data-testid="bf-batch"><strong>${bf.sel.size} selected</strong>
         ${bf.tab === 'review' ? `<span class="bf-batch-cat">${UI.comboHtml('account', 'line', '', 'id="bf-bcat"', { placeholder: 'Set category…', label: 'Category for the selected lines' })}</span>
           <button class="btn primary small" id="bf-bpost" data-testid="bf-batch-post">Post selected</button><button class="btn small" id="bf-bexcl">Exclude…</button>` : ''}
@@ -16908,8 +16777,8 @@
         <button class="btn ghost small" id="bf-bclear">Clear</button></div>
       ${list.length ? `<div class="scroll-x"><table class="bf-table ${pf.density === 'compact' ? 'compact' : ''}" data-testid="bf-table"><thead><tr>
         <th class="bf-ck"><input type="checkbox" id="bf-all" aria-label="Select all shown" ${shown.length && shown.every((l) => bf.sel.has(l.id)) ? 'checked' : ''}></th>
-        ${sortH('date', 'Date')}${sortH('desc', 'Bank description')}${pf.cols.check ? '<th>Check no.</th>' : ''}${pf.cols.payee ? '<th>Payee</th>' : ''}
-        <th>${bf.tab === 'review' ? 'Category or match' : bf.tab === 'posted' ? 'Posted as' : 'Reason'}</th>${sortH('amount', 'Spent', 'num')}<th class="num">Received</th>${pf.cols.balance ? '<th class="num">Balance</th>' : ''}<th><span class="sr-only">Action</span></th></tr></thead>
+        ${sortH('date', 'Date')}${sortH('desc', 'Bank description')}${pf.cols.check ? '<th>Check no.</th>' : ''}${pf.cols.payee ? (bf.tab === 'review' ? sortH('payee', 'Payee') : '<th>Payee</th>') : ''}
+        ${bf.tab === 'review' ? sortH('cat', 'Category or match') : `<th>${bf.tab === 'posted' ? 'Posted as' : 'Reason'}</th>`}${sortH('amount', 'Spent', 'num')}<th class="num">Received</th>${pf.cols.balance ? '<th class="num">Balance</th>' : ''}<th><span class="sr-only">Action</span></th></tr></thead>
         <tbody>${shown.map((l) => row(b, a, l, plans[l.id], pf) + (bf.open === l.id && plans[l.id] ? `<tr class="bf-detail"><td colspan="${ncol}">${detail(b, a, l, plans[l.id])}</td></tr>` : '')).join('')}</tbody></table></div>
         ${pages > 1 ? `<div class="bf-pager"><button class="btn ghost small" id="bf-prev" ${bf.page ? '' : 'disabled'}>Previous</button><span>Page ${bf.page + 1} of ${pages} · ${list.length} lines</span><button class="btn ghost small" id="bf-next" ${bf.page < pages - 1 ? '' : 'disabled'}>Next</button></div>` : ''}
         <p class="muted small bf-keys">Keys: ↑ ↓ move · Enter open · Space select · A post · X exclude · Esc close</p>`
@@ -16921,7 +16790,7 @@
     let mid = '', act = '';
     if (bf.tab === 'review') {
       if (p.best) { mid = `<span class="badge ok">Match</span> ${candLabel(b, p.best)}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-match-btn">Match</button>`; }
-      else if (p.categoryId) { mid = `${p.sug && p.sug.splits && !(bf.drafts[l.id] || {}).categoryId ? 'Split: ' + p.sug.splits.map((x) => esc(b.accountLabel(x.accountId))).join(' + ') : esc(b.accountLabel(p.categoryId))}${p.sug && !bf.drafts[l.id] ? ` <span class="badge ${p.sug.source === 'rule' ? 'ok' : ''}" title="${esc(p.sug.reason)}">${{ rule: 'Rule', clients: 'Other clients', common: 'Common merchant' }[p.sug.source] || 'Last time'}</span>` : ''}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-add-btn">Add</button>`; }
+      else if (p.categoryId) { mid = `${p.sug && p.sug.splits && !(bf.drafts[l.id] || {}).categoryId ? 'Split: ' + p.sug.splits.map((x) => esc(b.accountLabel(x.accountId))).join(' + ') : esc(b.accountLabel(p.categoryId))}${p.sug && !bf.drafts[l.id] ? ` <span class="badge ${p.sug.source === 'rule' || p.sug.sure ? 'ok' : ''}" title="${esc(p.sug.reason)}" data-testid="bf-badge">${{ rule: 'Rule', clients: 'Other clients', common: 'Common merchant', books: p.sug.sure ? 'Sure' : 'Check' }[p.sug.source] || 'Last time'}</span>` : ''}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-add-btn">Add</button>`; }
       else { mid = `<span class="muted">${p.cands.length ? p.cands.length + ' possible match' + (p.cands.length === 1 ? '' : 'es') : 'Choose a category'}</span>`; act = `<button class="btn small" data-act="open">Review</button>`; }
     } else if (bf.tab === 'posted') {
       mid = l.links ? `Matched to ${l.links.length} entries: ${l.links.slice(0, 3).map((x) => { const y = b.txById[x.txnId]; return y ? `<a href="#/txn/${esc(y.id)}">${esc(UI.typeLabel(y.type))}${y.number ? ' ' + esc(y.number) : ''}</a>` : ''; }).join(', ')}` : t ? `${l.auto === 'books' ? '<span class="badge ok" title="' + esc((l.matchReasons || []).join(' · ')) + '">Already in books</span> ' : ''}${l.via === 'match' ? 'Matched to ' : l.via === 'deposit' ? 'Deposit · ' : ''}<a href="#/txn/${esc(t.id)}">${esc(UI.typeLabel(t.type))}${t.number ? ' ' + esc(t.number) : ''}</a>${t.status === 'void' ? ' <span class="badge void">Void</span>' : ''}${l.categoryId ? ' · ' + esc(b.accountLabel(l.categoryId)) : ''}` : '<span class="muted">—</span>';
@@ -16944,7 +16813,8 @@
         <label class="field"><span>Payee</span>${UI.comboHtml('contact', 'any', d.contactId !== undefined ? d.contactId : p.contactId, 'data-d="contactId"', { placeholder: '—', label: 'Payee' })}</label>
         <label class="field"><span>Memo</span><input data-d="memo" value="${esc(d.memo !== undefined ? d.memo : l.description)}"></label></div>
         ${p.sug ? `<p class="muted small">Suggested: ${esc(p.sug.reason)}.</p>` : ''}
-        <div class="form-actions"><button class="btn primary" data-act="add" data-testid="bf-detail-add">${l.amount > 0 ? 'Add deposit' : l.checkNo ? 'Add check ' + esc(l.checkNo) : 'Add expense'}</button></div>`;
+        <div class="form-actions"><button class="btn primary" data-act="add" data-testid="bf-detail-add">${l.amount > 0 ? 'Add deposit' : l.checkNo ? 'Add check ' + esc(l.checkNo) : 'Add expense'}</button>
+          ${(() => { const n = likeIds(b, a, p).length; return n > 1 ? `<button class="btn" data-act="like" data-testid="bf-like">Select the ${n} lines of this payee</button>` : ''; })()}</div>`;
     else if (tab === 'match') body = p.cands.length ? `<table class="bf-cands"><tbody>${p.cands.map((c, i) => `<tr><td><input type="radio" name="bfc-${esc(l.id)}" data-cand="${i}" ${(d.cand === undefined ? (c.best ? 0 : -1) : d.cand) === i ? 'checked' : ''} aria-label="Choose this match"></td>
           <td>${c.split ? '<span class="badge">Split</span>' : ({ open: '<span class="badge">Open</span>', deposit: '<span class="badge">Deposit</span>', group: '<span class="badge">Several</span>' }[c.kind] || '<span class="badge">Entry</span>')} ${candLabel(b, c)}</td><td class="num">${UI.money(Math.abs(l.amount))}</td><td class="muted small">${esc(c.reasons.join(' · '))}</td></tr>`).join('')}</tbody></table>
         <div class="form-actions"><button class="btn primary" data-act="match" data-testid="bf-detail-match">Match</button></div>`
@@ -17026,8 +16896,8 @@
     return imp;
   }
   function preview(b, imp) {
-    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert, skipPending: imp.skipPending !== false });
-    imp.rows = parsed.rows; imp.errors = parsed.errors; imp.pending = parsed.pending;
+    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert });
+    imp.rows = parsed.rows; imp.errors = parsed.errors;
     imp.bal = I.checkBalances(parsed.rows); imp.pre = b.bankPreview(imp.accountId, parsed.rows);
   }
   function importPanel(b) {
@@ -17062,7 +16932,6 @@
         ${imp.pre.inBooks && imp.pre.inBooks.length ? `<dt>Already in your books</dt><dd data-testid="bf-inbooks"><label class="check"><input type="checkbox" id="bfi-books" ${imp.matchBooks !== false ? 'checked' : ''}> <strong>${imp.pre.inBooks.length}</strong> line${imp.pre.inBooks.length === 1 ? ' is' : 's are'} already entered in ${esc(acc.name)} — match ${imp.pre.inBooks.length === 1 ? 'it' : 'them'} instead of adding again</label>
           <details><summary>Show which</summary><table class="data compact bf-inbooks"><thead><tr><th>Bank date</th><th>Description</th><th class="num">Amount</th><th>In the books as</th></tr></thead><tbody>${imp.pre.inBooks.slice(0, 60).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.description)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc(x.entry)} <span class="muted small">${esc(x.reasons.slice(1).join(' · '))}</span></td></tr>`).join('')}</tbody></table></details></dd>` : ''}
         ${imp.pre.autoAdd ? `<dt>Auto-add rules</dt><dd><label class="check"><input type="checkbox" id="bfi-auto" ${imp.autoAdd !== false ? 'checked' : ''}> <strong>${imp.pre.autoAdd}</strong> line${imp.pre.autoAdd === 1 ? '' : 's'} will be posted by your auto-add rules</label></dd>` : ''}
-        ${imp.pending ? `<dt>Pending</dt><dd data-testid="bf-pending"><label class="check"><input type="checkbox" id="bfi-pending" ${imp.skipPending !== false ? 'checked' : ''}> Leave out <strong>${imp.pending}</strong> pending line${imp.pending === 1 ? '' : 's'}</label> <span class="muted small">They come in with your next file once they clear, so nothing is counted twice.</span></dd>` : ''}
         <dt>Money in / out</dt><dd>${UI.money(U.sum(rows.filter((r) => r.amount > 0), (r) => r.amount), { symbol: true })} in · ${UI.money(-U.sum(rows.filter((r) => r.amount < 0), (r) => r.amount), { symbol: true })} out</dd>
         <dt>Running balance</dt><dd data-testid="bf-balance-check">${!bal.hasBalance ? '<span class="muted">No balance column in this file</span>' : bal.mismatches.length ? `<span class="badge warn">Breaks at line${bal.mismatches.length === 1 ? '' : 's'} ${esc(bal.mismatches.slice(0, 8).join(', '))}</span> — lines may be missing or the file was edited` : `<span class="badge ok">Checks out</span> · ending balance ${UI.money(bal.endingBalance, { symbol: true })} on ${esc(U.fmtDate(bal.endingDate))}`}</dd>
         ${imp.errors.length ? `<dt>Skipped</dt><dd><details><summary>${imp.errors.length} line${imp.errors.length === 1 ? '' : 's'} could not be read</summary><ul>${imp.errors.slice(0, 50).map((e) => `<li>${esc(e)}</li>`).join('')}</ul></details></dd>` : ''}
@@ -17093,6 +16962,9 @@
     on('#bf-prev', 'click', () => { bf.page--; rerender(); }); on('#bf-next', 'click', () => { bf.page++; rerender(); });
     el.querySelectorAll('[data-sort]').forEach((x) => x.addEventListener('click', () => { const k = x.dataset.sort; bf.sort = { key: k, desc: bf.sort.key === k ? !bf.sort.desc : k !== 'desc' }; rerender(); }));
     on('#bf-all', 'change', (e) => { el.querySelectorAll('tr.bf-row').forEach((tr) => { if (e.target.checked) bf.sel.add(tr.dataset.id); else bf.sel.delete(tr.dataset.id); }); rerender(); });
+    on('#bf-sortby', 'change', (e) => { const [k, d] = e.target.value.split(':'); bf.sort = { key: k, desc: d === 'd' }; bf.page = 0; rerender(); });
+    on('#bf-show', 'change', (e) => { bf.show = e.target.value; bf.page = 0; rerender(); });
+    on('#bf-sel-sure', 'click', () => { rowsFor(b, a).forEach((l) => { if (plan(b, l).level === 'sure') bf.sel.add(l.id); }); rerender(); });
     on('#bf-sel-ready', 'click', () => { rowsFor(b, a).forEach((l) => { const p = plan(b, l); if (p.best || p.categoryId) bf.sel.add(l.id); }); rerender(); });
     on('#bf-bclear', 'click', () => { bf.sel.clear(); rerender(); });
     on('#bf-bpost', 'click', (e) => UI.busy(e.target, () => batchPost(b, a, (($('#bf-bcat') || {}).value) || '')));
@@ -17137,17 +17009,22 @@
   const seq = (ids, fn) => ids.reduce((p, id) => p.then((acc) => fn(id).then(() => acc.concat([{ id, ok: true }]), (e) => acc.concat([{ id, ok: false, error: e.message }]))), Promise.resolve([]));
   const candDraft = (c) => c.kind === 'open' ? { kind: 'open', txnIds: c.txnIds, amounts: c.amounts } : c.kind === 'deposit' ? { kind: 'deposit', txnIds: c.txnIds } : c.kind === 'group' ? { kind: 'group', links: c.links } : { kind: 'match', txnId: c.txnId, splitIndex: c.splitIndex };
   function primary(b, id) { // the row's one-click action: the best match, else Add with its category (a rule's split posts as a split)
+    try { return b.postBankLine(id, primaryDraft(b, id)); } catch (e) { return Promise.reject(e); }
+  }
+  function primaryDraft(b, id) {
     const l = b.bankLineById[id], p = plan(b, l);
-    if (p.best) return b.postBankLine(id, candDraft(p.best));
-    if (!p.categoryId) return Promise.reject(new Error('Choose a category for ' + l.description + '.'));
+    if (p.best) return candDraft(p.best);
+    if (!p.categoryId) throw new Error('Choose a category for ' + l.description + '.');
     const d = bf.drafts[id] || {};
-    if (p.sug && p.sug.splits && !d.categoryId) return b.postBankLine(id, { kind: 'split', lines: p.sug.splits, contactId: p.contactId, memo: d.memo !== undefined ? d.memo : p.sug.memo });
-    return b.postBankLine(id, { kind: 'add', categoryId: p.categoryId, contactId: p.contactId, classId: p.sug && !d.categoryId ? p.sug.classId : '', memo: d.memo !== undefined ? d.memo : (p.sug && !d.categoryId && p.sug.memo) || undefined });
+    if (p.sug && p.sug.splits && !d.categoryId) return { kind: 'split', lines: p.sug.splits, contactId: p.contactId, memo: d.memo !== undefined ? d.memo : p.sug.memo };
+    return { kind: 'add', categoryId: p.categoryId, contactId: p.contactId, classId: p.sug && !d.categoryId ? p.sug.classId : '', memo: d.memo !== undefined ? d.memo : (p.sug && !d.categoryId && p.sug.memo) || undefined };
   }
   function batchPost(b, a, cat) {
     const ids = [...bf.sel];
     if (cat) ids.forEach((id) => { const d = bf.drafts[id] || (bf.drafts[id] = {}); d.categoryId = cat; });
-    return seq(ids, (id) => primary(b, id).then(() => { delete bf.drafts[id]; })).then((r) => { r.filter((x) => x.ok).forEach((x) => bf.sel.delete(x.id)); if (bf.open && !b.bankLineById[bf.open] || (b.bankLineById[bf.open] || {}).status !== 'review') bf.open = ''; done(r, 'posted'); });
+    // 1.57: decide every line first, then post. Deciding after each post re-read the whole statement (a second per line on a long one).
+    const drafts = {}; ids.forEach((id) => { try { drafts[id] = primaryDraft(b, id); } catch (e) { drafts[id] = e; } });
+    return seq(ids, (id) => (drafts[id] instanceof Error ? Promise.reject(drafts[id]) : b.postBankLine(id, drafts[id])).then(() => { delete bf.drafts[id]; })).then((r) => { r.filter((x) => x.ok).forEach((x) => bf.sel.delete(x.id)); if (bf.open && !b.bankLineById[bf.open] || (b.bankLineById[bf.open] || {}).status !== 'review') bf.open = ''; done(r, 'posted'); });
   }
   function excludeAsk(ids) {
     if (!ids.length) return;
@@ -17165,6 +17042,10 @@
     const id = pane.dataset.line, d = bf.drafts[id] || (bf.drafts[id] = {}), t = e.target.closest('[data-ptab], [data-act]'); if (!t) return;
     if (t.dataset.ptab) { bf.openTab = t.dataset.ptab; return UI.render(); }
     const act = t.dataset.act, l = b.bankLineById[id], p = plan(b, l);
+    if (act === 'like') {   // tick every line of this payee; a category already picked here goes with them
+      likeIds(b, b.accById[l.accountId], p).forEach((x) => { bf.sel.add(x); if (d.categoryId) (bf.drafts[x] || (bf.drafts[x] = {})).categoryId = d.categoryId; });
+      bf.open = ''; return UI.render();
+    }
     const post = (draft) => UI.busy(t, () => b.postBankLine(id, draft).then(() => { delete bf.drafts[id]; bf.open = ''; nextFocus(id); UI.toast('Posted.'); UI.render(); })).catch(UI.error);
     if (act === 'linesave') {
       const v = (k) => pane.querySelector(`[data-ln="${k}"]`).value;
@@ -17273,7 +17154,6 @@
     on('#bfi-remap', 'click', remap); on('#bfi-remap2', 'click', remap);
     on('#bfi-books', 'change', (e) => { imp.matchBooks = e.target.checked; });
     on('#bfi-auto', 'change', (e) => { imp.autoAdd = e.target.checked; });
-    on('#bfi-pending', 'change', (e) => { imp.skipPending = e.target.checked; preview(b, imp); UI.render(); });
     on('#bfi-go', 'click', (e) => UI.busy(e.target, () => {
       const bal = imp.bal, meta = { fileName: imp.fileName, source: 'csv', endingBalance: bal.hasBalance && !bal.mismatches.length ? bal.endingBalance : null, endingDate: bal.hasBalance ? bal.endingDate : '' };
       const save = imp.remember ? b.saveBankProfile(imp.accountId, { header: imp.header, mapping: imp.mapping, dateFormat: imp.mapping.dateFormat, invert: imp.invert }) : Promise.resolve();
@@ -17336,7 +17216,7 @@
         <div class="scroll-x"><table class="data compact" data-testid="bf-xpay-table"><thead><tr><th>Date</th><th>Customer or vendor</th><th class="num">Payment</th><th>Apply to</th><th class="num">Amount</th></tr></thead><tbody>${pl.rows.slice(0, 12).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.name)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc((x.kind === 'Bill payment' ? 'Bill ' : 'Invoice ') + (x.doc || U.fmtDate(x.docDate)))}</td><td class="num">${UI.money(x.applied)}</td></tr>`).join('')}${pl.rows.length > 12 ? `<tr><td colspan="5" class="muted">and ${pl.rows.length - 12} more in the file</td></tr>` : ''}</tbody></table></div>
         <div class="form-actions"><button class="btn" id="bfx-paylist" data-testid="bfx-paylist">Download payments to apply (.csv)</button></div></section>` : ''}
       ${iif ? `<p class="small"><button class="btn ghost small" id="bfx-paylist-old" data-testid="bfx-paylist-old">Payments to apply for lines already exported</button> <span class="muted">If an earlier file left invoices open in QuickBooks: this lists which invoices each of those payments pays, for the chosen period.</span></p>
-      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd ${UI.qbToolWhere} › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
+      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd (tools folder) › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
       <div class="form-actions"><span class="spacer"></span><button class="btn primary" id="bfx-go" data-testid="bf-export-go" ${r && r.txnCount ? '' : 'disabled'}>${iif ? 'Download .iif' : 'Download .csv' + (ex.accountIds.length > 1 ? ' files' : '')}</button></div>
       ${hist.length ? `<details class="bf-xhist"><summary>Export history (${hist.length})</summary><table class="data compact" data-testid="bf-export-history"><tbody>${hist.map((h) => `<tr class="${h.undone ? 'inactive' : ''}"><td>${esc(new Date(h.at).toLocaleString())}</td><td>${esc(h.fileName)}</td><td class="num">${h.count} line${h.count === 1 ? '' : 's'}</td>
         <td>${h.undone ? '<span class="badge void">Marked not exported</span>' : `<button class="btn ghost small" data-xundo="${esc(h.id)}">Mark as not exported</button>`}</td></tr>`).join('')}</tbody></table></details>` : ''}`;
@@ -17529,7 +17409,7 @@
       .then((r) => {
         st.queue = []; st.results = []; st.log = '';
         UI.toast(r.added + ' line' + (r.added === 1 ? '' : 's') + ' added to For review' + (r.duplicates ? ' · ' + r.duplicates + ' already imported' : '') + '.');
-        UI.go((UI.feedReviewHash && UI.feedReviewHash(accId)) || '#/bankfeed?account=' + encodeURIComponent(accId));
+        UI.go('#/bankfeed?account=' + encodeURIComponent(accId));
       })).catch(UI.error);
   }
 
@@ -17779,7 +17659,7 @@
     const tkey = 'report:' + key + (def.cols ? ':' + (p.columns || 'total') : '') + (def.compare ? ':' + (p.compare || 'none') : '');
     el.innerHTML = `<div class="page report-page fill">
       <div class="page-head no-print"><div><a href="#/reports" class="back">Reports</a><h1>${esc(def.title)}</h1></div>
-        <div class="actions">${def.kind === 'year' ? '<a class="btn" href="#/1099">1099 setup</a>' : ''}${def.fields ? '<button type="button" class="btn" id="rp-fields" data-testid="rp-fields">Fields</button>' : UI.columnsButton(tkey)}<button class="btn" data-x="csv">CSV</button><button class="btn" data-x="xlsx" data-key="e">Excel</button><button class="btn" data-x="pdf">PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
+        <div class="actions">${def.kind === 'year' ? '<a class="btn" href="#/1099">1099 setup</a>' : ''}${def.fields ? '<button type="button" class="btn" id="rp-fields" data-testid="rp-fields">Fields</button>' : UI.columnsButton(tkey)}<button class="btn" id="rp-iif" data-testid="rp-iif" aria-pressed="false" title="Pick entries and download them for QuickBooks Desktop">.iif</button><button class="btn" data-x="csv">CSV</button><button class="btn" data-x="xlsx" data-key="e">Excel</button><button class="btn" data-x="pdf">PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
       <form class="toolbar wrap no-print" id="rp-form">
         ${def.kind === 'range' ? `<label>Period ${UI.rangeSelect('rp-range', p.range)}</label>
           <label>From <input type="date" id="rp-from" value="${esc(p.from)}"></label><label>To <input type="date" id="rp-to" value="${esc(p.to)}"></label>` : def.kind === 'year' ? `<label>Tax year <select id="rp-year">${years.map((y) => `<option${y === p.year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>
@@ -17831,7 +17711,79 @@
       const header = [[{ v: b.company.name, bold: true }], [{ v: out.title || def.title, bold: true }], [period + (def.basis ? ' · ' + p.basis + ' basis' : '')], []];
       UI.exportMatrix(def.title.replace(/[^A-Za-z]+/g, '_'), header.concat(out.matrix), btn.dataset.x, { report: true });
     }));
+    bindIIF(el, b, def, period);
   };
+
+  /**
+   * 1.64: .iif beside CSV on any report that lists entries. Pressed, each entry gets a tick box; the bar above the report
+   * selects all of them or none and downloads the ticked ones as one .iif (invoices and bank transactions; see
+   * OB.qbexport.anyIIF). The choice lives here and is cleared when the report's dates or account change.
+   */
+  const iif = { on: false, sel: new Set(), key: '', note: null };
+  function bindIIF(el, b, def, period) {
+    const btn = el.querySelector('#rp-iif'), art = el.querySelector('article.report');
+    const links = art ? [...art.querySelectorAll('a[href^="#/txn/"]')] : [];
+    if (!btn) return;
+    if (!links.length) { btn.remove(); return; }
+    const key = b.company.id + location.hash;
+    if (iif.key !== key) { iif.key = key; iif.sel.clear(); iif.note = null; }
+    btn.setAttribute('aria-pressed', String(iif.on)); btn.classList.toggle('on', iif.on);
+    btn.addEventListener('click', () => { iif.on = !iif.on; if (!iif.on) { iif.sel.clear(); iif.note = null; } UI.render(); });
+    if (!iif.on) return;
+    const idOf = (a) => decodeURIComponent(a.getAttribute('href').slice(6).split(/[?#]/)[0]);
+    const all = [...new Set(links.map(idOf))].filter((id) => b.txById[id]);
+    const done = new Set();
+    links.forEach((a) => {   // one box per row, before the row's first entry link
+      const tr = a.closest('tr'); if (!tr || done.has(tr)) return; done.add(tr);
+      const id = idOf(a); if (!b.txById[id]) return;
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'rp-pick'; cb.dataset.id = id; cb.checked = iif.sel.has(id);
+      cb.setAttribute('aria-label', 'Select ' + a.textContent.trim() + ' ' + b.txById[id].date);
+      a.parentNode.insertBefore(cb, a);
+    });
+    art.classList.add('iif-on');
+    const bar = document.createElement('div'); bar.className = 'banner info rp-iifbar no-print'; bar.setAttribute('data-testid', 'rp-iifbar');
+    art.parentNode.insertBefore(bar, art);
+    const draw = () => {
+      const n = iif.sel.size, note = iif.note;
+      bar.innerHTML = note && note.busy ? `<span class="rp-gen" role="status" aria-live="polite"><span class="pr-spin" aria-hidden="true"></span> Preparing the .iif file: ${note.busy} entr${note.busy === 1 ? 'y' : 'ies'}…</span>`
+        : `<span><strong data-testid="rp-iif-count">${n}</strong> of ${all.length} selected</span>
+        <button class="btn small" id="rp-iif-all" data-testid="rp-iif-all">Select all ${all.length} in this report</button>
+        <button class="btn small" id="rp-iif-none" ${n ? '' : 'disabled'}>Clear</button>
+        <button class="btn small primary" id="rp-iif-go" data-testid="rp-iif-go" ${n ? '' : 'disabled'}>Download .iif (${n})</button>
+        ${note && note.file ? `<span class="rp-iif-note" data-testid="rp-iif-note">${note.marked !== undefined ? `<strong>${note.marked}</strong> marked as in QuickBooks.` : `Saved <strong>${esc(note.file)}</strong> with ${note.count} entr${note.count === 1 ? 'y' : 'ies'}.${note.left ? ' Left out: ' + esc(note.left) + '.' : ''} ${note.count ? 'Did QuickBooks import it without errors? <button class="btn small" id="rp-iif-yes" data-testid="rp-iif-yes">Yes, mark them</button> <button class="btn small" id="rp-iif-no">No</button>' : ''}`}</span>` : ''}`;
+      const on = (q, f) => { const x = bar.querySelector(q); if (x) x.addEventListener('click', f); };
+      on('#rp-iif-all', () => { all.forEach((id) => iif.sel.add(id)); sync(); });
+      on('#rp-iif-none', () => { iif.sel.clear(); sync(); });
+      on('#rp-iif-go', go);
+      on('#rp-iif-yes', () => OB.qbsend.markIIF(b, note.keys).then((m) => { iif.note = { file: note.file, marked: m }; draw(); }));
+      on('#rp-iif-no', () => { iif.note = null; draw(); });
+    };
+    const sync = () => { art.querySelectorAll('.rp-pick').forEach((c) => { c.checked = iif.sel.has(c.dataset.id); }); draw(); };
+    art.addEventListener('change', (e) => {
+      const c = e.target.closest && e.target.closest('.rp-pick'); if (!c) return;
+      if (c.checked) iif.sel.add(c.dataset.id); else iif.sel.delete(c.dataset.id); sync();
+    });
+    art.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.rp-pick')) e.stopPropagation(); }, true);   // a tick does not open the entry
+    function go() {
+      const ids = [...iif.sel]; iif.note = { busy: ids.length }; draw();
+      // let the bar paint and turn at least once before the work, so the user sees the file being made
+      const wait = new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(ok, 50))));
+      const min = new Promise((ok) => setTimeout(ok, 700));
+      wait.then(() => {
+        const out = OB.qbexport.anyIIF(b, ids, { names: b.company.qbNames || {} });
+        const co = (b.company.name || 'VaultBook').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+        const file = `${co}-${(def.title || 'report').replace(/[^A-Za-z]+/g, '-')}-${period.replace(/[^0-9]+/g, '-').replace(/^-|-$/g, '') || 'entries'}.iif`;
+        const left = [out.inQB.length ? out.inQB.length + ' already in QuickBooks' : ''].concat(Object.keys(out.cannot).map((k) => out.cannot[k] + ' ' + k.toLowerCase() + (out.cannot[k] === 1 ? '' : 's') + ' (not in .iif yet)')).filter(Boolean).join(', ');
+        return min.then(() => {
+          if (out.count) U.download(file, new Blob([OB.qbexport.toAnsi(out.text)], { type: 'text/plain' }));
+          iif.note = { file: out.count ? file : '', count: out.count, keys: out.keys, left };
+          if (!out.count) { iif.note = null; UI.toast('Nothing to put in the file: ' + (left || 'no entries') + '.', 'warn'); }
+          draw();
+        });
+      }).catch((e) => { iif.note = null; draw(); UI.toast(e.message, 'error'); });
+    }
+    draw();
+  }
 
   /* drill-down helpers */
   const glLink = (accountId, from, to, html, basis) => `<a href="#/report/gl?${UI.qs({ account: accountId, range: 'custom', from: from || '1900-01-01', to, basis })}">${html}</a>`;
@@ -19586,7 +19538,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     if (!files.length) return null;
     const model = Q.read(files.filter((f) => !f.isPdf));
     const known = model.files.filter((f) => f.kind !== 'unknown').length + files.filter((f) => f.isPdf).length;
-    if (!known) throw new Error('None of these files is a QuickBooks export VaultBook knows. Use the connector\'s Export everything file (VaultBook-QB-full-….json), or send the Journal, Trial Balance, Balance Sheet and Profit and Loss from QuickBooks Online (Excel), or the IIF lists and General Ledger from QuickBooks Desktop.');
+    if (!known) throw new Error('None of these files is a QuickBooks export VaultBook knows. Use the connector\'s QuickBooks -> VaultBook file (VaultBook-QB-full-….json), or send the Journal, Trial Balance, Balance Sheet and Profit and Loss from QuickBooks Online (Excel), or the IIF lists and General Ledger from QuickBooks Desktop.');
     const guess = model.company.name || '';
     return (guess ? Promise.resolve(guess) : UI.prompt('Create a company from QuickBooks files', 'Company name', '', { ok: 'Create company', help: 'These files do not name the company.' })).then((name) => {
       name = String(name || '').trim(); if (!name) return null;
@@ -21505,39 +21457,6 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       .then((pw) => pw === null ? null : OB.db.newRecoveryKey(b, pw).then((rk) => UI.showRecoveryKey(rk, b.company.name, 'New recovery key issued. The previous one no longer works.'))).catch(UI.error));
     el.querySelector('#sec-off').addEventListener('click', () => UI.prompt('Turn off password protection', 'Company password', '', { type: 'password', ok: 'Turn off protection', danger: true, help: 'All data for this company will be stored unencrypted on this PC, and new backups will not be encrypted.' })
       .then((pw) => pw === null ? null : OB.db.unprotect(b, pw).then(() => { UI.toast('Password protection turned off.'); UI.render(); })).catch(UI.error));
-  };
-})();
-
-/* ---------- Connected services (1.58.0): keys for outside services, kept by OB.secrets ---------- */
-(function () {
-  'use strict';
-  const UI = OB.ui, esc = OB.util.esc, X = OB.secrets;
-  const base = UI.securityTab;
-  const KIND = { simplefin: 'Bank sync (SimpleFIN Bridge)' };
-  const when = (iso) => { try { return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'never'; } catch (e) { return iso || 'never'; } };
-  function render(card) {
-    const co = UI.book.company.id;
-    if (!X || !X.available()) { card.innerHTML = '<h2>Connected services</h2><p class="muted">This browser cannot keep encrypted keys, so outside services cannot be connected here.</p>'; return; }
-    X.list(co).then((list) => {
-      card.innerHTML = `<h2>Connected services</h2>
-        <p>Keys VaultBook uses to fetch data from outside services, such as automatic bank sync. Each key is <strong>encrypted on this device</strong>, is <strong>never included</strong> in backups or exports, and does not leave this device except to reach its own service.</p>
-        ${list.length ? `<div class="scroll-x"><table class="data" data-testid="secrets-list"><thead><tr><th>Service</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>${list.map((s) => `<tr>
-            <td><strong>${esc(s.label)}</strong><div class="muted small">${esc(KIND[s.kind] || s.kind)}</div></td><td>${esc(when(s.createdAt))}</td><td>${esc(when(s.lastUsedAt))}</td>
-            <td>${s.kind === 'simplefin' && UI.sfSettingsLink ? `<a class="btn ghost small" href="${UI.sfSettingsLink()}">Manage</a> ` : ''}<button type="button" class="btn ghost small" data-rm="${esc(s.id)}" data-label="${esc(s.label)}">Remove</button></td></tr>`).join('')}</tbody></table></div>
-          <p class="muted small">Removing a key stops VaultBook from using it. To cut off access completely, also revoke it at the service itself (for SimpleFIN Bridge: sign in at beta-bridge.simplefin.org and remove the app).</p>`
-        : `<p class="muted" data-testid="secrets-empty">No services connected. Nothing is fetched from outside this device.</p>${UI.sfSettingsLink ? `<p><a class="btn" href="${UI.sfSettingsLink()}">Set up automatic bank sync (optional)</a></p>` : ''}`}`;
-      card.querySelectorAll('[data-rm]').forEach((btn) => btn.addEventListener('click', () => {
-        UI.confirm('Remove ' + btn.dataset.label + '?', '<p>VaultBook will stop using this key on this device. Lines already imported stay in your books.</p>', { ok: 'Remove' })
-          .then((yes) => yes && X.remove(btn.dataset.rm).then(() => { if (/^simplefin:/.test(btn.dataset.rm)) OB.prefs.set('sfState:' + UI.book.company.id, null); UI.toast(btn.dataset.label + ' removed.'); render(card); }))
-          .catch(UI.error);
-      }));
-    }).catch((e) => { card.innerHTML = '<h2>Connected services</h2><div class="banner danger">' + esc(e.message || String(e)) + '</div>'; });
-  }
-  UI.securityTab = function (el, r) {
-    base(el, r);
-    const card = document.createElement('section');
-    card.className = 'card'; card.dataset.testid = 'connected-services';
-    el.appendChild(card); render(card);
   };
 })();
 
@@ -23781,7 +23700,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     Banking: () => [['Bank feed', '#/bankfeed'], ['Import statement', '#/pdfimport'], SEP, ['Make deposit', '#/txn/new?type=deposit'], ['Transfer', '#/txn/new?type=transfer'], ['Write check', '#/txn/new?type=check'], SEP,
       ['Reconcile', '#/reconcile'], ['Bank rules', '#/rules'], ['Registers', '#/vreg/sales'], ['Transactions', '#/transactions']],
     Accountant: () => [['Close the books', '#/close'], ['Reclassify', '#/reclassify'], ['Journal entry', '#/txn/new?type=journal'], ['Paste entries', '#/paste'], SEP,
-      ['QuickBooks Desktop', '#/qbd'], ['Months & send', '#/qbsend?tab=months'], ['Update QuickBooks', '#/qbd/update'], ['Tie-out report', '#/qbd/tieout']],
+      ['QuickBooks Desktop', '#/qbd'], ['Send by date', '#/qbsend?tab=date'], ['Months & send', '#/qbsend?tab=months'], ['Update QuickBooks', '#/qbd/update'], ['Tie-out report', '#/qbd/tieout']],
     Reports: () => [['Report center', '#/reports'], SEP, ['Profit and loss', '#/report/pnl'], ['Balance sheet', '#/report/bs'], SEP, ['A/R aging', '#/report/araging'], ['A/P aging', '#/report/apaging'],
       ['General ledger', '#/report/gl'], ['Trial balance', '#/report/tb'], ['Journal', '#/report/journal']],
     Window: () => (OB.windows ? OB.windows.list : []).map((w) => [(w.id === OB.windows.activeId ? '✓ ' : '') + (w.title || w.hash), () => OB.windows.focus(w.id), '', w.id])
@@ -23838,10 +23757,10 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   /* ---------- icon toolbar ---------- */
   const TOOLS = [['Home', '#/dashboard'], ['Calendar', '#/calendar'], SEP, ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Payroll', '#/payroll'], SEP,
     ['Bank feed', '#/bankfeed'], ['Reconcile', '#/reconcile'], ['Close books', '#/close'], ['Reports', '#/reports'], SEP, ['Paste entries', '#/paste'], ['Docs', '#/docs'], ['Snapshot', '#/snapshot'], SEP,
-    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings?tab=backup']];
+    ['Send to QBD', '#/qbsend?tab=date'], ['Backup', '#/settings?tab=backup']];
   const tb = document.createElement('div');
   tb.id = 'tbar'; tb.className = 'tbar'; tb.setAttribute('role', 'toolbar'); tb.setAttribute('aria-label', 'Main toolbar'); tb.dataset.testid = 'toolbar';
-  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg');
+  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg') || document.querySelector('#sidebar a[href^="' + x[1].split('?')[0] + '?"] svg');   // the side link may open another tab of the same screen
     return `<a href="${x[1]}">${s ? s.outerHTML : ''}<span>${x[0]}</span></a>`; }).join('');
   topbar.insertBefore(tb, topbar.firstChild);
   const name = (h) => h.slice(2).split(/[/?]/)[0];
@@ -24889,6 +24808,46 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     bankfees: 'ATM FEE|FOREIGN TRANSACTION FEE|MAINTENANCE FEE|MONTHLY SERVICE FEE|NSF FEE|OVERDRAFT|SERVICE CHARGE|WIRE FEE|' +
       'WIRE TRANSFER FEE'
   };
+  /* 1.57.0: more brand names (new brands only, same rules as above), from a merchant list the user supplied. */
+  var MORE = {
+    advertising: 'AVVO|EDDM USPS|GOOGLE BUSINESS PROFILE|GOOGLE HOTEL ADS|GOOGLE LOCAL SERVICES ADS|GOOGLE MARKETING PLATFORM|' +
+      'HIBU|INDEED|INDEED SPONSORED JOBS|META BUSINESS SUITE|MONSTER EMPLOYER|REDDIT FOR BUSINESS|' +
+      'SNAPCHAT FOR BUSINESS|WARNER BROS DISCOVERY ADVERTISING|WHATSAPP BUSINESS PLATFORM',
+    fuel: 'BEACON BRIDGE MARKET|CASEY GENERAL STORES|KUM GO|TERRIBLE HERBST|TRAVELCENTERS AMERICA',
+    insurance: 'AMERICAN FAMILY INSURANCE|AMERICAN INTEGRITY INSURANCE|AMERICAN MODERN INSURANCE|AMERICAN NATIONAL INSURANCE|' +
+      'BERKSHIRE HATHAWAY GUARD|BERKSHIRE HATHAWAY GUARD INSURANCE|BERKSHIRE HATHAWAY HOMESTATE|' +
+      'BERKSHIRE HATHAWAY SPECIALTY INSURANCE|GREAT AMERICAN INSURANCE GROUP|LEGAL GENERAL AMERICA|' +
+      'LEMONADE HOME INSURANCE|MAIN STREET AMERICA GROUP|NATIONAL GENERAL INSURANCE|NEW YORK STATE INSURANCE FUND|' +
+      'NORTH CAROLINA FARM BUREAU|OLD REPUBLIC INSURANCE|SENTRY INSURANCE',
+    meals: 'BLACK BEAR DINER|BLACK ROCK COFFEE BAR|BUCA DI BEPPO|CHEDDAR SCRATCH KITCHEN|CHURCH TEXAS CHICKEN|' +
+      'DAVE BUSTER|FLEMING PRIME STEAKHOUSE|FOGO DE CHAO|FREDDY FROZEN CUSTARD|HOOTERS|LITTLE CAESARS|' +
+      'MILLER ALE HOUSE|MOE SOUTHWEST GRILL|MORTON STEAKHOUSE|NOAH NEW YORK BAGELS|PAPA MURPHY|PRET MANGER|' +
+      'SCOOTER COFFEE|STEAK SHAKE|TOUS LES JOURS',
+    phone: 'BOOST INFINITE|BOOST MOBILE|COX BUSINESS|COX MOBILE|GOOGLE FI|KINETIC BY WINDSTREAM|METRO BY MOBILE|MIDCO|' +
+      'MINT MOBILE|PAGE PLUS CELLULAR|RCN|RED POCKET MOBILE|TING MOBILE|TOTAL BY VERIZON|US CELLULAR',
+    repairs: 'ADT|BROWN BEAR CAR WASH|DKI SERVICES|GLASS AMERICA REPAIR|LESLIE POOL SERVICE|LESLIE POOL SUPPLIES|' +
+      'MERRY MAIDS|ONE HOUR AIR CONDITIONING|ONE HOUR HEATING AIR CONDITIONING|PINCH PENNY POOL PATIO SPA|' +
+      'RAINBOW INTERNATIONAL RESTORATION|RAINBOW RESTORATION|TOMMY EXPRESS CAR WASH',
+    shipping: 'CMA CGM|DUIE PYLE|HAPAG LLOYD|LONE STAR OVERNIGHT|MAERSK LOGISTICS|SAIA|VEHO|WWEX GROUP',
+    software: 'A2X|COURSERA FOR BUSINESS|DEXT|ESET|GOOGLE ANALYTICS|GOOGLE DOMAINS|GOOGLE DRIVE|GOOGLE ONE|GOOGLE SUITE|' +
+      'INTUIT TURBOTAX|JIRA|KEAP|MIRO|MONDAY CRM|MONDAY WORK MANAGEMENT|ODOO|OKTA|PRACTICE IGNITION|QLIK|SNYK|XERO|' +
+      'ZOHO',
+    supplies: 'CDW|CONTAINER STORE|CONTAINER STORE BUSINESS|HERMAN MILLER|NATIONAL OFFICE INTERIORS|OFFICE FURNITURE CENTER|' +
+      'OFFICE FURNITURE WAREHOUSE|OWENS MINOR|ROOM BOARD BUSINESS|SHI INTERNATIONAL|VWR INTERNATIONAL|ZORO',
+    travel: 'ABM PARKING|AC HOTELS|ALOFT HOTELS|AVID HOTELS|CAMBRIA HOTELS|CANOPY BY HILTON|CHOICE HOTELS|CLARION HOTELS|' +
+      'DRURY HOTELS|ELEMENT HOTELS|HAMPTON BY HILTON|IHG HOTELS|INTERCONTINENTAL HOTELS|JSX|KIMPTON HOTELS|' +
+      'LONG ISLAND RAIL ROAD|MBTA|NEW YORK CITY TRANSIT|OYO HOTELS|PASSPORT PARKING|RADISSON HOTELS|' +
+      'RENAISSANCE HOTELS|SIXT|SOUTHERN AIRWAYS EXPRESS|TURO|VIA RAIL USA',
+    utilities: 'AMERICAN ELECTRIC POWER|AQUA AMERICA|ARIZONA PUBLIC SERVICE|ATLANTIC CITY ELECTRIC|' +
+      'CLARK COUNTY WATER RECLAMATION|COLORADO SPRINGS UTILITIES|EL PASO ELECTRIC|GREEN MOUNTAIN ENERGY|' +
+      'LAS VEGAS VALLEY WATER DISTRICT|LOS ANGELES DEPARTMENT WATER POWER|MUD OMAHA|ORANGE ROCKLAND UTILITIES|' +
+      'PSO PUBLIC SERVICE COMPANY OKLAHOMA|PUBLIC SERVICE COMPANY COLORADO|PUBLIC SERVICE COMPANY NEW MEXICO|' +
+      'PUGET SOUND ENERGY|RIVERSIDE PUBLIC UTILITIES|ROCKY MOUNTAIN POWER|SALT RIVER PROJECT|SAN DIEGO GAS ELECTRIC|' +
+      'SEATTLE CITY LIGHT|WISCONSIN PUBLIC SERVICE',
+    vehicle: 'AMERICA TIRE|AMERICA TIRE COMPANY|GLASS AMERICA|HONDA PARTS|JEGS|LKQ|SERVICE KING COLLISION|SUBARU PARTS|' +
+      'TESLA SERVICE|TOYOTA PARTS'
+  };
+  Object.keys(MORE).forEach(function (k) { root.OB.merchants[k] += '|' + MORE[k]; });
 })(typeof window !== 'undefined' ? window : global);
 
 ;
@@ -25018,12 +24977,50 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   var NO_PAYEE_ANY = /\b(ATM|WIRE|MEMOWIRE|TYPEBOOK|WITHDRAWAL|WITHDRWL|CASH|TRANSFER|XFER|TFR)\b/;
   H.notPayee = function (key) { return !key || NOT_PAYEE.test(key) || NO_PAYEE_ANY.test(key) || key.length < 4; };
   /** The contact whose every name word is in the bank text (longest name wins), or null. */
-  H.vendorIn = function (book, desc) {
-    var d = ' ' + words(desc).join(' ') + ' ', best = null, bl = 0;
-    book.contacts.forEach(function (c) { if (c.active === false) return; var w = words(c.name); if (!w.length || w.join('').length < 3) return; var k = w.join(' ');
-      if (d.indexOf(' ' + k + ' ') >= 0 && k.length > bl) { best = c; bl = k.length; } });
-    return best;
+  /** The part of a bank description that can name the payee: upper case, the payee first, bank noise removed. */
+  var PROC = /^(TST|SQ|PY|PYL|SP|PP|PAYPAL|DNH|EB|FS|WPY|CKO|TOAST)\s*\*\s*/;
+  H.payeeText = function (desc) {
+    var s = String(desc || ''), cut = s.lastIndexOf(' — ');   // the feed shows "Short name — FULL BANK TEXT": read the full text
+    if (cut >= 0) s = s.slice(cut + 3);
+    s = s.toUpperCase();
+    var m = /\b(?:ORIG|BNF)\s*:\s*(.+?)\s+(?:ID|SND BK|BNF BK|PMT DET|RFB|OBI|BNF)\s*:/.exec(s) || /\bPAYMENT (?:TO|FROM)\s+(.+?)(?:\s+CONF\s*#|\s+FOR\b|$)/.exec(s);
+    if (m) return m[1].trim();
+    if (/^WIRE TYPE/.test(s)) return s;                                                                         // a wire names the party anywhere in its text
+    s = s.replace(/\b(DES|ID|INDN|CO ID|TRACE|PPD|CCD|REF)\s*:.*$/, '');                                        // ACH tail: it holds the company's own name
+    s = s.replace(/^(MOBILE\s+)?(PURCHASE|CHECKCARD|CHECK CARD|DEBIT CARD|POS)(\s+REFUND)?(\s+\d{4})?\s+/, '');   // card prefix and its date
+    s = s.replace(/\s+\d\d\/\d\d\s+#\d+.*$/, '');                                                             // "NAME 01/04 #000008163 PURCHASE NAME CITY"
+    s = s.replace(PROC, '').replace(/\bCKCD\b.*$/, '').replace(/\bX{4,}\S*/g, ' ');
+    return s.replace(/\s+/g, ' ').trim();
   };
+  var CORP = /^(THE|LLC|INC|CO|LTD|CORP|AND|OF)$/, LOOSE = /^(TRANSFER|EXPRESS|MOBILE|PAYMENT|DEPOSIT|ONLINE|PURCHASE|SERVICE|SERVICES|INTERNATIONAL)$/;
+  function tok(s) { return String(s || '').toUpperCase().replace(/['’]/g, '').replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(function (w) { return w && !CORP.test(w); }); }
+  function vendorIndex(book) {   // names with their words run together ("CIRCLEK"), longest first; rebuilt when the contact list changes
+    var ix = book._vendorIx;
+    if (ix && ix.src === book.contacts && ix.n === book.contacts.length) return ix.list;
+    var list = []; book.contacts.forEach(function (c) { if (c.active === false) return; var j = tok(c.name).join(''); if (j.length >= 3) list.push({ c: c, j: j }); });
+    list.sort(function (a, b) { return b.j.length - a.j.length; });
+    Object.defineProperty(book, '_vendorIx', { value: { src: book.contacts, n: book.contacts.length, list: list }, writable: true, configurable: true, enumerable: false });
+    return list;
+  }
+  H.forgetVendors = function (book) { if (book._vendorIx) book._vendorIx = null; };
+  /**
+   * The contact a bank line names: { contact, how }. how 'start' = the payee text begins with the name (spaces, dots and
+   * apostrophes ignored, so CIRCLEK is Circle K; a name the bank cut short still counts from 8 letters);
+   * 'inside' = the whole name appears later in the text (6 letters or more). The longest name wins; start beats inside.
+   */
+  H.vendorMatch = function (book, desc) {
+    var w = tok(H.payeeText(desc)); if (!w.length) return null;
+    var P = w.join(''), ends = {}, starts = {}, n = 0;
+    w.forEach(function (x) { starts[n] = 1; n += x.length; ends[n] = 1; });
+    var list = vendorIndex(book), i, e, inside = null;
+    for (i = 0; i < list.length; i++) {
+      e = list[i];
+      if (P.lastIndexOf(e.j, 0) === 0 ? (ends[e.j.length] || e.j.length >= 8) : (P.length >= 8 && e.j.lastIndexOf(P, 0) === 0)) return { contact: e.c, how: 'start' };
+      if (!inside && e.j.length >= 6 && !LOOSE.test(e.j)) { var at = P.indexOf(e.j, 1); while (at > 0 && !(starts[at] && ends[at + e.j.length])) at = P.indexOf(e.j, at + 1); if (at > 0) inside = e.c; }
+    }
+    return inside ? { contact: inside, how: 'inside' } : null;
+  };
+  H.vendorIn = function (book, desc) { var m = H.vendorMatch(book, desc); return m ? m.contact : null; };
   /** How many of these lines the source identified: { found, of }. */
   H.coverage = function (book, lines, fn) {
     return { of: lines.length, found: lines.filter(function (l) { return fn(l); }).length };
@@ -25062,14 +25059,18 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   function keyOf(w) { return w.slice(0, 4).join(' '); }
   function wordsKey(s) { var k = keyOf(H.words(s)); return H.notPayee(k) ? '' : k; }
   // a past entry is filed under its payee's name and under its bank wording, so a bank line finds it either way
-  function txnKeys(book, t) {
-    var c = t.contactId && book.contactById[t.contactId], a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(t.memo));
-    return [a, b].filter(function (k, i, l) { return k && l.indexOf(k) === i; });
+  // (1.57: also under the contact itself, so "Interest Earned" or a payer named on a deposit line is learned too)
+  function txnKeys(book, t, who) {
+    var c = who && book.contactById[who], a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(t.memo));
+    return [c ? 'c:' + c.id : '', a, b].filter(function (k, i, l) { return k && l.indexOf(k) === i; });
   }
+  var OTHER = { '|in': '|out', '|out': '|in' };
   function lineKey(book, desc, hab, dir) {
-    var c = H.vendorIn(book, desc), a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(desc));
-    var k = [a, b].find(function (x) { return x && hab && hab[x + dir]; }) || a || b;
-    return { key: k, contact: c };
+    var m = H.vendorMatch(book, desc), c = m ? m.contact : null, a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(H.payeeText(desc)));
+    var keys = [c ? 'c:' + c.id : '', a, b];
+    var k = keys.find(function (x) { return x && hab && hab[x + dir]; }), cross = false;
+    if (!k) { k = keys.find(function (x) { return x && hab && hab[x + OTHER[dir]]; }); cross = !!k; }   // money back from a payee you pay (or the reverse)
+    return { key: k || a || b, contact: c, how: m ? m.how : '', cross: cross };
   }
   function cashSplit(book) { return function (s) { var a = book.accById[s.accountId]; return a && (a.type === 'bank' || a.type === 'cc'); }; }
   function money(c) { return U.fmt(Math.abs(c), { symbol: true }); }
@@ -25082,8 +25083,9 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       var ps = book.buildSplitsSafe(t), c = ps.filter(isCash); if (c.length !== 1 || ps.length !== 2) return;
       var o = ps[0] === c[0] ? ps[1] : ps[0], a = book.accById[o.accountId];
       if (!a || a.system === 'RE' || FEED[a.type]) return;
-      var dir = c[0].amount > 0 ? '|in' : '|out', u = { date: t.date, acct: a.id, contactId: t.contactId || '' };
-      txnKeys(book, t).forEach(function (k) { (m[k + dir] = m[k + dir] || []).push(u); });
+      var who = t.contactId || o.contactId || '';   // a QuickBooks deposit names the payer on its line
+      var dir = c[0].amount > 0 ? '|in' : '|out', u = { date: t.date, acct: a.id, contactId: who };
+      txnKeys(book, t, who).forEach(function (k) { (m[k + dir] = m[k + dir] || []).push(u); });
     });
     return m;
   };
@@ -25120,14 +25122,15 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       else p.why = 'A split rule: post it in the bank feed';
       return p;
     }
-    var uses = lk.key && hab[lk.key + (l.amount > 0 ? '|in' : '|out')];
+    var dir = l.amount > 0 ? '|in' : '|out', uses = lk.key && hab[lk.key + (lk.cross ? OTHER[dir] : dir)];
     if (uses && uses.length) {
       var dz = decide(book, uses, l.date, p.label);
       p.kind = 'habit'; p.categoryId = dz.best; p.top = dz.top; p.reason = dz.reason; p.contactId = p.contactId || dz.contactId;
       p.d = { kind: 'add', categoryId: dz.best, contactId: p.contactId };
       var why = C.risky(book, dz.best);
-      p.auto = dz.sure && !why;
-      p.why = why ? 'Goes to ' + why + ': you decide' : dz.sure ? '' : dz.top.length > 1 ? 'Used more than one account' : 'Not used often enough yet';
+      var weak = lk.cross ? 'Money back from a payee you pay: check' : lk.how === 'inside' ? 'Name found in the middle of the bank text: check' : '';
+      p.auto = dz.sure && !why && !weak;
+      p.why = why ? 'Goes to ' + why + ': you decide' : weak || (dz.sure ? '' : dz.top.length > 1 ? 'Used more than one account' : 'Not used often enough yet');
       return p;
     }
     var h = H && H.fromCommon(book, l);
@@ -25184,8 +25187,8 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       var ps = book.buildSplitsSafe(t), c = ps.filter(isCash); if (c.length !== 1 || ps.length !== 2) return;
       var o = ps[0] === c[0] ? ps[1] : ps[0], a = book.accById[o.accountId]; if (!a || a.system === 'RE' || FEED[a.type]) return;
       r.lines++;
-      var cn = t.contactId && book.contactById[t.contactId] ? book.contactById[t.contactId].name : '';
-      var dir = c[0].amount > 0 ? '|in' : '|out', lk = lineKey(book, t.memo || cn, hab, dir), uses = lk.key && hab[lk.key + dir];
+      var who = t.contactId || o.contactId, cn = who && book.contactById[who] ? book.contactById[who].name : '';
+      var dir = c[0].amount > 0 ? '|in' : '|out', lk = lineKey(book, t.memo && !/^deposit$/i.test(t.memo) ? t.memo : cn, hab, dir), uses = !lk.cross && lk.key && hab[lk.key + dir];
       if (!uses) { r.ask++; return; }
       var dz = decide(book, uses, t.date, lk.key), sure = dz.sure && !C.risky(book, dz.best), b = sure ? r.auto : r.suggest;
       b.n++; if (dz.best === a.id) b.right++; else if (sure && r.wrong) r.wrong.push([lk.key, book.accById[dz.best].name, a.name, dz.reason]);
@@ -25193,6 +25196,15 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     });
     return r;
   };
+  /** The Bank feed's view of the same plans: { lineId: plan } for one account, kept until the books change (every commit reindexes). */
+  C.forFeed = function (book, accountId) {
+    var memo = book._feedPlans || (book._feedPlans = {});
+    if (!memo[accountId]) { var m = memo[accountId] = {}; C.prepare(book, { accountId: accountId, auto: true }).forEach(function (p) { m[p.line.id] = p; }); }
+    return memo[accountId];
+  };
+  var reindex0 = OB.Book.prototype.reindex;
+  OB.Book.prototype.reindex = function () { this._feedPlans = null; if (H.forgetVendors) H.forgetVendors(this); return reindex0.apply(this, arguments); };
+
   /** Auto-posting is offered only on a clear measured result: at least 20 sure lines, 95% right. */
   C.autoAllowed = function (t) { return !!(t && t.auto && t.auto.n >= 20 && t.auto.right / t.auto.n >= 0.95); };
 
@@ -26963,15 +26975,9 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   const st = { picked: null, months: null };   // picked: Set of keys for the current list, null = all; months: Set of ticked months
   const snapKey = (b) => 'qbSnapshot:' + b.company.id;
 
-  /* The connector as one download (1.59.1): the published site has no tools folder to copy, so every place that
-   * names VaultBook QuickBooks.cmd links to tools/VaultBook-QuickBooks-Connector.zip (built by tools/build-site.py:
-   * the .cmd and the .ps1 it runs, together in one folder). Same address as the page, so it also works offline. */
-  UI.qbToolHref = 'tools/VaultBook-QuickBooks-Connector.zip';
-  UI.qbToolButton = (cls) => `<a class="${cls || 'btn'}" href="${UI.qbToolHref}" download data-testid="qb-tool-download" title="Both connector files in one zip. On the PC with QuickBooks Desktop: unzip it (right-click › Extract All), then double-click VaultBook QuickBooks.cmd.">Download the QuickBooks tool</a>`;
-  UI.qbToolWhere = `(<a href="${UI.qbToolHref}" download data-testid="qb-tool-link">download it</a> once and unzip it on that PC)`;
-
   UI.routes.qbsend = (el, r) => {
     const b = UI.book, p = Object.assign({ kinds: 'invoice,payment,bank', status: 'new', range: 'all', tab: 'months' }, r.params || {});
+    if (p.tab === 'date') return dateView(el, b, p);
     if (p.tab === 'months') return monthsView(el, b, p);
     const ranges = UI.ranges();
     if (p.range !== 'custom' && p.range !== 'all' && ranges[p.range]) { p.from = ranges[p.range][1]; p.to = ranges[p.range][2]; }
@@ -26990,7 +26996,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     const sentCount = Object.keys((b.company.qbSent || {})).filter((k) => b.company.qbSent[k].qbTxnId).length;
     const badge = (x) => x.status === 'Sent' ? `<span class="qs-st qs-sent" title="Sent ${esc(new Date(x.sentAt).toLocaleString())} · QuickBooks id ${esc(x.qbTxnId)}">Sent</span>` : x.status === 'Problem' ? `<span class="qs-st qs-problem" title="${esc(x.problem)}">Problem</span>` : '<span class="qs-st qs-new">Not sent</span>';
     el.innerHTML = UI.page('Send to QuickBooks Desktop',
-      `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
+      `<label class="btn" for="qs-result">Load result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">
        <button class="btn primary" id="qs-download" data-testid="qs-download" ${chosen.length ? '' : 'disabled'}>Download for QuickBooks (${chosen.length})</button>`,
       tabs(p, 'items') + `<form class="toolbar wrap" id="qs-form" data-testid="qs-form">
         <fieldset class="qs-kinds"><legend class="sr-only">What to send</legend>
@@ -27005,7 +27011,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         <label>Amount from <input type="text" id="qs-min" inputmode="decimal" size="9" value="${esc(p.min || '')}"></label><label>to <input type="text" id="qs-max" inputmode="decimal" size="9" value="${esc(p.max || '')}"></label>
         <button class="btn" type="submit">Show</button>
       </form>
-      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere}, choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
+      <p class="muted small">Tick what to send, then <strong>Download for QuickBooks</strong>. On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder), choose <strong>Send</strong> and pick this file: it checks every item, asks before creating any missing customer or item, records invoices first, then the payments against their invoices, then bank transactions, and saves a result file. Load that file here so each item shows as sent.${sentCount ? ` ${sentCount} item${sentCount === 1 ? '' : 's'} sent so far.` : ''}</p>
       ${list.length ? `<div class="scroll-area table-wrap"><table class="data compact qs-table" data-testid="qs-table"><thead><tr>
           <th><input type="checkbox" id="qs-all" aria-label="Select all" ${chosen.length === list.length ? 'checked' : ''}></th><th>Type</th><th>Date</th><th>No.</th><th>Name</th><th>Pays / account</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
         ${list.map((x) => `<tr class="${picked.has(x.key) ? '' : 'inactive'}"><td><input type="checkbox" data-k="${esc(x.key)}" ${picked.has(x.key) ? 'checked' : ''} aria-label="Send ${esc(x.kind)} ${esc(x.number)}"></td>
@@ -27041,7 +27047,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     UI.toast(`${n(batch.invoices.length, 'invoice')}, ${n(batch.payments.length, 'payment')} and ${n((batch.bank || []).length, 'bank transaction')} saved. On the QuickBooks PC, run VaultBook QuickBooks.cmd › Send and choose this file.` +
       (batch.skipped.length ? ` Left out (the connector cannot record these yet): ${Object.keys(left).map((k) => left[k] + ' ' + ((OB.schema.TXN_TYPES[k] || {}).label || k)).join(', ')}.` : ''), batch.skipped.length ? 'error' : undefined);
   }
-  const tabs = (p, cur) => `<div class="segmented qs-tabs" role="tablist"><a role="tab" class="btn-tab" aria-selected="${cur === 'months'}" href="#/qbsend?tab=months" data-testid="qs-tab-months">Months</a><a role="tab" class="btn-tab" aria-selected="${cur === 'items'}" href="#/qbsend?${UI.qs(Object.assign({}, p, { tab: 'items' }))}" data-testid="qs-tab-items">Items</a></div>`;
+  const tabs = (p, cur) => `<div class="segmented qs-tabs" role="tablist"><a role="tab" class="btn-tab" aria-selected="${cur === 'date'}" href="#/qbsend?tab=date" data-testid="qs-tab-date">By date</a><a role="tab" class="btn-tab" aria-selected="${cur === 'months'}" href="#/qbsend?tab=months" data-testid="qs-tab-months">Months</a><a role="tab" class="btn-tab" aria-selected="${cur === 'items'}" href="#/qbsend?${UI.qs(Object.assign({}, p, { tab: 'items' }))}" data-testid="qs-tab-items">Items</a></div>`;
 
   /** Load result file / snapshot: both are JSON from the connector; the format field says which. */
   /** One loader for every connector file: a snapshot (months), a result (sent / problems) or a full export (import). */
@@ -27066,16 +27072,113 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     el.querySelector('#qs-result').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) UI.qbLoadFile(b, f); e.target.value = ''; });
   }
 
+  /**
+   * 1.61: hand the entries to the QuickBooks tool in parts (Q.chunks), each in a fresh QuickBooks session, with a short
+   * rest between parts. The tool asks its question for the first part only. Each part's result is saved at once, so a
+   * stop loses nothing: Send again goes on with what is left. Progress lives in st.run and survives leaving the screen.
+   */
+  function runSend(b, r, code) {
+    const parts = Q.chunks(r), run = st.run = { co: b.company.id, total: r.keys.length, done: 0, recorded: 0, dup: 0, prob: 0, state: 'running' };
+    const show = () => { if (UI.parseHash().name === 'qbsend') UI.render(); }, wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    let i = 0;
+    const next = () => {
+      if (i >= parts.length) { run.state = 'done'; run.at = new Date().toISOString(); return null; }
+      if (run.halt) { run.state = 'halted'; return null; }
+      const part = parts[i], text = OB.qbupdate.toText(Q.batch(b, part, { names: b.company.qbNames || {} }));
+      return UI.qbLink('/run', { code, action: 'apply', batchText: text, yes: i > 0 }).then((res) => {
+        if (res.format !== 'vaultbook-qb-result') throw new Error(res.error || 'The tool did not send a result.');
+        const sum = Q.resultSummary(res);
+        return Q.applyResult(b, res).then(() => {
+          run.done += part.length; run.recorded += sum.recorded; run.dup += sum.dup; run.prob += sum.prob;
+          if (sum.stopped) { run.state = 'stopped'; return null; }
+          if (sum.declined) { run.state = 'declined'; return null; }
+          i++; show(); return wait(i < parts.length ? Q.REST_MS : 0).then(next);
+        });
+      });
+    };
+    show();
+    return UI.qbLink('/hello').then((h) => { run.old = !(parseFloat(h && h.version) >= 1.61); }).then(next).catch((e) => { run.state = 'error'; run.msg = e.message; }).then(show);
+  }
+
+  /** By date tab (1.58, 1.59): choose the dates, then send straight to the connected QuickBooks tool or download the file. */
+  const PERIODS = [['since', 'From a date onward'], ['day', 'One day'], ['last12', 'Last 12 months'], ['fyToDate', 'This fiscal year to date'], ['lastFY', 'Last fiscal year'], ['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['custom', 'Custom period']];
+  function dateView(el, b, p) {
+    const pref = 'qbFrom:' + b.company.id, isDay = (v) => /^\d{4}-\d\d-\d\d$/.test(v || ''), today = U.today();
+    let saved = OB.prefs.get(pref); if (typeof saved === 'string') saved = { per: 'since', from: saved };   // 1.58 kept the date alone
+    saved = saved || {};
+    const per = PERIODS.some((x) => x[0] === p.per) ? p.per : isDay(p.from) ? 'since' : saved.per || 'since';
+    let from = isDay(p.from) ? p.from : isDay(saved.from) ? saved.from : today.slice(0, 4) + '-01-01', to = isDay(p.to) ? p.to : isDay(saved.to) ? saved.to : today;
+    if (per === 'since') to = ''; else if (per === 'day') to = from; else if (per !== 'custom') { const rr = UI.ranges()[per]; from = rr[1]; to = rr[2]; }
+    if (to && to < from) to = from;
+    const r = Q.fromDate(b, from, to), row = (label, n, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td><td class="num">${n}</td></tr>`;
+    const left = Object.keys(r.left).map((k) => r.left[k] + ' ' + ((OB.schema.TXN_TYPES[k] || {}).label || k).toLowerCase()).join(', ');
+    // 1.62: the bank transactions of the period as one .iif (File > Utilities > Import > IIF Files in QuickBooks)
+    const bankIds = r.items.filter((x) => x.kind === 'bank').map((x) => x.id), ask = st.iif && st.iif.co === b.company.id ? st.iif : null;
+    const iifAsk = !ask ? '' : `<div class="banner warn qs-run" role="status" data-testid="qs-iif-ask"><span>${ask.done ? `<strong>${ask.done}</strong> bank transaction${ask.done === 1 ? '' : 's'} marked as in QuickBooks.` : `Saved <strong>${esc(ask.file)}</strong> with ${ask.keys.length} bank transaction${ask.keys.length === 1 ? '' : 's'}. In QuickBooks: File › Utilities › Import › IIF Files. Did QuickBooks import it without errors?`}</span>
+      ${ask.done ? '<button class="btn small" id="qs-iif-ok" data-testid="qs-iif-ok">OK</button>' : '<button class="btn small primary" id="qs-iif-yes" data-testid="qs-iif-yes">Yes, mark them as in QuickBooks</button><button class="btn small" id="qs-iif-no" data-testid="qs-iif-no">No</button>'}</div>`;
+    const typed = per === 'since' || per === 'day' || per === 'custom', run = st.run && st.run.co === b.company.id ? st.run : null, busy = !!run && run.state === 'running';
+    const tally = run ? `<strong>${run.recorded}</strong> recorded, <strong>${run.dup}</strong> already there and skipped, <strong>${run.prob}</strong> with problems${run.prob ? ` (<a href="#/qbsend?tab=items&amp;status=problem&amp;range=all">see them</a>)` : ''}` : '';
+    const runLine = !run ? '' : `<div class="banner ${{ running: 'info', done: 'ok', halted: 'info' }[run.state] || 'warn'} qs-run" role="status" data-testid="qs-run"><span>${{
+      running: `Sending to QuickBooks: ${run.done} of ${run.total} handed over. ${tally}.${run.old ? ' This copy of the QuickBooks tool is older and asks before every part; the tools folder of this version asks once.' : ''}`,
+      done: `Finished ${esc(new Date(run.at).toLocaleString())}: ${tally}.`,
+      halted: `Stopped at your request: ${tally}. Send again to go on.`,
+      declined: `Nothing more was recorded: the question in the QuickBooks tool was answered No. So far: ${tally}.`,
+      stopped: `QuickBooks stopped answering. So far: ${tally}. Reopen QuickBooks and the company file, choose Window › Close All, then press Send again: what is already recorded is skipped.`,
+      error: `${esc(run.msg || 'The send did not finish.')} So far: ${tally}. If QuickBooks closed, reopen it and the company file, then press Send again.` }[run.state]}</span>${busy ? '<button class="btn small" id="qs-halt" data-testid="qs-halt">Stop after this part</button>' : ''}</div>`;
+    el.innerHTML = UI.page('Send to QuickBooks Desktop',
+      `<a class="btn" href="vaultbook-qb://link" data-testid="qs-open">Open the QuickBooks tool</a>
+       <label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`,
+      tabs(p, 'date') + `<div class="toolbar wrap">
+        <label>Send <select id="qs-per" data-testid="qs-per">${PERIODS.map(([k, t]) => `<option value="${k}"${k === per ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        ${typed ? `<label>${per === 'day' ? 'Date' : 'From'} <input type="date" id="qs-since" data-testid="qs-since" value="${esc(from)}"></label>` : `<span data-testid="qs-range">${esc(U.fmtDate(from))} – ${esc(U.fmtDate(to))}</span>`}
+        ${per === 'custom' ? `<label>To <input type="date" id="qs-until" data-testid="qs-until" value="${esc(to)}"></label>` : ''}</div>
+      <div class="table-wrap qs-since"><table class="data compact" data-testid="qs-since-table"><tbody>
+        ${row('Invoices', r.counts.invoice)}${row('Customer payments', r.counts.payment)}${row('Bank transactions', r.counts.bank)}
+        ${r.extra.length ? row('Earlier invoices these payments pay', r.extra.length) : ''}
+        ${row('To send', r.keys.length, 'grand')}
+        ${row('Already in QuickBooks, left out', r.already)}
+        ${left ? row('Cannot be sent yet: ' + esc(left), U.sum(Object.keys(r.left), (k) => r.left[k])) : ''}
+      </tbody></table></div>
+      <div class="toolbar wrap qs-go"><label>Link code <input id="qs-code" data-testid="qs-code" inputmode="numeric" maxlength="6" autocomplete="off" size="7" value="${esc(st.code || '')}"></label>
+        <button class="btn primary" id="qs-send" data-testid="qs-send" ${r.keys.length && !busy ? '' : 'disabled'}>Send to QuickBooks now (${r.keys.length})</button>
+        <button class="btn" id="qs-download" data-testid="qs-download" ${r.keys.length ? '' : 'disabled'}>Download the file instead</button>
+        <button class="btn" id="qs-iif" data-testid="qs-iif" ${bankIds.length && !busy ? '' : 'disabled'}>Download bank transactions as .iif (${bankIds.length})</button></div>
+      ${iifAsk}
+      ${runLine}`);
+    const $ = (q) => el.querySelector(q);
+    const go = () => { const q = { tab: 'date', per: $('#qs-per').value }, f = $('#qs-since'), u = $('#qs-until');
+      if (q.per === 'since' || q.per === 'day' || q.per === 'custom') q.from = (f && f.value) || from;
+      if (q.per === 'custom') q.to = (u && u.value) || to || today;
+      OB.prefs.set(pref, { per: q.per, from: q.from || from, to: q.to || '' }); UI.go('#/qbsend?' + UI.qs(q)); };
+    $('#qs-per').addEventListener('change', go);
+    ['#qs-since', '#qs-until'].forEach((q) => { if ($(q)) U.dateCommit($(q), () => {}, go); });
+    $('#qs-download').addEventListener('click', () => download(b, r.keys, (to ? from + '_' + to : 'from-' + from)));
+    $('#qs-iif').addEventListener('click', () => {
+      const out = OB.qbexport.txnsIIF(b, bankIds, { names: b.company.qbNames || {} }), co = (b.company.name || 'VaultBook').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+      const file = `${co}-bank-${to ? from + '_' + to : 'from-' + from}.iif`;
+      U.download(file, new Blob([OB.qbexport.toAnsi(out.text)], { type: 'text/plain' }));
+      st.iif = { co: b.company.id, keys: bankIds.slice(), file }; UI.render();
+    });
+    if ($('#qs-iif-yes')) $('#qs-iif-yes').addEventListener('click', () => UI.busy($('#qs-iif-yes'), () => Q.markIIF(b, st.iif.keys).then((n) => { st.iif.done = n; UI.render(); })));
+    if ($('#qs-iif-no')) $('#qs-iif-no').addEventListener('click', () => { st.iif = null; UI.render(); });
+    if ($('#qs-iif-ok')) $('#qs-iif-ok').addEventListener('click', () => { st.iif = null; UI.render(); });
+    if ($('#qs-halt')) $('#qs-halt').addEventListener('click', () => { st.run.halt = true; $('#qs-halt').disabled = true; });
+    $('#qs-send').addEventListener('click', () => {
+      const code = $('#qs-code').value.trim(); if (!/^\d{6}$/.test(code)) return UI.toast('Type the 6-digit link code the QuickBooks tool shows.', 'warn');
+      st.code = code; runSend(b, r, code);
+    });
+    bindResult(el, b);
+  }
+
   /** Months tab: what QuickBooks has per month (from the snapshot) against VaultBook; tick months, download the gap. */
   function monthsView(el, b, p) {
     const snap = OB.prefs.get(snapKey(b));
     let cmp = null, err = '';
     if (snap) { try { cmp = OB.qbsync.compare(b, snap); } catch (e) { err = e.message; } }
-    const head = `${UI.qbToolButton('btn ghost')}<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
+    const head = `<label class="btn" for="qs-result">Load snapshot or result file</label><input type="file" id="qs-result" accept=".json" hidden data-testid="qs-result">`;
     if (!cmp) {
       el.innerHTML = UI.page('Send to QuickBooks Desktop', head, tabs(p, 'months') + `<div class="empty"><p><strong>Start by reading QuickBooks.</strong></p>
-        <p>First time? ${UI.qbToolButton('btn primary')}</p>
-        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> ${UI.qbToolWhere} and choose <strong>1 Read QuickBooks</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
+        <p>On the PC with QuickBooks Desktop open, double-click <strong>VaultBook QuickBooks.cmd</strong> (in VaultBook's <code>tools</code> folder) and choose <strong>5 What QuickBooks has</strong>. It saves a snapshot file (nothing is written to QuickBooks). Then click <strong>Load snapshot or result file</strong> here and choose it.</p>
         <p class="muted small">The Months tab then shows, month by month, what QuickBooks already has and what is still only in VaultBook, so you send only the gap, in any order. ${err ? `<br><span class="warn-text">${esc(err)}</span>` : ''}Prefer to pick items yourself? Use the <a href="#/qbsend?tab=items">Items</a> tab.</p></div>`,
         'Records VaultBook transactions in QuickBooks Desktop. Nothing is written until you run the script and confirm.');
       bindResult(el, b); return;
@@ -27138,19 +27241,19 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       <dl class="rr-glance qbd-glance" data-testid="qbd-glance">${glance.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <div class="qbd-steps">
       ${step(1, 'Import everything from QuickBooks', `<p>Bring a client's QuickBooks file into VaultBook: chart of accounts, customers, vendors, items, classes, terms and every transaction with its lines, payments applied to the right invoices, and each QuickBooks id kept.</p>
-          <ol class="qbd-how"><li>On the QuickBooks PC run <strong>VaultBook QuickBooks.cmd</strong> › <strong>5 Export everything</strong> and choose a folder.</li><li>Here, choose the <code>VaultBook-QB-full-….json</code> it saved. You get a preview first; nothing is posted until you press Import.</li></ol>
+          <ol class="qbd-how"><li>On the QuickBooks PC run <strong>VaultBook QuickBooks.cmd</strong> › <strong>2 QuickBooks -> VaultBook</strong> and choose a folder.</li><li>Here, choose the <code>VaultBook-QB-full-….json</code> it saved. You get a preview first; nothing is posted until you press Import.</li></ol>
           <p class="muted small">${b.transactions.some((t) => t.status === 'posted') ? 'This company already has transactions, so the export goes into a <strong>new company</strong> named from the file.' : 'This company is empty, so the export goes into it.'}</p>`,
         `${fileInput('qbd-full', 'Choose the full export…', 'primary')}${full ? '<a class="btn" href="#/qbd/tieout">Tie-out report</a>' : ''}`, !!full)}
       ${step(2, 'Read QuickBooks and see the gap', `<p>Before sending anything, see what QuickBooks already has, month by month: Done, Partly, Not in QuickBooks, QuickBooks only.</p>
-          <ol class="qbd-how"><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>1 Read QuickBooks</strong>.</li><li>Choose the snapshot it saved.</li></ol>`,
+          <ol class="qbd-how"><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>5 What QuickBooks has</strong>.</li><li>Choose the snapshot it saved.</li></ol>`,
         `${fileInput('qbd-snap', 'Choose a snapshot…', snap ? '' : 'primary')}<a class="btn" href="#/qbsend?tab=months">Months</a>`, !!snap)}
       ${step(3, 'Send what QuickBooks is missing', `<p>Tick months (any order) or single invoices and payments, then download one file for the connector. Payments go in applied to their invoices.</p>
           <ol class="qbd-how"><li>Choose in <strong>Months</strong> or <strong>Items</strong> and press <strong>Download for QuickBooks</strong>.</li><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>3 Read, send, read</strong> (or <strong>4 Check only</strong> first) and choose that file. It asks before creating any customer or item.</li></ol>`,
         `<a class="btn primary" href="#/qbsend?tab=months">Months</a><a class="btn" href="#/qbsend?tab=items">Items</a>`, cmp && !cmp.missing.length && !!snap)}
-      ${step(4, 'Load what happened', `<p>The connector saves a <code>.result.json</code> next to your file (and a new snapshot with option 3). Load them so every item shows Sent or Problem, and the months show Done.</p>`,
+      ${step(4, 'Load what happened', `<p>The connector saves a <code>.result.json</code> next to your file (and a new snapshot when you run 5 What QuickBooks has). Load them so every item shows Sent or Problem, and the months show Done.</p>`,
         `${fileInput('qbd-result', 'Choose a result or snapshot…')}<a class="btn" href="#/qbsend?tab=items&status=problem">Problems (${nProb})</a><a class="btn" href="#/qbsend?tab=items&status=sent">Sent (${nSent})</a>`, false)}
       ${step(5, 'Update QuickBooks to match VaultBook', `<p>Changed or reclassified entries in VaultBook that came from QuickBooks? VaultBook compares them with a fresh QuickBooks export and sends only the edits and voids; new accounts are created first. Nothing is deleted.</p>
-          <ol class="qbd-how"><li>On the QuickBooks PC: <strong>Open the QuickBooks tool</strong> (or VaultBook QuickBooks.cmd › <strong>7 Connect to VaultBook</strong>).</li><li>Type its link code here, get the export, check the list and send. Answer Y/N in the tool's window.</li></ol>`,
+          <ol class="qbd-how"><li>On the QuickBooks PC: <strong>Open the QuickBooks tool</strong> (or VaultBook QuickBooks.cmd › <strong>1 Connect to VaultBook</strong>).</li><li>Type its link code here, get the export, check the list and send. Answer Y/N in the tool's window.</li></ol>`,
         `<a class="btn primary" href="#/qbd/update" data-testid="qbd-update">Update QuickBooks</a>`, false)}
       </div>
       <div class="qbd-grid">
@@ -27160,17 +27263,16 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
           <li><a href="#/qbsend?tab=items&status=sent"><strong>Sent to QuickBooks</strong><span>Every invoice and payment recorded or found in QuickBooks, with its QuickBooks id.</span></a></li>
           <li><a href="#/qbsend?tab=items&status=problem"><strong>Problems</strong><span>What the connector could not record, with the reason.</span></a></li></ul></section>
         <section class="card"><h2>The connector</h2>
-          <p>${UI.qbToolButton('btn primary')}</p>
-          <p>On the PC with QuickBooks Desktop, unzip it once (right-click › <strong>Extract All</strong>) and double-click <strong>VaultBook QuickBooks.cmd</strong> in the extracted folder. If Windows says it protected your PC, choose <strong>More info › Run anyway</strong>.</p>
+          <p>One file in VaultBook's <code>tools</code> folder: <strong>VaultBook QuickBooks.cmd</strong>. Copy the folder to the PC with QuickBooks Desktop once and double-click it there.</p>
           <table class="data compact qbd-menu"><tbody>
-            <tr><td>1</td><td>Read QuickBooks</td><td>Snapshot for step 2. Writes nothing.</td></tr>
-            <tr><td>2</td><td>Send to QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries).</td></tr>
-            <tr><td>3</td><td>Read, send, read</td><td>The usual cycle.</td></tr>
-            <tr><td>4</td><td>Check only</td><td>Shows the plan. Writes nothing.</td></tr>
-            <tr><td>5</td><td>Export everything</td><td>Full export for step 1. Writes nothing.</td></tr>
-            <tr><td>6</td><td>Reports and ledgers</td><td>A bank or any account's ledger, general ledger, transaction list, P&amp;L, Balance Sheet, Trial Balance, open invoices, unpaid bills, for any dates, as an Excel-ready .csv. Writes nothing; VaultBook is not needed.</td></tr>
-            <tr><td>7</td><td>Connect to VaultBook</td><td>VaultBook talks to the tool directly on this computer (link code shown in its window): fresh exports and updates without moving files.</td></tr>
-            <tr><td>8</td><td>Install the link</td><td>One time, no admin rights: lets <strong>Open the QuickBooks tool</strong> in VaultBook start the tool.</td></tr></tbody></table>
+            <tr><td>1</td><td>Connect to VaultBook</td><td>VaultBook talks to the tool directly on this computer (link code shown in its window): it sends entries and updates and reads QuickBooks without moving files.</td></tr>
+            <tr><td>2</td><td>QuickBooks -> VaultBook</td><td>Full export for step 1. Writes nothing.</td></tr>
+            <tr><td>3</td><td>VaultBook -> QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries). What QuickBooks already has is skipped.</td></tr>
+            <tr><td>4</td><td>Preview a VaultBook file</td><td>Shows the plan. Writes nothing.</td></tr>
+            <tr><td>5</td><td>What QuickBooks has</td><td>Snapshot for step 2. Writes nothing.</td></tr>
+            <tr><td>6</td><td>Reports to Excel</td><td>A bank or any account's ledger, general ledger, transaction list, P&amp;L, Balance Sheet, Trial Balance, open invoices, unpaid bills, for any dates, as an Excel-ready .csv. Writes nothing; VaultBook is not needed.</td></tr>
+            <tr><td>7</td><td>Set up one-click open</td><td>One time, no admin rights: lets <strong>Open the QuickBooks tool</strong> in VaultBook start the tool.</td></tr>
+            <tr><td>8</td><td>Remove what VaultBook sent</td><td>For the dates you choose, deletes from QuickBooks only the entries this tool recorded (they carry [VB:…] in the memo). Lists them first and asks you to type DELETE. Back up QuickBooks first. Load the record it saves here, and those entries can be sent again.</td></tr></tbody></table>
           <p class="muted small">Before sending, choose <strong>Window › Close All</strong> in QuickBooks: open reports and registers recalculate after every entry and can make QuickBooks stop.</p>
           <p class="muted small">First time: open the company file as Admin in single-user mode; when QuickBooks asks, allow "VaultBook Connector" (Yes, always). Windows administrator rights are not needed. The connector never searches for files; it always asks.</p></section>
         <section class="card"><h2>Other ways</h2><ul class="report-links">
@@ -27242,7 +27344,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
       if (!r.ok) throw new Error((j && j.error) || ('The tool answered ' + r.status + '.'));
       if (!j) throw new Error('The tool sent something VaultBook cannot read.');
       return j;
-    }), () => { throw new Error('VaultBook cannot reach the QuickBooks tool. Open it (Open the QuickBooks tool, or VaultBook QuickBooks.cmd › 7 Connect to VaultBook) and keep its window open.'); });
+    }), () => { throw new Error('VaultBook cannot reach the QuickBooks tool. Open it (Open the QuickBooks tool, or VaultBook QuickBooks.cmd › 1 Connect to VaultBook) and keep its window open.'); });
   }
   UI.qbLink = link;
 
@@ -27261,12 +27363,12 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         ${up.full ? `<p data-testid="qu-source">QuickBooks export of <strong>${esc(when(up.full.at))}</strong> (${esc(up.source)}), ${U.sum(Object.keys(up.full.txns || {}), (k) => (up.full.txns[k] || []).length)} transactions.</p>` : '<p class="muted">Nothing loaded yet.</p>'}
         <div class="qu-ways">
           <div><h3>Connected to the tool</h3>
-            <p class="small muted">On the QuickBooks computer, click <strong>Open the QuickBooks tool</strong> (or run VaultBook QuickBooks.cmd › <strong>7 Connect to VaultBook</strong>). Type the link code it shows.</p>
+            <p class="small muted">On the QuickBooks computer, click <strong>Open the QuickBooks tool</strong> (or run VaultBook QuickBooks.cmd › <strong>1 Connect to VaultBook</strong>). Type the link code it shows.</p>
             <div class="toolbar"><label class="field inline"><span>Link code</span><input id="qu-code" inputmode="numeric" maxlength="6" autocomplete="off" value="${esc(up.code)}" data-testid="qu-code" style="width:7rem"></label>
               <button class="btn primary" id="qu-get" data-testid="qu-get">${up.linked ? 'Get a fresh export' : 'Connect and get the export'}</button>
               ${up.linked ? '<span class="badge ok" data-testid="qu-linked">Connected</span>' : ''}</div></div>
           <div><h3>Or with a file</h3>
-            <p class="small muted">Run VaultBook QuickBooks.cmd › <strong>5 Export everything</strong>, then <strong>Load a QuickBooks export</strong> above and choose the <code>VaultBook-QB-full-….json</code>.</p></div>
+            <p class="small muted">Run VaultBook QuickBooks.cmd › <strong>2 QuickBooks -> VaultBook</strong>, then <strong>Load a QuickBooks export</strong> above and choose the <code>VaultBook-QB-full-….json</code>.</p></div>
         </div>
         ${up.err ? `<p class="warn-text">${esc(up.err)}</p>` : ''}</section>
       ${p ? `<section class="card qu-step" data-testid="qu-step2"><h2>2. What will change in QuickBooks</h2>
@@ -27283,7 +27385,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         <p>Make a QuickBooks backup first. The tool shows the list and asks Y/N before it changes anything; voids are asked separately. An entry changed in QuickBooks after this export is refused, never overwritten. Nothing is deleted.</p>
         <div class="form-actions"><button class="btn primary" id="qu-send" data-testid="qu-send" ${up.linked ? '' : 'disabled'}>Send to the tool (${n.edits + n.voids})</button>
           <button class="btn" id="qu-dl" data-testid="qu-dl">Download the update file</button></div>
-        <p class="muted small">With the file: run VaultBook QuickBooks.cmd › <strong>4 Check only</strong> first if you like, then <strong>2 Send to QuickBooks</strong>, and choose the file.</p></section>` : ''}` : ''}
+        <p class="muted small">With the file: run VaultBook QuickBooks.cmd › <strong>4 Preview a VaultBook file</strong> first if you like, then <strong>3 VaultBook -> QuickBooks</strong>, and choose the file.</p></section>` : ''}` : ''}
       ${res ? `<section class="card qu-step" data-testid="qu-result"><h2>What QuickBooks did</h2>
         <div class="cl-stats"><div><b data-testid="qu-r-upd">${cnt('Updated')}</b><span>changed</span></div><div><b>${cnt('Voided')}</b><span>voided</span></div><div><b data-testid="qu-r-prob">${cnt('Problem')}</b><span>problems</span></div><div><b>${cnt('Ready')}</b><span>not done</span></div></div>
         ${cnt('Problem') ? `<ul class="small">${resItems.filter((x) => x.status === 'Problem').slice(0, 50).map((x) => `<li>${esc(x.label)}: ${esc(x.details)}</li>`).join('')}</ul>` : ''}
@@ -27917,11 +28019,6 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         <p>Type or paste the lines from your bank and credit card statements, a month or a whole year at a time. They wait in <b>For review</b> until you pick a category; VaultBook suggests one from your rules and past choices and spots entries you already recorded.</p>
         ${total ? `<p class="m-feed-total"><b>${total}</b> line${total === 1 ? '' : 's'} waiting for review</p>` : ''}
       </section>
-      ${(() => { const st = sfState();
-        return st.connected ? `<section class="m-card m-sync-card" data-testid="m-sync-card"><div class="m-card-h"><h2>Bank Sync</h2><a href="#/m/feed/sync">Settings</a></div>
-            <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + (st.lastResult ? ' · ' + esc(st.lastResult) : '') : 'Connected. Not synced yet.'}</p>
-            <button type="button" class="m-btn primary" data-sf-sync>${icon(I.swap)}Sync Now</button></section>`
-          : `<a class="m-card m-row-link m-sync-offer" href="#/m/feed/sync" data-testid="m-sync-offer">${icon(I.swap)}<span>Automatic bank sync<small>Optional · bring in new transactions daily with SimpleFIN</small></span>${icon(I.chev)}</a>`; })()}
       ${list.length ? list.map((a) => {
         const rev = book.bankLinesFor(a.id, 'review').length, posted = book.bankLinesFor(a.id, 'posted'), card = a.type === 'cc';
         const lastD = book.bankLinesFor(a.id)[0];
@@ -27929,13 +28026,12 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
           <div class="m-feed-acct-h"><span class="m-tx-ic">${icon(card ? I.bill : I.bank)}</span>
             <span class="m-tx-main"><b>${esc(a.name)}</b><small>${card ? 'Credit card' : 'Bank'}${lastD ? ' · statement lines to ' + esc(U.fmtDate(lastD.date)) : ' · no statement lines yet'}</small></span>
             <span class="m-tx-amt">${signed(book.accountBalance(a.id, today))}<small>${card ? 'owed' : 'in VaultBook'}</small></span></div>
-          <div class="m-feed-btns m-feed-btns3">
-            <a class="m-btn primary" href="#/m/feed/import?account=${encodeURIComponent(a.id)}" data-testid="m-feed-import">${icon(I.upload)}Import</a>
-            <a class="m-btn" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Type</a>
+          <div class="m-feed-btns">
+            <a class="m-btn primary" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Add Lines</a>
             <a class="m-btn ${rev ? 'warn' : ''}" href="#/m/feed/review?account=${encodeURIComponent(a.id)}">${icon(I.check)}Review${rev ? ` <i class="m-badge">${rev}</i>` : ''}</a>
           </div>
           ${posted.length ? `<small class="m-feed-meta">${posted.length} line${posted.length === 1 ? '' : 's'} posted</small>` : ''}
-          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Type</small>` : ''}
+          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Enter statement</small>` : ''}
         </section>`;
       }).join('') : '<section class="m-card"><p class="m-empty">No bank or credit card accounts yet. Add one below to start.</p></section>'}
       <section class="m-card">
@@ -27950,8 +28046,8 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
         </form>
       </section>
       <h2 class="m-sec">Other ways in</h2><section class="m-card m-menu">
-        <a class="m-row-link" href="#/m/feed/import">${icon(I.upload)}<span>Import a statement file<small>CSV, Excel, OFX, QFX, QBO or PDF</small></span>${icon(I.chev)}</a>
-        <a class="m-row-link" href="#/bankfeed?full=1">${icon(I.grid)}<span>Full bank feed<small>Every option, laptop layout</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/bankfeed?full=1">${icon(I.upload)}<span>Import a bank file (CSV, OFX, QFX)<small>Opens the full bank feed</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/pdfimport">${icon(I.doc)}<span>Import a PDF statement</span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/rules">${icon(I.list)}<span>Bank rules<small>Categorize repeating lines automatically</small></span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/reconcile">${icon(I.check)}<span>Reconcile to a statement</span>${icon(I.chev)}</a>
       </section>`, { sub: 'Bank and credit card statements' });
@@ -28148,303 +28244,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     el.querySelectorAll('[data-rf]').forEach((x) => x.addEventListener('click', () => { filt = x.dataset.rf; shown = 40; el.querySelectorAll('[data-rf]').forEach((y) => y.setAttribute('aria-selected', String(y === x))); draw(); }));
     draw();
   }
-  /* ---------- Import a statement file (touch screens) ----------
-   * The same engine as the full bank feed: OB.importer reads the file, the column layout is remembered per account
-   * (Book.bankProfile), Book.bankPreview finds duplicates and lines already in the books, Book.importBankLines adds the
-   * new lines to For review. OFX, QFX, QBO and PDF go to the statement reader, which returns here when done. */
-  const IMP = OB.importer;
-  const SHARED = 'vaultbook-share';           // where the service worker leaves a file shared from another app (Android)
-  function feedImport(el, r) {
-    const book = b(), list = feedAccts();
-    if (!list.length) return UI.go('#/m/feed');
-    const acct = list.some((a) => a.id === r.params.account) ? r.params.account : list[0].id, card = isCard(acct);
-    let imp = null;
-    el.innerHTML = page('Import File', `
-      ${pickAcct(acct, '#/m/feed/import?account=')}
-      <section class="m-card m-imp-pick" id="m-imp-pick">
-        <label class="m-drop" data-testid="m-import-pick">
-          <input type="file" id="m-imp-file" accept=".csv,.txt,.tsv,.xlsx,.xls,.xlsm,.ofx,.qfx,.qbo,.pdf,text/csv,application/pdf">
-          ${icon(I.upload)}<b>Choose a Statement File</b>
-          <small>CSV, Excel, OFX, QFX, QBO or PDF from your bank's website. Read on this device only; lines you already imported are skipped.</small>
-        </label>
-        <p class="m-note">On iPhone: download the transactions file in Safari or your bank's app, then pick it here from the Files app.</p>
-      </section>
-      <div id="m-imp"></div>`, { back: '#/m/feed', sub: accName(acct) });
-    wirePick(el);
-    const host = el.querySelector('#m-imp'), pickCard = el.querySelector('#m-imp-pick');
-    const fail = (msg) => { host.innerHTML = `<p class="m-err" role="alert">${esc(msg)}</p>`; pickCard.hidden = false; };
-
-    const start = (table, fileName, sheets, sheetIdx) => {
-      table = table.slice(IMP.findHeader(table));
-      const header = (table[0] || []).map((c) => String(c).replace(/^﻿/, '').trim()).join('|');
-      const prof = book.bankProfile(acct, header);
-      const m = prof ? Object.assign({}, prof.mapping) : IMP.detectColumns(table[0] || [], table.slice(1));
-      if (!prof) m.hasHeader = (table[0] || []).some((c) => isNaN(parseFloat(String(c).replace(/[$,]/g, ''))) && !IMP.parseDateAs(c, 'MDY'));
-      if (prof && prof.mapping.status === undefined) { const d = IMP.detectColumns(table[0] || [], table.slice(1)); m.status = d.status; }   // layouts saved before 1.56
-      const df = IMP.detectDateFormat(m.date >= 0 ? table.slice(m.hasHeader ? 1 : 0).map((row) => row[m.date]) : []);
-      m.dateFormat = prof ? prof.dateFormat : df.format;
-      imp = { table, fileName, header, mapping: m, sheets, sheet: sheetIdx || 0, fromProfile: !!prof, ambiguous: !prof && df.ambiguous,
-        invert: prof ? prof.invert : card, remember: true, skipPending: true, matchBooks: true, autoAdd: true };
-      pickCard.hidden = true;
-      if (prof && IMP.checkFile(table, m).ok) previewStep(); else mapStep();
-    };
-    const readFile = (f) => {
-      if (!f) return;
-      host.innerHTML = '<p class="m-note">Reading ' + esc(f.name) + '…</p>';
-      if (/\.(ofx|qfx|qbo|pdf)$/i.test(f.name) || f.type === 'application/pdf') { UI.statementQueue = { files: [f], accountId: acct }; return UI.go('#/pdfimport'); }
-      if (/\.(xlsx|xlsm|xls)$/i.test(f.name)) {
-        return f.arrayBuffer().then((buf) => UI.loadVendor(['sheetjs.min.js']).then(() => {
-          const wb = window.XLSX.read(buf, { type: 'array', cellNF: true });
-          const sheets = IMP.pickSheets(wb.SheetNames.map((name) => ({ name, rows: OB.qbimport.sheetRows(wb.Sheets[name], window.XLSX.SSF) })));
-          if (!sheets.length) return fail('No sheet in "' + f.name + '" has a date column and an amount (or money in and money out) column.');
-          start(sheets[0].table, f.name, sheets);
-        })).catch((e) => fail('Could not read "' + f.name + '": ' + e.message));
-      }
-      f.text().then((text) => {
-        const table = /\.tsv$/i.test(f.name) ? text.split(/\r?\n/).filter((x) => x.trim()).map((x) => x.split('\t')) : U.parseCSV(text);
-        if (!table.some((row) => row.some((c) => String(c).trim()))) return fail('The file "' + f.name + '" is empty.');
-        start(table, f.name);
-      }, () => fail('Could not read "' + f.name + '".'));
-    };
-
-    function mapStep() {
-      const t = imp.table, m = imp.mapping, ncol = Math.max(1, ...t.slice(0, 20).map((row) => row.length)), chk = IMP.checkFile(t, m);
-      const sample = (i) => t.slice(m.hasHeader ? 1 : 0, 4).map((row) => row[i]).filter((x) => String(x || '').trim()).slice(0, 2).join(', ').slice(0, 32);
-      const opts = (sel) => '<option value="-1">None</option>' + Array.from({ length: ncol }, (_, i) => {
-        const name = m.hasHeader && t[0][i] ? String(t[0][i]) : 'Column ' + (i + 1), s = sample(i);
-        return `<option value="${i}"${sel === i ? ' selected' : ''}>${esc(name + (s ? ' (' + s + ')' : ''))}</option>`; }).join('');
-      const sel = (k, label, v) => `<label class="m-f"><span>${label}</span><select data-m="${k}">${opts(v)}</select></label>`;
-      host.innerHTML = `<section class="m-card m-form" data-testid="m-import-map">
-          <div class="m-card-h"><h2>Check the Columns</h2></div>
-          <p class="m-note"><b>${esc(imp.fileName)}</b> · ${t.length - (m.hasHeader ? 1 : 0)} lines. VaultBook picked these; fix any that are wrong.</p>
-          ${chk.ok ? '' : `<p class="m-err">${esc(chk.message)}</p>`}
-          ${imp.ambiguous ? '<p class="m-err">Every date could be read as month/day or day/month. Check the date order against a transaction you know.</p>' : ''}
-          ${(imp.sheets || []).length > 1 ? `<label class="m-f"><span>Sheet</span><select data-sheet>${imp.sheets.map((x, i) => `<option value="${i}"${i === imp.sheet ? ' selected' : ''}>${esc(x.name)} (${x.count} lines)</option>`).join('')}</select></label>` : ''}
-          ${sel('date', 'Date', m.date)}
-          <label class="m-f"><span>Date order</span><select data-df>${[['MDY', 'Month / day / year'], ['DMY', 'Day / month / year'], ['YMD', 'Year-month-day']].map(([v, l]) => `<option value="${v}"${m.dateFormat === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-          ${sel('description', 'Description', m.description)}
-          ${sel('amount', 'Amount (one column; minus = money out)', m.amount)}
-          ${sel('debit', 'Or: money out column', m.debit)}
-          ${sel('credit', 'And: money in column', m.credit)}
-          <label class="m-check"><input type="checkbox" data-o="hasHeader"${m.hasHeader ? ' checked' : ''}> First row is a header</label>
-          <label class="m-check"><input type="checkbox" data-o="invert"${imp.invert ? ' checked' : ''}> Reverse signs (card files that show charges as positive)</label>
-          <button type="button" class="m-btn primary" id="m-imp-next"${chk.ok ? '' : ' disabled'}>Continue</button>
-          <button type="button" class="m-btn ghost" id="m-imp-other">Choose Another File</button>
-        </section>
-        <section class="m-card"><div class="m-card-h"><h2>First Lines of the File</h2></div><div class="scroll-x"><table class="data compact m-imp-raw"><tbody>${t.slice(0, 5).map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
-      const read = () => {
-        host.querySelectorAll('[data-m]').forEach((x) => { m[x.dataset.m] = +x.value; });
-        m.dateFormat = host.querySelector('[data-df]').value;
-        m.hasHeader = host.querySelector('[data-o=hasHeader]').checked; imp.invert = host.querySelector('[data-o=invert]').checked;
-        if (m.amount >= 0 && (m.debit >= 0 || m.credit >= 0)) { m.debit = -1; m.credit = -1; }
-        imp.ambiguous = false;
-      };
-      host.querySelectorAll('select[data-m], select[data-df], input[data-o]').forEach((x) => x.addEventListener('change', () => { read(); mapStep(); }));
-      const sh = host.querySelector('[data-sheet]'); if (sh) sh.addEventListener('change', () => { const k = +sh.value, sheets = imp.sheets; start(sheets[k].table, imp.fileName, sheets, k); });
-      host.querySelector('#m-imp-next').addEventListener('click', () => { read(); if (IMP.checkFile(imp.table, imp.mapping).ok) previewStep(); else mapStep(); });
-      host.querySelector('#m-imp-other').addEventListener('click', () => { imp = null; host.innerHTML = ''; pickCard.hidden = false; });
-    }
-
-    function previewStep() {
-      const parsed = IMP.parseBankRows(imp.table, imp.mapping, { invert: imp.invert, skipPending: imp.skipPending });
-      const rows = parsed.rows, pre = book.bankPreview(acct, rows), bal = IMP.checkBalances(rows), n = pre.fresh;
-      const dates = rows.map((x) => x.date).sort(), inn = U.sum(rows.filter((x) => x.amount > 0), (x) => x.amount), out = -U.sum(rows.filter((x) => x.amount < 0), (x) => x.amount);
-      const L = card ? { in: 'Payments and credits', out: 'Charges' } : { in: 'Money in', out: 'Money out' };
-      const tog = (k, on, text) => `<label class="m-check"><input type="checkbox" data-t="${k}"${on ? ' checked' : ''}> ${text}</label>`;
-      host.innerHTML = `<section class="m-card m-form" data-testid="m-import-preview">
-          <div class="m-card-h"><h2>Ready to Import</h2></div>
-          <p class="m-note"><b>${esc(imp.fileName)}</b>${imp.fromProfile ? ' · columns remembered from your last import' : ''}${dates.length ? ' · ' + esc(U.fmtDate(dates[0])) + ' – ' + esc(U.fmtDate(dates[dates.length - 1])) : ''}</p>
-          <div class="m-stats m-stats3"><div><span>New lines</span><b>${n}</b></div><div><span>${L.in}</span><b class="in">${money(inn)}</b></div><div><span>${L.out}</span><b>${money(out)}</b></div></div>
-          ${pre.duplicates ? '<p class="m-note">Money totals are for the whole file, including lines imported before.</p>' : ''}
-          <ul class="m-imp-facts">
-            ${pre.duplicates ? `<li>${pre.duplicates} line${pre.duplicates === 1 ? ' was' : 's were'} imported before and will be skipped.</li>` : ''}
-            ${parsed.errors.length ? `<li>${parsed.errors.length} line${parsed.errors.length === 1 ? '' : 's'} could not be read (for example: ${esc(parsed.errors[0])}).</li>` : ''}
-            ${bal.hasBalance ? `<li>${bal.mismatches.length ? 'The running balance does not add up at line ' + esc(bal.mismatches.slice(0, 3).join(', ')) + '; check the file before importing.' : 'The running balance in the file adds up.'}</li>` : ''}
-          </ul>
-          ${parsed.pending ? tog('skipPending', imp.skipPending, `Leave out <b>${parsed.pending}</b> pending line${parsed.pending === 1 ? '' : 's'} (they arrive with your next file once they clear)`) : ''}
-          ${pre.inBooks && pre.inBooks.length ? tog('matchBooks', imp.matchBooks, `Match <b>${pre.inBooks.length}</b> line${pre.inBooks.length === 1 ? '' : 's'} already in your books instead of adding them again`) : ''}
-          ${pre.autoAdd ? tog('autoAdd', imp.autoAdd, `Post <b>${pre.autoAdd}</b> line${pre.autoAdd === 1 ? '' : 's'} with your auto-add bank rules`) : ''}
-          ${tog('remember', imp.remember, 'Remember these columns for ' + esc(accName(acct)))}
-          <button type="button" class="m-btn primary" id="m-imp-go" data-testid="m-import-go"${n ? '' : ' disabled'}>${n ? `Import ${n} Line${n === 1 ? '' : 's'}` : 'Nothing New to Import'}</button>
-          <button type="button" class="m-btn ghost" id="m-imp-cols">Check the Columns</button>
-        </section>
-        ${rows.length ? `<section class="m-card"><div class="m-card-h"><h2>First Lines</h2></div><div class="m-plist">${rows.slice(0, 8).map((x) => `<div class="m-pline"><div class="m-pedit"><span><b>${esc(x.description)}</b><small>${esc(U.fmtDate(x.date))}${x.checkNo ? ' · #' + esc(x.checkNo) : ''}</small></span><i class="${x.amount > 0 ? 'in' : 'out'}">${x.amount > 0 ? '+' : '−'}${money(x.amount)}</i></div></div>`).join('')}</div></section>` : ''}`;
-      host.querySelectorAll('[data-t]').forEach((x) => x.addEventListener('change', () => { imp[x.dataset.t] = x.checked; if (x.dataset.t === 'skipPending') previewStep(); }));
-      host.querySelector('#m-imp-cols').addEventListener('click', () => { imp.fromProfile = false; mapStep(); });
-      host.querySelector('#m-imp-go').addEventListener('click', async (e) => {
-        const btn = e.currentTarget; btn.disabled = true;
-        try {
-          if (imp.remember) await book.saveBankProfile(acct, { header: imp.header, mapping: imp.mapping, dateFormat: imp.mapping.dateFormat, invert: imp.invert });
-          const meta = { fileName: imp.fileName, source: 'csv', endingBalance: bal.hasBalance && !bal.mismatches.length ? bal.endingBalance : null, endingDate: bal.hasBalance ? bal.endingDate : '', matchBooks: imp.matchBooks, autoAdd: imp.autoAdd };
-          const res = await book.importBankLines(acct, rows, meta);
-          const waiting = res.added - (res.matched || 0) - (res.autoAdded || 0);
-          host.innerHTML = `<section class="m-card m-done" data-testid="m-import-done">${icon(I.check)}<h2>${res.added} Line${res.added === 1 ? '' : 's'} Imported</h2>
-            <p class="m-note">${waiting} waiting for review${res.matched ? ' · ' + res.matched + ' matched to entries already in your books' : ''}${res.autoAdded ? ' · ' + res.autoAdded + ' posted by your rules' : ''}${res.duplicates ? ' · ' + res.duplicates + ' already imported' : ''}.</p>
-            <a class="m-btn primary" href="#/m/feed/review?account=${encodeURIComponent(acct)}">Review Now</a>
-            <button type="button" class="m-btn ghost" id="m-imp-again">Import Another File</button></section>`;
-          host.querySelector('#m-imp-again').addEventListener('click', () => { imp = null; host.innerHTML = ''; pickCard.hidden = false; });
-          markTab();
-        } catch (x) { btn.disabled = false; UI.toast(x.message || String(x), 'error'); }
-      });
-    }
-
-    el.querySelector('#m-imp-file').addEventListener('change', (e) => { readFile(e.target.files[0]); e.target.value = ''; });
-    // a file shared to VaultBook from another app (Android "Share"): the service worker kept it for us
-    if (r.params.shared && 'caches' in window) {
-      caches.open(SHARED).then((c) => c.match('shared-file').then((res) => {
-        if (!res) return;
-        const name = decodeURIComponent(res.headers.get('X-File-Name') || 'shared-file.csv');
-        return res.blob().then((blob) => { c.delete('shared-file'); readFile(new File([blob], name, { type: blob.type })); });
-      })).catch(() => {});
-    }
-  }
-  /* ---------- Automatic bank sync through SimpleFIN Bridge (1.59.0, optional, off until connected) ----------
-   * The Access URL is kept by OB.secrets (encrypted on this device, never in backups). Which SimpleFIN account feeds
-   * which VaultBook account, and when the last sync ran, are device settings (not secret) kept in OB.prefs. */
-  const SFX = OB.simplefin, DAYSEC = 86400;
-  const sfId = () => 'simplefin:' + b().company.id;
-  const sfKey = () => 'sfState:' + b().company.id;
-  const sfState = () => Object.assign({ connected: false, map: {}, accounts: [], lastAt: 0, lastSync: '', lastResult: '', messages: [], auto: false, firstDays: 30, log: [] }, OB.prefs.get(sfKey()) || {});
-  const sfSave = (st) => OB.prefs.set(sfKey(), st);
-  const sfHome = () => (isPhone() || touchMQ.matches) ? '#/m/feed' : '#/settings?tab=security';   // where Back goes
-  const sfWhen = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; } };
-  const MAX_DAY = 20, MIN_GAP = 10 * 60;      // SimpleFIN asks apps to stay well under 24 requests a day
-  function sfGuard(st, requests) {
-    const now = Date.now() / 1000, log = (st.log || []).filter((t) => t > now - DAYSEC);
-    if (log.length + requests > MAX_DAY) return 'Bank sync has already asked SimpleFIN ' + log.length + ' times today. SimpleFIN limits how often apps may ask; try again tomorrow.';
-    if (st.lastAt && now - st.lastAt < MIN_GAP) return 'Synced a few minutes ago. SimpleFIN updates about once a day; try again in ' + Math.ceil((MIN_GAP - (now - st.lastAt)) / 60) + ' minutes.';   // between syncs only; listing accounts does not count
-    return '';
-  }
-  /** Fetch from SimpleFIN and add new lines to the bank feed. Resolves a summary; rejects with a readable error. */
-  async function sfSync() {
-    const book = b(), st = sfState(), access = await OB.secrets.get(sfId());
-    if (!access) { st.connected = false; sfSave(st); throw new Error('Bank sync is not connected on this device.'); }
-    const now = Math.floor(Date.now() / 1000), start = st.lastAt ? st.lastAt - 5 * DAYSEC : now - (st.firstDays || 30) * DAYSEC;   // 5-day overlap, as SimpleFIN advises
-    const wins = SFX.windows(start, now).length, g = sfGuard(st, wins);
-    if (g) throw new Error(g);
-    st.log = (st.log || []).filter((t) => t > now - DAYSEC).concat(Array(wins).fill(now)); sfSave(st);
-    const r = await SFX.fetchRange(access, start, now);
-    const sum = { added: 0, matched: 0, autoAdded: 0, duplicates: 0, unmapped: 0, accounts: 0 };
-    for (const a of r.accounts) {
-      const target = st.map[a.id], rows = SFX.rows(a.transactions);
-      if (!target || !book.accById[target]) { sum.unmapped += rows.length; continue; }
-      if (!rows.length) continue;
-      const x = await book.importBankLines(target, rows, { fileName: 'SimpleFIN sync ' + U.fmtDate(U.today()), source: 'simplefin', matchBooks: true, autoAdd: true });
-      sum.added += x.added; sum.matched += x.matched || 0; sum.autoAdded += x.autoAdded || 0; sum.duplicates += x.duplicates || 0; sum.accounts++;
-    }
-    const s2 = sfState();
-    s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance }));
-    s2.lastAt = now; s2.lastSync = new Date().toISOString(); s2.messages = r.messages;
-    s2.lastResult = sum.added ? sum.added + ' new line' + (sum.added === 1 ? '' : 's') : 'nothing new';
-    sfSave(s2); markTab();
-    return Object.assign(sum, { messages: r.messages });
-  }
-  const sfSummary = (x) => (x.added ? x.added + ' new line' + (x.added === 1 ? '' : 's') + ' for review' : 'No new transactions') +
-    (x.matched ? ' · ' + x.matched + ' matched to your books' : '') + (x.autoAdded ? ' · ' + x.autoAdded + ' posted by rules' : '') +
-    (x.unmapped ? ' · ' + x.unmapped + ' from accounts not linked to VaultBook' : '') + '.';
-  document.addEventListener('click', (e) => {
-    const t = e.target.closest && e.target.closest('[data-sf-sync]'); if (!t) return;
-    e.preventDefault(); t.disabled = true;
-    sfSync().then((x) => { UI.toast('Bank sync: ' + sfSummary(x)); UI.render(); }, (x) => { t.disabled = false; UI.toast(x.message || String(x), 'error'); });
-  });
-
-  function feedSync(el) {
-    const book = b(), st = sfState(), list = feedAccts();
-    if (!st.connected) {
-      el.innerHTML = page('Bank Sync', `
-        <section class="m-card m-sync-intro">
-          <p>Bring new bank and credit card transactions into the bank feed automatically, about once a day, instead of downloading statement files. It is optional and off until you connect it.</p>
-          <ul class="m-imp-facts">
-            <li>Uses <b>SimpleFIN Bridge</b>, a separate service you sign up for and pay yourself (about $15 a year). It covers most US banks and card issuers.</li>
-            <li>Your bank login goes to SimpleFIN and its data provider (MX), <b>never to VaultBook</b>. They keep a copy of your bank data under their own terms.</li>
-            <li>VaultBook fetches straight from this device. There is no VaultBook server. The connection key is encrypted on this device and never included in backups.</li>
-            <li>New lines wait in For review, like an imported file. Nothing posts by itself unless you have auto-add bank rules.</li>
-          </ul>
-        </section>
-        <h2 class="m-sec">How to connect</h2>
-        <section class="m-card m-form">
-          <ol class="m-steps"><li>At <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener noreferrer">beta-bridge.simplefin.org</a>, create an account and connect your banks.</li>
-            <li>There, choose <b>New app connection</b> and copy the <b>setup token</b>.</li><li>Paste it here and tap Connect.</li></ol>
-          <label class="m-f"><span>Setup token</span><textarea id="m-sf-token" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the setup token" data-testid="m-sf-token"></textarea></label>
-          <label class="m-f"><span>On the first sync, bring in</span><select id="m-sf-days">${[[30, 'The last 30 days'], [60, 'The last 60 days'], [90, 'The last 90 days']].map(([v, l]) => `<option value="${v}"${v === st.firstDays ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-          <p class="m-err" id="m-sf-err" hidden></p>
-          <button type="button" class="m-btn primary" id="m-sf-connect" data-testid="m-sf-connect">Connect</button>
-          <p class="m-note">A setup token works once. If it was used or shared by mistake, revoke it at SimpleFIN Bridge and make a new one.</p>
-        </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
-      const errEl = el.querySelector('#m-sf-err'), btn = el.querySelector('#m-sf-connect');
-      btn.addEventListener('click', async () => {
-        errEl.hidden = true; btn.disabled = true; btn.textContent = 'Connecting…';
-        try {
-          if (!OB.secrets.available()) throw new Error('This browser cannot keep the connection key encrypted, so bank sync cannot be used here.');
-          const access = await SFX.claim(el.querySelector('#m-sf-token').value);
-          await OB.secrets.put(sfId(), access, { companyId: book.company.id, kind: 'simplefin', label: 'SimpleFIN Bridge' });
-          el.querySelector('#m-sf-token').value = '';
-          const s2 = sfState(); s2.connected = true; s2.firstDays = +el.querySelector('#m-sf-days').value; s2.lastAt = 0; s2.lastSync = ''; s2.lastResult = '';
-          try {
-            const r = await SFX.accounts(access, { balancesOnly: true });
-            s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s2.messages = r.messages;
-            s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]);
-          } catch (x) { s2.messages = [x.message]; }
-          sfSave(s2); UI.toast('Bank sync connected. Choose which account each bank account goes to.'); feedSync(el);
-        } catch (x) { errEl.textContent = x.message || String(x); errEl.hidden = false; btn.disabled = false; btn.textContent = 'Connect'; }
-      });
-      return;
-    }
-    const opt = (sel) => '<option value="">Don\'t bring in</option>' + list.map((a) => `<option value="${esc(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
-    const mapped = Object.values(st.map).filter(Boolean).length;
-    el.innerHTML = page('Bank Sync', `
-      <section class="m-card" data-testid="m-sf-status">
-        <div class="m-card-h"><h2>Connected</h2><small>SimpleFIN Bridge</small></div>
-        <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + ' · ' + esc(st.lastResult) : 'Not synced yet. The first sync brings in the last ' + st.firstDays + ' days.'}</p>
-        ${(st.messages || []).length ? `<ul class="m-imp-facts m-sf-msgs">${st.messages.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
-        <button type="button" class="m-btn primary" data-sf-sync${mapped ? '' : ' disabled'} data-testid="m-sf-sync">${icon(I.swap)}Sync Now</button>
-        ${mapped ? '' : '<p class="m-note">Choose a VaultBook account for at least one bank account below first.</p>'}
-      </section>
-      <h2 class="m-sec">Where each bank account goes</h2>
-      <section class="m-card m-form" data-testid="m-sf-map">
-        ${(st.accounts || []).length ? st.accounts.map((a) => `<label class="m-f"><span>${esc(a.name)}${a.org ? ' · ' + esc(a.org) : ''} · ${signed(a.balance)}</span><select data-sf-map="${esc(a.id)}">${opt(st.map[a.id])}</select></label>`).join('')
-          : '<p class="m-empty">SimpleFIN has not listed any accounts yet. Check that your banks are connected at SimpleFIN Bridge, then tap Refresh.</p>'}
-        <button type="button" class="m-btn ghost" id="m-sf-refresh">Refresh Account List</button>
-        <p class="m-note">Need a new account in VaultBook first? Add it on the <a href="#/m/feed">Bank Feed</a> screen.</p>
-      </section>
-      <h2 class="m-sec">Options</h2>
-      <section class="m-card m-form">
-        <label class="m-check"><input type="checkbox" id="m-sf-auto"${st.auto ? ' checked' : ''}> Sync when VaultBook opens (at most twice a day)</label>
-        <p class="m-note">VaultBook can only sync while it is open; nothing runs in the background.</p>
-        <button type="button" class="m-btn ghost m-danger" id="m-sf-disconnect" data-testid="m-sf-disconnect">Disconnect Bank Sync</button>
-      </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
-    el.querySelectorAll('[data-sf-map]').forEach((s) => s.addEventListener('change', () => {
-      const s2 = sfState(); if (s.value) s2.map[s.dataset.sfMap] = s.value; else delete s2.map[s.dataset.sfMap]; sfSave(s2); feedSync(el);
-    }));
-    el.querySelector('#m-sf-auto').addEventListener('change', (e) => { const s2 = sfState(); s2.auto = e.target.checked; sfSave(s2); });
-    el.querySelector('#m-sf-refresh').addEventListener('click', async (e) => {
-      const s2 = sfState(), g = sfGuard(s2, 1); if (g) return UI.toast(g, 'error');
-      e.currentTarget.disabled = true;
-      try {
-        const access = await OB.secrets.get(sfId()); if (!access) throw new Error('Bank sync is not connected on this device.');
-        s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]); sfSave(s2);
-        const r = await SFX.accounts(access, { balancesOnly: true });
-        const s3 = sfState(); s3.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s3.messages = r.messages; sfSave(s3); feedSync(el);
-      } catch (x) { UI.toast(x.message || String(x), 'error'); feedSync(el); }
-    });
-    el.querySelector('#m-sf-disconnect').addEventListener('click', () => {
-      UI.confirm('Disconnect bank sync?', '<p>VaultBook deletes the connection key from this device and stops syncing. Lines already brought in stay in your books.</p><p>To cut off access completely, also remove VaultBook at beta-bridge.simplefin.org.</p>', { ok: 'Disconnect' })
-        .then((yes) => yes && OB.secrets.remove(sfId()).then(() => { OB.prefs.set(sfKey(), null); UI.toast('Bank sync disconnected.'); UI.go(sfHome()); })).catch(UI.error);
-    });
-  }
-  /* optional: sync once when VaultBook opens (at most every 12 hours), if the person turned it on */
-  let sfAutoTried = false;
-  function sfAuto() {
-    if (sfAutoTried || !UI.book) return; sfAutoTried = true;
-    const st = sfState();
-    if (!st.connected || !st.auto || !Object.keys(st.map).length || Date.now() / 1000 - st.lastAt < 12 * 3600) return;
-    setTimeout(() => sfSync().then((x) => { if (x.added) UI.toast('Bank sync: ' + sfSummary(x)); }, () => { /* shown next time on the Bank Sync screen */ }), 2500);
-  }
-  UI.sfSettingsLink = () => '#/m/feed/sync';
-
-  /* after a PDF / OFX statement is imported, touch screens go back to the bank feed Review screen */
-  UI.feedReviewHash = (accId) => (isPhone() || touchMQ.matches) ? '#/m/feed/review?account=' + encodeURIComponent(accId) : '';
-  const feed = (el, r) => ({ enter: feedEnter, review: feedReview, import: feedImport, sync: feedSync }[r.sub] || feedHub)(el, r);
+  const feed = (el, r) => ({ enter: feedEnter, review: feedReview }[r.sub] || feedHub)(el, r);
 
   /* ---------- Add sheet (bottom sheet with every way to record something) ---------- */
   function addSheet() {
@@ -28455,10 +28255,10 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     wrap.innerHTML = `<div class="m-sheet" role="dialog" aria-modal="true" aria-label="Add">
       <div class="m-grab" aria-hidden="true"></div><h2>Add</h2>
       <div class="m-tiles">
-        ${T('#/m/feed/import', I.upload, 'Import statement')}${T('#/m/feed/enter', I.bank, 'Type lines')}${T('#/m/feed/review', I.check, 'Review bank lines')}${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
+        ${T('#/m/feed/enter', I.bank, 'Enter statement')}${T('#/m/feed/review', I.check, 'Review bank lines')}${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
         ${T('#/txn/new?type=invoice', I.doc, 'Invoice')}${T('#/txn/new?type=payment', I.cash, 'Receive payment')}${T('#/txn/new?type=salesReceipt', I.cash, 'Sales receipt')}
         ${T('#/txn/new?type=bill', I.bill, 'Bill')}${T('#/txn/new?type=billPayment', I.check, 'Pay bills')}${T('#/txn/new?type=check', I.bill, 'Write check')}
-        
+        ${T('#/bankfeed', I.upload, 'Import bank file')}${T('#/pdfimport', I.doc, 'Import statement')}${T('#/txn/new?type=journal', I.list, 'Journal entry')}
       </div>
       <button type="button" class="m-btn ghost" id="m-all-types">All transaction types…</button>
       <button type="button" class="m-btn" id="m-sheet-x">Cancel</button></div>`;
@@ -28494,8 +28294,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
 
   /* ---------- routes ---------- */
   UI.routes.m = (el, r) => {
-    if (r.id === 'feed' && (isPhone() || touchMQ.matches || r.sub === 'sync')) {   /* Bank Sync also opens on a laptop */
-      root.classList.add('m-screen'); feed(el, r); markTab(); return; }
+    if (r.id === 'feed' && (isPhone() || touchMQ.matches)) { root.classList.add('m-screen'); feed(el, r); markTab(); return; }
     if (!isPhone()) { const map = { activity: '#/transactions', reports: '#/reports', more: '#/gateway', add: '#/txn/new?type=' + ((KINDS[r.params.kind] || KINDS.expense).full) }; location.replace(map[r.id] || '#/dashboard'); return; }
     root.classList.add('m-screen');
     ({ activity, add, reports, more }[r.id] || home)(el, r);
@@ -28516,7 +28315,7 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
   });
   /* leaving a mobile screen drops its page styling; the tab bar keeps the current tab lit */
   const baseRender = UI.render;
-  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); sfAuto(); return res; };
+  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); return res; };
   markTab();
 
   /* ---------- offline app (service worker) on https or localhost ---------- */
@@ -28524,12 +28323,5 @@ ${modern ? `          <span class="sb-rtitle" aria-hidden="true">${esc(title)}</
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache is optional */ }); });
   }
 })();
-
-;
-/* == js/boot.js == */
-/* Start VaultBook once the passcode screen (gate.js) is unlocked. Loaded last. */
-VBGate.ready.then(function () { OB.ui.start(); OB.windows.init(); });
-/* buttons marked data-print open the browser's print dialog (no inline onclick: the security policy forbids it) */
-document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-print]'); if (b) { e.preventDefault(); window.print(); } });
 
 ;

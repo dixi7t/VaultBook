@@ -1041,7 +1041,7 @@
     const L = OB.invoiceLayout, pages = L.pages(b, t);
     const titleMap = { invoice: 'Invoice', salesReceipt: 'Sales Receipt', creditMemo: 'Credit Memo', estimate: 'Estimate' };
     el.innerHTML = `<div class="page"><div class="page-head no-print"><div><h1>${esc(titleMap[t.type] || 'Document')} ${esc(t.number)}</h1><p class="sub">Download the PDF, or print on US Letter paper with no scaling.</p></div>
-      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
+      <div class="actions"><a class="btn" href="#/txn/${esc(t.id)}">Back</a>${t.type === 'invoice' && t.status === 'posted' ? `<button type="button" class="btn" id="tx-iif-one" data-id="${esc(t.id)}">QuickBooks .iif</button>` : ''}<button class="btn" id="inv-pdf" data-key="d">Download PDF</button><button class="btn primary" onclick="window.print()" data-key="p">Print</button></div></div>
       <div class="inv-pages" data-testid="invoice-doc">${pages.map((ops, i) => `<div class="inv-page">${t.status === 'void' ? '<div class="void-stamp">VOID</div>' : ''}${L.svg(ops, 'class="inv-svg" role="img" aria-label="' + esc((titleMap[t.type] || 'Invoice') + ' ' + t.number + (pages.length > 1 ? ', page ' + (i + 1) : '')) + '"')}</div>`).join('')}</div></div>`;
     el.querySelector('#inv-pdf').addEventListener('click', () => {
       const logoJpeg = (src) => new Promise((res) => {

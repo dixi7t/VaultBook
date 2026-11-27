@@ -19,7 +19,7 @@
       if (!r.ok) throw new Error((j && j.error) || ('The tool answered ' + r.status + '.'));
       if (!j) throw new Error('The tool sent something VaultBook cannot read.');
       return j;
-    }), () => { throw new Error('VaultBook cannot reach the QuickBooks tool. Open it (Open the QuickBooks tool, or VaultBook QuickBooks.cmd › 7 Connect to VaultBook) and keep its window open.'); });
+    }), () => { throw new Error('VaultBook cannot reach the QuickBooks tool. Open it (Open the QuickBooks tool, or VaultBook QuickBooks.cmd › 1 Connect to VaultBook) and keep its window open.'); });
   }
   UI.qbLink = link;
 
@@ -38,12 +38,12 @@
         ${up.full ? `<p data-testid="qu-source">QuickBooks export of <strong>${esc(when(up.full.at))}</strong> (${esc(up.source)}), ${U.sum(Object.keys(up.full.txns || {}), (k) => (up.full.txns[k] || []).length)} transactions.</p>` : '<p class="muted">Nothing loaded yet.</p>'}
         <div class="qu-ways">
           <div><h3>Connected to the tool</h3>
-            <p class="small muted">On the QuickBooks computer, click <strong>Open the QuickBooks tool</strong> (or run VaultBook QuickBooks.cmd › <strong>7 Connect to VaultBook</strong>). Type the link code it shows.</p>
+            <p class="small muted">On the QuickBooks computer, click <strong>Open the QuickBooks tool</strong> (or run VaultBook QuickBooks.cmd › <strong>1 Connect to VaultBook</strong>). Type the link code it shows.</p>
             <div class="toolbar"><label class="field inline"><span>Link code</span><input id="qu-code" inputmode="numeric" maxlength="6" autocomplete="off" value="${esc(up.code)}" data-testid="qu-code" style="width:7rem"></label>
               <button class="btn primary" id="qu-get" data-testid="qu-get">${up.linked ? 'Get a fresh export' : 'Connect and get the export'}</button>
               ${up.linked ? '<span class="badge ok" data-testid="qu-linked">Connected</span>' : ''}</div></div>
           <div><h3>Or with a file</h3>
-            <p class="small muted">Run VaultBook QuickBooks.cmd › <strong>5 Export everything</strong>, then <strong>Load a QuickBooks export</strong> above and choose the <code>VaultBook-QB-full-….json</code>.</p></div>
+            <p class="small muted">Run VaultBook QuickBooks.cmd › <strong>2 QuickBooks -> VaultBook</strong>, then <strong>Load a QuickBooks export</strong> above and choose the <code>VaultBook-QB-full-….json</code>.</p></div>
         </div>
         ${up.err ? `<p class="warn-text">${esc(up.err)}</p>` : ''}</section>
       ${p ? `<section class="card qu-step" data-testid="qu-step2"><h2>2. What will change in QuickBooks</h2>
@@ -60,7 +60,7 @@
         <p>Make a QuickBooks backup first. The tool shows the list and asks Y/N before it changes anything; voids are asked separately. An entry changed in QuickBooks after this export is refused, never overwritten. Nothing is deleted.</p>
         <div class="form-actions"><button class="btn primary" id="qu-send" data-testid="qu-send" ${up.linked ? '' : 'disabled'}>Send to the tool (${n.edits + n.voids})</button>
           <button class="btn" id="qu-dl" data-testid="qu-dl">Download the update file</button></div>
-        <p class="muted small">With the file: run VaultBook QuickBooks.cmd › <strong>4 Check only</strong> first if you like, then <strong>2 Send to QuickBooks</strong>, and choose the file.</p></section>` : ''}` : ''}
+        <p class="muted small">With the file: run VaultBook QuickBooks.cmd › <strong>4 Preview a VaultBook file</strong> first if you like, then <strong>3 VaultBook -> QuickBooks</strong>, and choose the file.</p></section>` : ''}` : ''}
       ${res ? `<section class="card qu-step" data-testid="qu-result"><h2>What QuickBooks did</h2>
         <div class="cl-stats"><div><b data-testid="qu-r-upd">${cnt('Updated')}</b><span>changed</span></div><div><b>${cnt('Voided')}</b><span>voided</span></div><div><b data-testid="qu-r-prob">${cnt('Problem')}</b><span>problems</span></div><div><b>${cnt('Ready')}</b><span>not done</span></div></div>
         ${cnt('Problem') ? `<ul class="small">${resItems.filter((x) => x.status === 'Problem').slice(0, 50).map((x) => `<li>${esc(x.label)}: ${esc(x.details)}</li>`).join('')}</ul>` : ''}

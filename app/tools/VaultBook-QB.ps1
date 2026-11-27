@@ -1,28 +1,30 @@
 <#
   VaultBook <-> QuickBooks Desktop - one script for everything (1.31).
 
-  Double-click "VaultBook QuickBooks.cmd" (same folder) and pick from the menu:
-    1  Read QuickBooks      reads what the open company file holds (every transaction type, by month) and saves a
-                            snapshot file. Nothing is written. Load it in VaultBook: Banking > Send to QuickBooks.
-    2  Send to QuickBooks   (invoices, customer payments, and since 1.38 bank transactions: checks, deposits, transfers,
-                            card charges and credits, journal entries)
-                            you choose the file VaultBook made; it checks every item, asks before creating any
-                            customer or item, asks once more, then records invoices first and payments against
-                            their invoices, and saves a .result.json next to the file.
-    3  Read, send, read     the usual cycle: snapshot, send the file, snapshot again so VaultBook shows the months Done.
-    4  Check only           shows the plan for a file, writes nothing.
-    5  Export everything    lists and every transaction, to build the company in VaultBook.
-    7  Connect to VaultBook a link VaultBook talks to directly (1.47): VaultBook asks for a fresh export, sends its
-                            changes (edits, voids, new accounts) and gets the result back; you still answer Y/N here.
-    8  Install the link     one time: lets VaultBook open this window (Open the QuickBooks tool). No admin rights.
-    Update files (1.47)     a VaultBook file made under Send to QuickBooks > Update QuickBooks holds only what changed
-                            in VaultBook: line accounts, amounts, memos, dates, numbers, payees, and voids. Each edit
-                            carries QuickBooks' EditSequence: an entry changed in QuickBooks since the export is refused.
-                            Nothing is ever deleted; a transaction voided in VaultBook is voided in QuickBooks.
-    6  Reports and ledgers  a bank or any account's ledger, the general ledger, the transaction list, Profit and
-                            Loss, Balance Sheet, Trial Balance, open invoices, unpaid bills - for this month, last
-                            month, any month, quarter, year, custom dates or all dates - saved as .csv for Excel.
-                            Nothing is written to QuickBooks and VaultBook is not needed.
+  Double-click "VaultBook QuickBooks.cmd" (same folder) and pick from the menu (1.60 order):
+    1  Connect to VaultBook     a link VaultBook talks to directly (1.47, 1.59): VaultBook asks for a fresh export,
+                                sends entries or changes and gets the result back; you still answer Y/N here.
+    2  QuickBooks -> VaultBook  (Export) lists and every transaction, to build or refresh the company in VaultBook.
+    3  VaultBook -> QuickBooks  (Send) you choose the file VaultBook made: invoices, customer payments, bank
+                                transactions (checks, deposits, transfers, card charges and credits, journal
+                                entries) or an update file. It checks every item against QuickBooks, skips what is
+                                already there, asks before creating any customer or item, asks once more, then
+                                records and saves a .result.json next to the file.
+    4  Preview a VaultBook file (Check) shows the plan for a file, writes nothing.
+    5  What QuickBooks has      (Read) what the open company file holds, by month, saved as a snapshot. Nothing is
+                                written. Load it in VaultBook: Send to QuickBooks.
+    6  Reports to Excel         a bank or any account's ledger, the general ledger, the transaction list, Profit
+                                and Loss, Balance Sheet, Trial Balance, open invoices, unpaid bills, for any dates,
+                                saved as .csv for Excel. Nothing is written to QuickBooks; VaultBook is not needed.
+    7  Set up one-click open    one time: lets VaultBook open this window (Open the QuickBooks tool). No admin rights.
+    8  Remove what VaultBook sent  (Remove, 1.63) for dates you choose, deletes from QuickBooks only entries that carry
+                                [VB:...] in the memo (recorded by this tool). Lists them, asks you to type DELETE, saves
+                                a .result.json; loaded in VaultBook, those entries count as not sent again.
+    -Mode Cycle                 (not on the menu) snapshot, send the file, snapshot again.
+    Update files (1.47)         a VaultBook file made under Update QuickBooks holds only what changed in VaultBook:
+                                line accounts, amounts, memos, dates, numbers, payees, and voids. Each edit carries
+                                QuickBooks' EditSequence: an entry changed in QuickBooks since the export is refused.
+                                Nothing is ever deleted; a transaction voided in VaultBook is voided in QuickBooks.
   The script never searches for files: it always asks you to choose them (Open File window, or type a path).
   Results and snapshots are saved next to the file you chose (snapshots: next to the last file, or where you say).
 
@@ -32,7 +34,7 @@
   recognizes it exactly; hand-typed entries are matched by type, date, number and amount.
 #>
 param(
-  [ValidateSet('', 'Read', 'Send', 'Cycle', 'Check', 'Export', 'Reports', 'Link', 'InstallLink')][string]$Mode = '',
+  [ValidateSet('', 'Read', 'Send', 'Cycle', 'Check', 'Export', 'Reports', 'Link', 'InstallLink', 'Remove')][string]$Mode = '',
   [int]$Port = 47321,
   [string]$Batch = '',
   [string]$SnapshotTo = '',
@@ -148,7 +150,23 @@ function Menu([array]$items, [string]$title = 'MAIN MENU') {
     }
   }
 }
-function X([string]$s) { [System.Security.SecurityElement]::Escape($s) }
+function X([string]$s) {
+  # 1.60.1: QuickBooks reads Latin-1 only and refuses the whole request ("error when parsing the provided XML text
+  # stream") on one character beyond it, such as a long dash. Plain forms for the usual marks, a space for the rest.
+  $t = [System.Security.SecurityElement]::Escape($s); if (-not $t) { return '' }
+  $sb = New-Object System.Text.StringBuilder
+  foreach ($ch in $t.ToCharArray()) {
+    $n = [int]$ch
+    if ($n -ge 32 -and $n -le 126) { [void]$sb.Append($ch) }
+    elseif ($n -ge 0x2010 -and $n -le 0x2015) { [void]$sb.Append('-') }
+    elseif ($n -eq 0x2018 -or $n -eq 0x2019) { [void]$sb.Append('&apos;') }
+    elseif ($n -eq 0x201C -or $n -eq 0x201D) { [void]$sb.Append('&quot;') }
+    elseif ($n -eq 0x2026) { [void]$sb.Append('...') }
+    elseif ($n -ge 161 -and $n -le 255) { [void]$sb.Append('&#' + $n + ';') }
+    else { [void]$sb.Append(' ') }
+  }
+  $sb.ToString()
+}
 function Cents($v) { if ($null -eq $v -or "$v" -eq '') { return [int64]0 }; [int64][math]::Round([decimal]::Parse([string]$v, $inv) * 100) }
 function Money([int64]$c) { ([decimal]$c / 100).ToString('0.00', $inv) }
 
@@ -223,7 +241,7 @@ function RunLink() {
   $l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback, $Port)
   try { $l.Start() } catch { Box @("Port $Port is in use. Is the VaultBook link already open in another window?") 'White' 'DarkRed' 'PROBLEM'; return }
   Box @('VaultBook can now talk to this window (this computer only).', '', "LINK CODE:  $code", '',
-        'In VaultBook: Send to QuickBooks > Update QuickBooks > Connect,', 'and type the code once.',
+        'In VaultBook, type this code on Send to QuickBooks > By date', 'or on Update QuickBooks.',
         'Keep QuickBooks open with the company file. Close this window to stop the link.') 'Black' 'Cyan' 'VAULTBOOK LINK'
   $me = $PSCommandPath; $ps = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
   while ($true) {
@@ -234,7 +252,7 @@ function RunLink() {
       $hostH = "$($rq.headers['Host'])"
       if ($hostH -ne "127.0.0.1:$Port" -and $hostH -ne "localhost:$Port") { LinkReply $st 403 '{"ok":false,"error":"wrong host"}'; continue }
       if ($rq.method -eq 'OPTIONS') { LinkReply $st 204 ''; continue }
-      if ($rq.method -eq 'GET' -and $rq.path -eq '/hello') { LinkReply $st 200 ('{"ok":true,"app":"VaultBook QuickBooks","version":"1.47","port":' + $Port + '}'); continue }
+      if ($rq.method -eq 'GET' -and $rq.path -eq '/hello') { LinkReply $st 200 ('{"ok":true,"app":"VaultBook QuickBooks","version":"1.61","port":' + $Port + '}'); continue }
       if ($rq.method -ne 'POST' -or $rq.path -ne '/run') { LinkReply $st 404 '{"ok":false,"error":"not found"}'; continue }
       $j = $null; try { $j = $rq.body | ConvertFrom-Json } catch { }
       if (-not $j -or "$($j.code)" -ne $code) { Say '  A request came with the wrong link code: refused.' Yellow; LinkReply $st 403 '{"ok":false,"error":"wrong link code"}'; continue }
@@ -250,7 +268,9 @@ function RunLink() {
         Say ''; Say "  VaultBook sent changes ($((Get-Date).ToString('HH:mm'))). Answer the questions below." Cyan
         $bf = Join-Path $dir "VaultBook-QB-update-$stamp.json"
         [IO.File]::WriteAllText($bf, "$($j.batchText)", (New-Object System.Text.UTF8Encoding $false))
-        & $ps -NoProfile -ExecutionPolicy Bypass -File $me -Mode Send -Batch $bf -Linked -AppName $AppName
+        # 1.61: VaultBook sends a long list in parts; the questions were answered for the first part, the others carry yes
+        if ($j.yes -eq $true) { & $ps -NoProfile -ExecutionPolicy Bypass -File $me -Mode Send -Batch $bf -Linked -Yes -AppName $AppName }
+        else { & $ps -NoProfile -ExecutionPolicy Bypass -File $me -Mode Send -Batch $bf -Linked -AppName $AppName }
         $rf = Join-Path $dir "VaultBook-QB-update-$stamp.result.json"
         if (Test-Path -LiteralPath $rf) { LinkReply $st 200 ([IO.File]::ReadAllText($rf)) } else { LinkReply $st 500 '{"ok":false,"error":"nothing was recorded (no result file)"}' }
       }
@@ -269,30 +289,31 @@ function InstallLink() {
   Set-ItemProperty -Path $k -Name 'URL Protocol' -Value ''
   New-Item -Path "$k\shell\open\command" -Force | Out-Null
   Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value $cmd
-  Box @('Installed for this Windows user (no admin rights used).', '', 'In VaultBook, "Open the QuickBooks tool" now opens this tool', 'in link mode; the browser asks once whether to open it.', '', 'If you move this folder, run 8 again.') 'White' 'DarkGreen' 'LINK INSTALLED'
+  Box @('Installed for this Windows user (no admin rights used).', '', 'In VaultBook, "Open the QuickBooks tool" now opens this tool', 'in link mode; the browser asks once whether to open it.', '', 'If you move this folder, run 7 again.') 'White' 'DarkGreen' 'LINK INSTALLED'
 }
 
 # ---- menu ----
 if (-not $Mode) {
   Banner 'Waiting for your choice'
-  Box @('Open the company file in QuickBooks Desktop first.',
-        'Before sending: in QuickBooks choose Window > Close All. Open reports and',
-        'registers recalculate after every entry and can make QuickBooks stop.',
-        'First time: log in as Admin, File > Switch to Single-user Mode,',
-        'and allow "VaultBook Connector" when QuickBooks asks.') 'Gray' 'Black' 'BEFORE YOU START'
+  Box @('1. Open the company file in QuickBooks Desktop.',
+        '2. In QuickBooks choose Window > Close All (open reports slow every entry).',
+        'First time only: log in as Admin in single-user mode and choose',
+        '"Yes, always" when QuickBooks asks about VaultBook Connector.') 'Gray' 'Black' 'BEFORE YOU START'
   Write-Host ''
+  # 1.60: the menu follows what the user wants to do. Connect first (VaultBook does the rest), then one line per
+  # direction, then the helpers. "Read, send, read" left the menu; -Mode Cycle still runs it.
   $pick = Menu @(
-    @('1', 'Read QuickBooks', 'Snapshot of what QuickBooks holds - nothing written'),
-    @('2', 'Send to QuickBooks', 'Record the file VaultBook made'),
-    @('3', 'Read, send, read', 'The full cycle: snapshot, send, snapshot again'),
-    @('4', 'Check only', 'Show the plan for a file - nothing written'),
-    @('5', 'Export everything', 'Lists + every transaction, to build the company in VaultBook'),
-    @('6', 'Reports and ledgers', 'Bank ledger, general ledger, P&L... any dates, as an Excel file'),
-    @('7', 'Connect to VaultBook', 'VaultBook talks to this window directly - no files to move'),
-    @('8', 'Install the link', 'One time: lets VaultBook open this tool with a click'))
-  switch ("$pick") { '1' { $Mode = 'Read' } '2' { $Mode = 'Send' } '3' { $Mode = 'Cycle' } '4' { $Mode = 'Check' } '5' { $Mode = 'Export' } '6' { $Mode = 'Reports' } '7' { $Mode = 'Link' } '8' { $Mode = 'InstallLink' } default { Say ''; Say '  Goodbye.' DarkGray; exit 0 } }
+    @('1', 'Connect to VaultBook', 'Easiest. VaultBook sends and reads by itself'),
+    @('2', 'QuickBooks -> VaultBook', 'First time: copy QuickBooks into a file for VaultBook'),
+    @('3', 'VaultBook -> QuickBooks', 'Record a VaultBook file. Duplicates are skipped'),
+    @('4', 'Preview a VaultBook file', 'See what a file would record. Nothing is written'),
+    @('5', 'What QuickBooks has', 'Snapshot by month, to compare. Nothing is written'),
+    @('6', 'Reports to Excel', 'Ledgers, P&L, balance sheet as Excel files'),
+    @('7', 'Set up one-click open', 'One time: VaultBook can open this tool by itself'),
+    @('8', 'Remove what VaultBook sent', 'Delete from QuickBooks what this tool recorded, for dates you choose'))
+  switch ("$pick") { '1' { $Mode = 'Link' } '2' { $Mode = 'Export' } '3' { $Mode = 'Send' } '4' { $Mode = 'Check' } '5' { $Mode = 'Read' } '6' { $Mode = 'Reports' } '7' { $Mode = 'InstallLink' } '8' { $Mode = 'Remove' } default { Say ''; Say '  Goodbye.' DarkGray; exit 0 } }
 }
-$ModeName = @{ Read = 'Reading QuickBooks'; Send = 'Sending to QuickBooks'; Cycle = 'Read - send - read'; Check = 'Checking a file (nothing written)'; Export = 'Exporting everything from QuickBooks'; Reports = 'Reports and ledgers from QuickBooks'; Link = 'Connected to VaultBook'; InstallLink = 'Installing the VaultBook link' }[$Mode]
+$ModeName = @{ Remove = 'Removing what VaultBook sent'; Read = 'Reading QuickBooks'; Send = 'Sending to QuickBooks'; Cycle = 'Read - send - read'; Check = 'Checking a file (nothing written)'; Export = 'Exporting everything from QuickBooks'; Reports = 'Reports and ledgers from QuickBooks'; Link = 'Connected to VaultBook'; InstallLink = 'Installing the VaultBook link' }[$Mode]
 Banner $ModeName
 if ($Mode -eq 'InstallLink') { InstallLink; exit 0 }
 if ($Mode -eq 'Link') { RunLink; exit 0 }
@@ -301,6 +322,7 @@ $doSend = $Mode -eq 'Send' -or $Mode -eq 'Cycle' -or $Mode -eq 'Check'
 $doRead = $Mode -eq 'Read' -or $Mode -eq 'Cycle'
 $doExport = $Mode -eq 'Export'
 $doReports = $Mode -eq 'Reports'
+$doRemove = $Mode -eq 'Remove'
 
 # ---- the file to send ----
 $data = $null; $invoices = @(); $payments = @(); $bank = @(); $updates = @(); $voids = @()
@@ -657,6 +679,65 @@ function DoReports() {
   }
 }
 
+# ---- 1.63: remove from QuickBooks what VaultBook sent (entries carrying [VB:...] in the memo), for chosen dates ----
+$script:removeFile = ''
+function DoRemove() {
+  Box @('Removes from QuickBooks ONLY the entries this tool recorded from VaultBook.',
+        'They carry [VB:...] in the memo. Entries typed in QuickBooks are never touched.',
+        'A removal cannot be undone: first choose File > Back Up Company in QuickBooks.') 'White' 'DarkRed' 'REMOVE WHAT VAULTBOOK SENT'
+  $per = PickPeriod
+  if (-not $per) { Say 'Nothing was removed.' Yellow; return }
+  if (-not $per.from) { Say 'Choose dates (All dates is not allowed here). Nothing was removed.' Yellow; return }
+  # deposits before customer payments, payments before invoices: QuickBooks refuses to delete what another entry still uses
+  $types = @(@('Deposit', 'Deposit'), @('ReceivePayment', 'Customer payment'), @('Check', 'Check'), @('Transfer', 'Transfer'),
+             @('CreditCardCharge', 'Card charge'), @('CreditCardCredit', 'Card credit'), @('JournalEntry', 'Journal entry'), @('Invoice', 'Invoice'))
+  $found = @()
+  Say "Looking in QuickBooks, $($per.label)..." Cyan
+  foreach ($ty in $types) {
+    $q = "$($ty[0])QueryRq"; $inc = $(if ($ty[0] -eq 'JournalEntry') { '<IncludeLineItems>true</IncludeLineItems>' } else { '' })
+    $rs = $null; try { $rs = (Send "<$q><TxnDateRangeFilter><FromTxnDate>$($per.from)</FromTxnDate><ToTxnDate>$($per.to)</ToTxnDate></TxnDateRangeFilter>$inc</$q>").ChildNodes | Select-Object -First 1 } catch { }
+    if (-not $rs -or -not (Ok $rs)) { continue }
+    foreach ($t in @($rs.ChildNodes)) {
+      if (-not $t -or -not $t.TxnID) { continue }
+      $memo = "$($t.Memo)"
+      if ($ty[0] -eq 'JournalEntry') { foreach ($l in (@($t.JournalDebitLine) + @($t.JournalCreditLine))) { if ($l -and "$($l.Memo)" -match '\[VB:') { $memo = "$($l.Memo)"; break } } }
+      $m = [regex]::Match($memo, '\[VB:([^\]]+)\]'); if (-not $m.Success) { continue }
+      $amt = ''; foreach ($f in @('Amount', 'DepositTotal', 'TotalAmount', 'Subtotal')) { if (-not $amt -and $t.$f) { $amt = "$($t.$f)" } }
+      $found += [pscustomobject]@{ type = $ty[0]; kind = $ty[1]; txnId = "$($t.TxnID)"; date = "$($t.TxnDate)"; num = "$($t.RefNumber)"; key = $m.Groups[1].Value; amount = $amt }
+    }
+  }
+  Section 'FOUND IN QUICKBOOKS'
+  if (-not $found.Count) { Say "  Nothing from VaultBook in QuickBooks, $($per.label). Nothing was removed." Yellow; return }
+  $lines = @()
+  foreach ($g in ($found | Group-Object kind)) { $lines += ("{0,-18} {1,6}" -f $g.Name, $g.Count) }
+  foreach ($x in @($found | Select-Object -First 12)) { Say ("  {0}  {1,-16} {2,-8} {3,12}" -f $x.date, $x.kind, $x.num, $x.amount) Gray }
+  if ($found.Count -gt 12) { Say "  ... and $($found.Count - 12) more" DarkGray }
+  Write-Host ''
+  Box ($lines + @('', ("Total to remove     {0,6}" -f $found.Count), "Dates: $($per.label)")) 'White' 'DarkRed' 'TO REMOVE'
+  Write-Host ''
+  $typed = Read-Host "  Type DELETE (capital letters) to remove these $($found.Count) entries from QuickBooks, or press Enter to stop"
+  if ("$typed" -cne 'DELETE') { Say '  Nothing was removed.' Yellow; return }
+  Say ''
+  $gone = 0; $stopped = ''
+  foreach ($x in $found) {
+    if ($stopped) { Note $x.key 'removed' "$($x.kind) $($x.date) $($x.num)" 'Ready' $x.txnId 'not removed (QuickBooks stopped before this one)'; continue }
+    $rs = $null; try { $rs = (Send "<TxnDelRq><TxnDelType>$($x.type)</TxnDelType><TxnID>$($x.txnId)</TxnID></TxnDelRq>").TxnDelRs } catch { $stopped = $_.Exception.Message }
+    $label = "$($x.kind) $($x.date) $($x.num) $($x.amount)"
+    if ($stopped) { Write-Host '  ' -NoNewline; Write-Host ' STOPPED  ' -ForegroundColor White -BackgroundColor DarkRed -NoNewline; Write-Host "  $label" -ForegroundColor Red; Note $x.key 'removed' $label 'Problem' $x.txnId 'QuickBooks stopped: check in QuickBooks whether this one is gone'; continue }
+    Start-Sleep -Milliseconds 300
+    if ($rs -and $rs.statusCode -eq '0') { $gone++; Write-Host '  ' -NoNewline; Write-Host ' REMOVED  ' -ForegroundColor Black -BackgroundColor Yellow -NoNewline; Write-Host "  $label" -ForegroundColor Yellow; Note $x.key 'removed' $label 'Deleted' $x.txnId '' }
+    else { $why = $(if ($rs) { "$($rs.statusMessage)" } else { 'no answer' }); Write-Host '  ' -NoNewline; Write-Host '  FAILED  ' -ForegroundColor White -BackgroundColor DarkRed -NoNewline; Write-Host "  ${label}: $why" -ForegroundColor Red; Note $x.key 'removed' $label 'Problem' $x.txnId "QuickBooks said: $why" }
+  }
+  Write-Host ''
+  Box @(("Removed        {0,6}" -f $gone), ("Not removed    {0,6}" -f ($found.Count - $gone))) 'White' $(if ($stopped -or $gone -lt $found.Count) { 'DarkRed' } else { 'DarkBlue' }) 'DONE'
+  $dir = PickFolder 'Where should the removal record for VaultBook be saved?'
+  if (-not $dir) { $dir = Join-Path $env:LOCALAPPDATA 'VaultBook'; New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $f = Join-Path $dir ('VaultBook-QB-removed-' + (Get-Date).ToString('yyyyMMdd-HHmmss') + '.result.json')
+  $res = [pscustomobject]@{ format = 'vaultbook-qb-result'; version = 3; company = ''; batch = 'remove'; at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ'); items = @($script:results.ToArray()) }
+  [IO.File]::WriteAllText($f, (ToJson $res), (New-Object System.Text.UTF8Encoding $false))
+  $script:removeFile = $f
+}
+
 $snapBefore = ''; $snapAfter = ''; $exportFile = ''
 $ticket = $null; $fatal = $false
 try {
@@ -665,6 +746,7 @@ try {
 
   if ($doExport) { Say 'Exporting everything from QuickBooks (this can take a few minutes for a large file)...' Cyan; $exportFile = DoExport }
   if ($doReports) { $null = DoReports }
+  if ($doRemove) { DoRemove }
   if ($doRead) { Say 'Reading QuickBooks...' Cyan; $snapBefore = DoRead ''; Say '' }
   if ($doSend) {
   # ---- lists from QuickBooks ----
@@ -881,7 +963,8 @@ try {
       if ($dup) { $plan += [pscustomobject]@{ b = $x; label = $label; status = 'Already in QuickBooks'; txn = "$($dup.TxnID)"; msgs = @("found in QuickBooks on the same date for the same amount (TxnID $($dup.TxnID))"); xml = '' }; continue }
       # ---- the request ----
       $memo = "<Memo>$(X (Mark $x.memo $x.key))</Memo>"; $xml = ''
-      $refNo = $(if ($x.ref) { "<RefNumber>$(X $x.ref)</RefNumber>" } else { '' })
+      # 1.63: a check with no number is sent with an empty number; left out, QuickBooks gave it the next check number (9001, 9002 ...)
+      $refNo = $(if ($x.ref) { "<RefNumber>$(X $x.ref)</RefNumber>" } elseif ($x.kind -eq 'check') { '<RefNumber></RefNumber>' } else { '' })
       $payee = $(if ($x.payee) { "<PayeeEntityRef>$(& $ref $x.payee)</PayeeEntityRef>" } else { '' })
       if ($x.kind -eq 'check' -or $x.kind -eq 'cardCharge' -or $x.kind -eq 'cardCredit') {
         $lx = ''
@@ -1006,7 +1089,7 @@ try {
         if ($stopped) { Note $x.b.key 'bank' $x.label 'Ready' '' 'not recorded (QuickBooks stopped before this one)'; continue }
         $rs = $null; try { $rs = (Send $x.xml).ChildNodes | Select-Object -First 1 } catch { $stopped = $_.Exception.Message }
         if ($stopped) { Write-Host '  ' -NoNewline; Write-Host ' STOPPED  ' -ForegroundColor White -BackgroundColor DarkRed -NoNewline; Write-Host "  $($x.label)" -ForegroundColor Red; Note $x.b.key 'bank' $x.label 'Problem' '' 'QuickBooks stopped while this was being recorded: check in QuickBooks whether it was saved'; continue }
-        Start-Sleep -Milliseconds 400
+        Start-Sleep -Milliseconds 700   # 1.61: a little longer; QuickBooks stopped after about 50 entries in a row
         $t = ''; if ($rs -and $rs.statusCode -eq '0') { foreach ($n in $rs.ChildNodes) { if ($n.TxnID) { $t = "$($n.TxnID)" } } }
         if ($t) { Write-Host '  ' -NoNewline; Write-Host ' RECORDED ' -ForegroundColor Black -BackgroundColor Green -NoNewline; Write-Host "  $($x.label)  ($t)" -ForegroundColor Green; Note $x.b.key 'bank' $x.label 'Recorded' $t ($x.msgs -join '; ') }
         else { $why = $(if ($rs) { "$($rs.statusMessage)" } else { 'no answer' }); Write-Host '  ' -NoNewline; Write-Host '  FAILED  ' -ForegroundColor White -BackgroundColor DarkRed -NoNewline; Write-Host "  $($x.label): $why" -ForegroundColor Red; Note $x.b.key 'bank' $x.label 'Problem' '' "QuickBooks said: $why" }
@@ -1041,7 +1124,7 @@ try {
         Box @('QuickBooks stopped answering part-way.', "Recorded before it stopped: $nRec. The others were NOT recorded.",
               '', 'What to do:', '1. Reopen QuickBooks and the company file. Choose Window > Close All.',
               '2. Look at the entry marked STOPPED above: if QuickBooks saved it, leave it; if not, it will be offered again.',
-              '3. Run 1 Read QuickBooks, load the snapshot in VaultBook, and send again: only what is still missing is sent.',
+              '3. Run 5 What QuickBooks has, load the snapshot in VaultBook, and send again: only what is still missing is sent.',
               '', 'QuickBooks said: ' + $stopped) 'White' 'DarkRed' 'QUICKBOOKS STOPPED'
         $fatal = $true
       }
@@ -1065,6 +1148,7 @@ finally {
 if (-not $doSend -or -not $results.Count) {
   if ($exportFile -and -not $Linked) { Write-Host ''; Box @('In VaultBook: QuickBooks Desktop > 1 Import everything', 'and choose this file:', $exportFile) 'Black' 'Cyan' 'NEXT STEP' }
   if ($script:reportFiles.Count) { Write-Host ''; Box (@('Saved ' + $script:reportFiles.Count + ' file(s). They open in Excel:') + @($script:reportFiles)) 'Black' 'Cyan' 'EXPORTED' }
+  if ($script:removeFile) { Write-Host ''; Box @('In VaultBook: Send to QuickBooks > Load snapshot or result file', 'and choose this record. The removed entries can then be sent again:', $script:removeFile) 'Black' 'Cyan' 'NEXT STEP' }
   if ($snapBefore -or $snapAfter) { Write-Host ''; Box @('In VaultBook: QuickBooks Desktop > 2 Read & months', '> Load snapshot or result file, and choose:', $(if ($snapAfter) { $snapAfter } else { $snapBefore })) 'Black' 'Cyan' 'NEXT STEP' }
   if ($fatal) { exit 1 }; exit 0
 }

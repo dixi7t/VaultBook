@@ -42,7 +42,7 @@
     Banking: () => [['Bank feed', '#/bankfeed'], ['Import statement', '#/pdfimport'], SEP, ['Make deposit', '#/txn/new?type=deposit'], ['Transfer', '#/txn/new?type=transfer'], ['Write check', '#/txn/new?type=check'], SEP,
       ['Reconcile', '#/reconcile'], ['Bank rules', '#/rules'], ['Registers', '#/vreg/sales'], ['Transactions', '#/transactions']],
     Accountant: () => [['Close the books', '#/close'], ['Reclassify', '#/reclassify'], ['Journal entry', '#/txn/new?type=journal'], ['Paste entries', '#/paste'], SEP,
-      ['QuickBooks Desktop', '#/qbd'], ['Months & send', '#/qbsend?tab=months'], ['Update QuickBooks', '#/qbd/update'], ['Tie-out report', '#/qbd/tieout']],
+      ['QuickBooks Desktop', '#/qbd'], ['Send by date', '#/qbsend?tab=date'], ['Months & send', '#/qbsend?tab=months'], ['Update QuickBooks', '#/qbd/update'], ['Tie-out report', '#/qbd/tieout']],
     Reports: () => [['Report center', '#/reports'], SEP, ['Profit and loss', '#/report/pnl'], ['Balance sheet', '#/report/bs'], SEP, ['A/R aging', '#/report/araging'], ['A/P aging', '#/report/apaging'],
       ['General ledger', '#/report/gl'], ['Trial balance', '#/report/tb'], ['Journal', '#/report/journal']],
     Window: () => (OB.windows ? OB.windows.list : []).map((w) => [(w.id === OB.windows.activeId ? '✓ ' : '') + (w.title || w.hash), () => OB.windows.focus(w.id), '', w.id])
@@ -99,10 +99,10 @@
   /* ---------- icon toolbar ---------- */
   const TOOLS = [['Home', '#/dashboard'], ['Calendar', '#/calendar'], SEP, ['Customers', '#/customers'], ['Vendors', '#/vendors'], ['Payroll', '#/payroll'], SEP,
     ['Bank feed', '#/bankfeed'], ['Reconcile', '#/reconcile'], ['Close books', '#/close'], ['Reports', '#/reports'], SEP, ['Paste entries', '#/paste'], ['Docs', '#/docs'], ['Snapshot', '#/snapshot'], SEP,
-    ['Send to QBD', '#/qbsend?tab=months'], ['Backup', '#/settings?tab=backup']];
+    ['Send to QBD', '#/qbsend?tab=date'], ['Backup', '#/settings?tab=backup']];
   const tb = document.createElement('div');
   tb.id = 'tbar'; tb.className = 'tbar'; tb.setAttribute('role', 'toolbar'); tb.setAttribute('aria-label', 'Main toolbar'); tb.dataset.testid = 'toolbar';
-  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg');
+  tb.innerHTML = TOOLS.map((x) => { if (!x) return '<i aria-hidden="true"></i>'; const s = document.querySelector('#sidebar a[href="' + x[1] + '"] svg') || document.querySelector('#sidebar a[href="' + x[1].split('?')[0] + '"] svg') || document.querySelector('#sidebar a[href^="' + x[1].split('?')[0] + '?"] svg');   // the side link may open another tab of the same screen
     return `<a href="${x[1]}">${s ? s.outerHTML : ''}<span>${x[0]}</span></a>`; }).join('');
   topbar.insertBefore(tb, topbar.firstChild);
   const name = (h) => h.slice(2).split(/[/?]/)[0];

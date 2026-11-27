@@ -117,4 +117,122 @@
         eq(OB.qbsend.batch(b, [], {}).version, 2, 'no bank items: the old file version');
       });
   });
+  test('QS-10 send from a date: everything from that day that is not in QuickBooks yet; older invoices a payment pays come along; counts for the screen', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, b = f.b, ck = acc(b, 'Checking');
+      return b.saveContact({ kind: 'vendor', name: 'Paper Co' }).then(function (v) { return b.saveTransactions([
+        { type: 'expense', date: '2026-08-15', accountId: ck, lines: [{ accountId: acc(b, 'Meals'), amount: '20' }] },
+        { type: 'expense', date: '2026-07-01', accountId: ck, lines: [{ accountId: acc(b, 'Meals'), amount: '15' }] },
+        { type: 'bill', date: '2026-08-16', number: 'B1', contactId: v.id, lines: [{ accountId: acc(b, 'Meals'), amount: '50' }] }]); }).then(function () {
+        var r = Q.fromDate(b, '2026-08-11');
+        // from Aug 11: payment p0 (Aug 11), payment p2 (Aug 20), invoice 1261 (Sep 4), the Aug 15 expense; invoices 1243 (Aug 5) and 1250 (Aug 10) are older
+        eq(r.counts.payment, 2); eq(r.counts.invoice, 1); eq(r.counts.bank, 1); eq(r.items.length, 4);
+        eq(r.extra.map(function (x) { return x.number; }).sort().join(), '1243,1250', 'older invoices these payments pay');
+        eq(r.keys.length, 6); eq(r.already, 0);
+        eq(r.left.bill, 1, 'bills are counted as left out'); ok(!r.left.creditMemo || r.left.creditMemo === 1);
+        ok(r.keys.indexOf(f.ids['1243']) >= 0 && r.keys.indexOf(f.ids['1261']) >= 0);
+        return Q.applyResult(b, { format: 'vaultbook-qb-result', at: '2026-09-10T10:00:00Z', items: [{ key: f.ids['1243'], status: 'Already in QuickBooks', txnId: 'A-1' }, { key: f.ids.p0, status: 'Recorded', txnId: 'A-2' }] });
+      }).then(function () {
+        var r = Q.fromDate(b, '2026-08-11');
+        eq(r.counts.payment, 1, 'what QuickBooks has is left out'); eq(r.already, 1); eq(r.extra.map(function (x) { return x.number; }).join(), '1250', 'an invoice already there is not sent again');
+        return b.saveTransaction({ type: 'expense', date: '2026-08-21', accountId: acc(b, 'Checking'), importRef: 'QuickBooks Check 12 · 2026-08-21 · TxnID 9-1', lines: [{ accountId: acc(b, 'Meals'), amount: '7' }] }).then(function () {
+          var r2 = Q.fromDate(b, '2026-08-11'); eq(r2.counts.bank, 1, 'an entry imported from QuickBooks is not sent back'); eq(r2.already, 2);
+          eq(Q.sendList(b, { kinds: ['bank'], status: 'sent' }).filter(function (x) { return x.qbTxnId === '9-1'; }).length, 1);
+        });
+      }).then(function () {
+        var r = Q.fromDate(b, '2026-08-11');
+        var day = Q.fromDate(b, '2026-08-15', '2026-08-15'); eq(day.counts.bank, 1, 'one day'); eq(day.keys.length, 1);
+        var per = Q.fromDate(b, '2026-08-01', '2026-08-31'); eq(per.counts.invoice, 1, 'August only: invoice 1250 (1243 is in QuickBooks), not the September invoice'); eq(per.left.bill, 1);
+        ok(per.keys.indexOf(f.ids['1261']) < 0, 'September is outside the period');
+        eq(Q.fromDate(b, '2027-01-01').keys.length, 0); eq(Q.fromDate(b, '').keys.length, 0, 'a date is required');
+        var batch = Q.batch(b, r.keys, {}); eq(batch.invoices.length + batch.payments.length + batch.bank.length, r.keys.length);
+      });
+    });
+  });
+  test('QS-11 nothing QuickBooks cannot read goes into a batch: a long dash in a bank memo stopped a whole send', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, b = f.b, ck = acc(b, 'Checking');
+      return b.saveTransaction({ type: 'expense', date: '2026-08-15', accountId: ck, memo: 'Online Payment — Online payment to CRD 8979 “Conf” … café 日',
+        lines: [{ accountId: acc(b, 'Meals'), amount: '100', description: 'Fee – card • x' }] }).then(function (t) {
+        var batch = Q.batch(b, [t.id], {}), x = batch.bank[0], text = JSON.stringify(batch);
+        eq(x.memo, "Online Payment - Online payment to CRD 8979 'Conf' ... café", 'plain dash, quotes and dots; Latin-1 kept; the rest dropped');
+        eq(x.lines[0].memo, 'Fee - card - x');
+        ok(!/[^\x20-\x7E\xA1-\xFF]/.test(text), 'the whole batch is in QuickBooks\' character set');
+        eq(OB.util.qbText('a—b'), 'a-b'); eq(OB.util.qbText(null), '');
+      });
+    });
+  });
+  test('QS-12 a long send is cut into parts: invoices a payment needs come before it; a part\'s result says recorded, stopped or declined', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, b = f.b, r = Q.fromDate(b, '2026-08-11'), parts = Q.chunks(r, 2), flat = [].concat.apply([], parts);
+      eq(flat.length, r.keys.length); eq(flat.slice().sort().join(), r.keys.slice().sort().join(), 'every key once');
+      ok(parts.every(function (p) { return p.length <= 2; }));
+      var at = function (id) { return flat.indexOf(id); };
+      ok(at(f.ids['1243']) < at(f.ids.p0) && at(f.ids['1250']) < at(f.ids.p0), 'the earlier invoices come before the payment that pays them');
+      ok(at(f.ids['1261']) < at(f.ids.p0), 'all invoices before any payment');
+      eq(Q.chunks(r).length, 1, 'the usual part holds 25');
+      var S = Q.resultSummary;
+      eq(JSON.stringify(S({ items: [{ status: 'Recorded' }, { status: 'Already in QuickBooks' }, { status: 'Problem', details: 'QuickBooks said: no such account' }] })), JSON.stringify({ recorded: 1, dup: 1, prob: 1, stopped: false, declined: false }));
+      ok(S({ items: [{ status: 'Recorded' }, { status: 'Problem', details: 'QuickBooks stopped while this was being recorded: check in QuickBooks whether it was saved' }, { status: 'Ready', details: 'not recorded (QuickBooks stopped before this one)' }] }).stopped);
+      ok(S({ items: [{ status: 'Ready' }, { status: 'Ready' }] }).declined, 'the user answered No in the tool'); ok(!S({ items: [] }).declined);
+    });
+  });
+  test('QS-13 bank transactions of a period as one .iif; once QuickBooks imported it they are left out everywhere', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, X = OB.qbexport, b = f.b, ck = acc(b, 'Checking'), ids;
+      return b.saveTransactions([
+        { type: 'expense', date: '2026-08-15', accountId: ck, memo: 'Fee — card', lines: [{ accountId: acc(b, 'Meals'), amount: '20' }] },
+        { type: 'deposit', date: '2026-08-18', accountId: ck, lines: [{ accountId: acc(b, 'Services'), amount: '300' }] },
+        { type: 'expense', date: '2026-09-15', accountId: ck, lines: [{ accountId: acc(b, 'Meals'), amount: '9' }] }]).then(function (ts) {
+        ids = ts.map(function (t) { return t.id; });
+        var r = Q.fromDate(b, '2026-08-01', '2026-08-31'), bank = r.items.filter(function (x) { return x.kind === 'bank'; }).map(function (x) { return x.id; });
+        eq(bank.length, 2, 'August: the expense and the deposit');
+        var out = X.txnsIIF(b, bank.concat([f.ids['1243']]), {}), rows = out.text.split('\r\n');
+        eq(out.txnCount, 2); eq(out.skipped.length, 1, 'an invoice is not a bank transaction');
+        eq(rows.filter(function (l) { return /^TRNS\t/.test(l); }).map(function (l) { return l.split('\t')[2]; }).join(), 'CHECK,DEPOSIT');
+        ok(rows.some(function (l) { return /^TRNS\t.*\tFee - card \[VB:txn_[^\]]+\]\t/.test(l); }), 'plain text for QuickBooks, with the VaultBook mark');
+        return Q.markIIF(b, bank);
+      }).then(function (n) {
+        eq(n, 2);
+        var r = Q.fromDate(b, '2026-08-01', '2026-08-31'); eq(r.counts.bank, 0, 'imported: not offered again'); ok(r.already >= 2);
+        eq(Q.fromDate(b, '2026-09-01', '2026-09-30').counts.bank, 1, 'September still to send');
+        return b.importBankLines(ck, [{ date: '2026-08-15', description: 'FEE', amount: -2000 }], { fileName: 'aug.csv' });
+      }).then(function () {
+        var l = b.bankLines.find(function (x) { return x.date === '2026-08-15'; });
+        var go = l.status === 'posted' ? Promise.resolve() : b.postBankLine(l.id, { kind: 'match', txnId: ids[0], splitIndex: b.bankCandidates(l.id)[0].splitIndex });
+        return go.then(function () {
+          var e = X.bankIIF(b, { accountIds: [ck], from: '2026-08-01', to: '2026-08-31' });
+          eq(e.txnCount, 0); ok(e.skipped.some(function (s) { return s.reason === 'already in QuickBooks'; }), 'the Bank feed export skips it too');
+        });
+      });
+    });
+  });
+  test('QS-14 a removal record from the tool makes those entries not sent again; other marks stay', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, b = f.b;
+      return Q.applyResult(b, { format: 'vaultbook-qb-result', at: '2026-09-10T10:00:00Z', items: [{ key: f.ids['1243'], status: 'Recorded', txnId: 'A-1' }, { key: f.ids['1250'], status: 'Recorded', txnId: 'A-2' }] }).then(function () {
+        eq(Q.fromDate(b, '2026-08-01').already, 2);
+        return Q.applyResult(b, { format: 'vaultbook-qb-result', at: '2026-09-11T10:00:00Z', batch: 'remove', items: [{ key: f.ids['1243'], kind: 'removed', status: 'Deleted', txnId: 'A-1' }, { key: f.ids['1250'], kind: 'removed', status: 'Problem', txnId: 'A-2', details: 'QuickBooks said: in use' }] });
+      }).then(function () {
+        var s = b.company.qbSent; ok(!s[f.ids['1243']], 'removed: no longer marked'); eq(s[f.ids['1250']].qbTxnId, 'A-2', 'not removed: still in QuickBooks, still marked');
+        ok(Q.fromDate(b, '2026-08-01').keys.indexOf(f.ids['1243']) >= 0, 'offered again');
+      });
+    });
+  });
+  test('QS-15 an .iif from any picked entries: invoices and bank transactions in one file; what QuickBooks has and bills are left out', function () {
+    return fixture().then(function (f) {
+      var Q = OB.qbsend, X = OB.qbexport, b = f.b, ck = acc(b, 'Checking'), ids = [];
+      return b.saveContact({ kind: 'vendor', name: 'Paper Co' }).then(function (v) { return b.saveTransactions([
+        { type: 'expense', date: '2026-08-15', accountId: ck, lines: [{ accountId: acc(b, 'Meals'), amount: '20' }] },
+        { type: 'bill', date: '2026-08-16', number: 'B1', contactId: v.id, lines: [{ accountId: acc(b, 'Meals'), amount: '50' }] }]); }).then(function (ts) {
+        ids = [ts[0].id, ts[1].id, f.ids['1243'], f.ids['1250'], ts[0].id];
+        return Q.applyResult(b, { format: 'vaultbook-qb-result', at: '2026-09-10T10:00:00Z', items: [{ key: f.ids['1250'], status: 'Recorded', txnId: 'A-2' }] });
+      }).then(function () {
+        var out = X.anyIIF(b, ids), rows = out.text.split('\r\n');
+        eq(out.count, 2, 'the expense and invoice 1243'); eq(out.keys.length, 2); eq(out.inQB.join(), f.ids['1250']); eq(out.cannot.Bill, 1);
+        eq(rows.filter(function (l) { return /^TRNS\t/.test(l); }).map(function (l) { return l.split('\t')[2]; }).sort().join(), 'CHECK,INVOICE');
+        eq(X.anyIIF(b, []).count, 0);
+      });
+    });
+  });
 })(typeof window !== 'undefined' ? window : globalThis);

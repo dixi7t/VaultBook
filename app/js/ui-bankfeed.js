@@ -25,7 +25,7 @@
     return f.ready;
   };
   let bf = null; // page state, kept while the app is open (lines themselves are in the database)
-  const fresh = (b) => ({ companyId: b.company.id, accountId: '', tab: 'review', q: '', dir: 'all', onlySug: false, help: 'off', sort: { key: 'date', desc: true }, sel: new Set(), open: '', openTab: 'cat', drafts: {}, imp: null, focus: '', page: 0 });
+  const fresh = (b) => ({ companyId: b.company.id, accountId: '', tab: 'review', q: '', dir: 'all', onlySug: false, show: 'all', help: 'off', sort: { key: 'date', desc: true }, sel: new Set(), open: '', openTab: 'cat', drafts: {}, imp: null, focus: '', page: 0 });
 
   UI.routes.bankfeed = (el, r) => {
     const b = UI.book;
@@ -93,12 +93,23 @@
   function plan(b, l) { // what the row proposes: a best match, a suggestion, or the user's own pick
     const d = bf.drafts[l.id] || {};
     const cands = b.bankCandidates(l.id), best = cands.find((c) => c.best);
-    let sug = b.bankSuggestion(l.id);
+    let sug = b.bankSuggestion(l.id), who = '', label = '';
+    if (OB.close && l.status === 'review') {   // 1.57: the payee's habit in the books (the Close the books engine), then a common merchant
+      const cp = OB.close.forFeed(b, l.accountId)[l.id];
+      if (cp) {
+        who = cp.contactId || ''; label = cp.label || '';
+        if (!sug && !best && cp.categoryId && (cp.kind === 'habit' || cp.kind === 'common')) sug = { categoryId: cp.categoryId, contactId: who, source: cp.kind === 'habit' ? 'books' : 'common', sure: !!cp.auto, reason: cp.reason + (cp.why ? ' (' + cp.why + ')' : '') };
+      }
+    }
     const had = !!(best || sug);
     if (!had && bf.help === 'clients' && firm && firm.done) sug = OB.hints.fromClients(b, l, firm.list);
     if (!had && bf.help === 'common') sug = OB.hints.fromCommon(b, l);
-    return { had, cands, best: d.categoryId ? null : best, sug, categoryId: d.categoryId || (sug && sug.categoryId) || '', contactId: d.contactId !== undefined ? d.contactId : (sug && sug.contactId) || '' };
+    const categoryId = d.categoryId || (sug && sug.categoryId) || '';
+    // sure = a match, the user's own pick, a rule, or a steady habit; check = any other suggestion; none = nothing to offer
+    const level = (!d.categoryId && best) || d.categoryId || (sug && (sug.source === 'rule' || sug.sure)) ? 'sure' : categoryId ? 'check' : 'none';
+    return { had, cands, best: d.categoryId ? null : best, sug, categoryId, level, label: label || l.description, contactId: d.contactId !== undefined ? d.contactId : (sug && sug.contactId) || who };
   }
+  function likeIds(b, a, p) { return rowsFor(b, a).filter((x) => plan(b, x).label === p.label).map((x) => x.id); }   // the same payee (or the same bank wording when no payee is known)
   function candLabel(b, c) {
     if (c.kind === 'deposit' || c.kind === 'group') {
       const ids = c.kind === 'deposit' ? c.txnIds : c.links.map((x) => x.txnId);
@@ -120,27 +131,40 @@
   function linesView(b, a, pf) {
     let list = rowsFor(b, a);
     const plans = {};
-    if (bf.tab === 'review') { list.forEach((l) => { plans[l.id] = plan(b, l); }); if (bf.onlySug) list = list.filter((l) => plans[l.id].best || plans[l.id].sug); }
+    let count = { sure: 0, check: 0, none: 0 };
+    if (bf.tab === 'review') {
+      list.forEach((l) => { plans[l.id] = plan(b, l); count[plans[l.id].level]++; });
+      if (bf.onlySug) list = list.filter((l) => plans[l.id].best || plans[l.id].sug);
+      if (bf.show !== 'all') list = list.filter((l) => plans[l.id].level === bf.show);
+      const k = bf.sort.key, s = bf.sort.desc ? -1 : 1, RANK = { sure: 0, check: 1, none: 2 };
+      const val = { payee: (p) => (UI.contactName(p.contactId) || p.label || '').toLowerCase(), cat: (p) => (p.categoryId ? b.accountLabel(p.categoryId) : '\uffff').toLowerCase(), level: (p) => RANK[p.level] }[k];
+      // lines of one payee stay together (then by date), so a group can be ticked and posted in one go
+      if (val) list = list.slice().sort((x, y) => { const vx = val(plans[x.id]), vy = val(plans[y.id]); return vx < vy ? -s : vx > vy ? s : (plans[x.id].label < plans[y.id].label ? -1 : plans[x.id].label > plans[y.id].label ? 1 : x.date < y.date ? 1 : x.date > y.date ? -1 : 0); });
+    }
     const pages = Math.max(1, Math.ceil(list.length / pf.pageSize)); if (bf.page >= pages) bf.page = pages - 1;
     const shown = list.slice(bf.page * pf.pageSize, (bf.page + 1) * pf.pageSize);
     [...bf.sel].forEach((id) => { if (!list.some((l) => l.id === id)) bf.sel.delete(id); });
     const ready = bf.tab === 'review' ? list.filter((l) => plans[l.id].best || (plans[l.id].categoryId && !(plans[l.id].sug && plans[l.id].sug.extra && !bf.drafts[l.id]))) : [];
     const none = bf.tab === 'review' ? list.filter((l) => !plans[l.id].had) : [], found = none.filter((l) => plans[l.id].sug).length;
     const busy = bf.help === 'clients' && !(firm && firm.done);
-    const sortH = (k, label, cls) => `<th class="${cls || ''}"><button class="bf-sort" data-sort="${k}" aria-label="Sort by ${label}">${label}${bf.sort.key === k ? (bf.sort.desc ? ' ▾' : ' ▴') : ''}</button></th>`;
+    const sortH = (k, label, cls) => `<th class="${cls || ''}"><button class="bf-sort${bf.sort.key === k ? ' on' : ''}" data-sort="${k}" aria-label="Sort by ${label}">${label}${bf.sort.key === k ? (bf.sort.desc ? ' ▾' : ' ▴') : ''}</button></th>`;
     const ncol = 7 + (pf.cols.check ? 1 : 0) + (pf.cols.payee ? 1 : 0) + (pf.cols.balance ? 1 : 0);
     return `<div class="bf-tools">
         <input type="search" id="bf-q" placeholder="Search description, amount or check no." value="${esc(bf.q)}" aria-label="Search bank lines">
         <div class="segmented" role="group" aria-label="Direction">${[['all', 'All'], ['in', 'Money in'], ['out', 'Money out']].map(([k, t]) => `<button data-dir="${k}" aria-pressed="${bf.dir === k}">${t}</button>`).join('')}</div>
-        ${bf.tab === 'review' ? `<label class="check"><input type="checkbox" id="bf-onlysug" ${bf.onlySug ? 'checked' : ''}> Only lines with a suggestion</label>` : ''}
-        ${bf.tab === 'review' ? `<span class="bf-help"><span class="muted small">Extra help</span><span class="segmented" role="group" aria-label="Extra help for lines with no suggestion">${[['off', 'Off'], ['clients', 'Other clients'], ['common', 'Common merchants']].map(([k, t]) => `<button data-help="${k}" aria-pressed="${bf.help === k}" data-testid="bf-help-${k}">${t}</button>`).join('')}</span>
+        <label class="bf-pick"><span>Sort by</span><select id="bf-sortby" data-testid="bf-sortby">${[['date:d', 'Date, newest first'], ['date:a', 'Date, oldest first'], ...(bf.tab === 'review' ? [['payee:a', 'Payee'], ['cat:a', 'Category'], ['level:a', 'Sure first']] : []), ['amount:a', 'Amount, largest spent first'], ['amount:d', 'Amount, largest received first'], ['desc:a', 'Bank description']]
+          .map(([v, t]) => `<option value="${v}"${v === bf.sort.key + ':' + (bf.sort.desc ? 'd' : 'a') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        ${bf.tab === 'review' ? `<label class="bf-pick"><span>Show</span><select id="bf-show" data-testid="bf-show">${[['all', 'All lines'], ['sure', 'Sure (' + count.sure + ')'], ['check', 'To check (' + count.check + ')'], ['none', 'No suggestion (' + count.none + ')']].map(([v, t]) => `<option value="${v}"${v === bf.show ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label class="check"><input type="checkbox" id="bf-onlysug" ${bf.onlySug ? 'checked' : ''}> Only lines with a suggestion</label>` : ''}
+        ${bf.tab === 'review' ? `<span class="bf-help"><span class="muted small">Also ask</span><span class="segmented" role="group" aria-label="Extra help for lines with no suggestion">${[['off', 'Off'], ['clients', 'Other clients']].map(([k, t]) => `<button data-help="${k}" aria-pressed="${bf.help === k}" data-testid="bf-help-${k}">${t}</button>`).join('')}</span>
           ${bf.help !== 'off' ? `<span class="small" data-testid="bf-help-count">${busy ? 'Reading your other clients…' : `Identified <strong>${found}</strong> of ${none.length} line${none.length === 1 ? '' : 's'} with no suggestion${bf.help === 'clients' ? ` · learned from ${firm.list.length} client${firm.list.length === 1 ? '' : 's'}${firm.skipped ? `, ${firm.skipped} password-protected skipped` : ''}` : ''}`}</span>` : ''}</span>` : ''}
         <span class="spacer"></span>
         <div class="segmented" role="group" aria-label="Row density">${[['comfortable', 'Comfortable'], ['compact', 'Compact']].map(([k, t]) => `<button data-density="${k}" aria-pressed="${pf.density === k}">${t}</button>`).join('')}</div>
         <details class="bf-colmenu"><summary class="btn ghost small">Columns</summary><div class="bf-colpop">${COLS.map(([k, t]) => `<label class="check"><input type="checkbox" data-col="${k}" ${pf.cols[k] ? 'checked' : ''}> ${t}</label>`).join('')}
           <label class="field"><span>Rows per page</span><select id="bf-ps">${[50, 100, 200, 500].map((n) => `<option${n === pf.pageSize ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></details>
       </div>
-      ${bf.tab === 'review' && ready.length ? `<div class="banner info bf-ready" data-testid="bf-ready"><span><strong>${ready.length}</strong> line${ready.length === 1 ? ' has' : 's have'} a match or a category ready.</span><button class="btn small" id="bf-sel-ready">Select them</button></div>` : ''}
+      ${bf.tab === 'review' && (count.sure || count.check) ? `<div class="banner info bf-ready" data-testid="bf-ready"><span class="bf-counts" data-testid="bf-counts"><strong>${count.sure}</strong> sure · <strong>${count.check}</strong> to check · <strong>${count.none}</strong> with no suggestion</span>
+        ${count.sure ? `<button class="btn small primary" id="bf-sel-sure" data-testid="bf-sel-sure">Select the ${count.sure} sure</button>` : ''}<button class="btn small" id="bf-sel-ready">Select all ${count.sure + count.check} with a suggestion</button></div>` : ''}
       <div class="bf-batch" ${bf.sel.size ? '' : 'hidden'} data-testid="bf-batch"><strong>${bf.sel.size} selected</strong>
         ${bf.tab === 'review' ? `<span class="bf-batch-cat">${UI.comboHtml('account', 'line', '', 'id="bf-bcat"', { placeholder: 'Set category…', label: 'Category for the selected lines' })}</span>
           <button class="btn primary small" id="bf-bpost" data-testid="bf-batch-post">Post selected</button><button class="btn small" id="bf-bexcl">Exclude…</button>` : ''}
@@ -149,8 +173,8 @@
         <button class="btn ghost small" id="bf-bclear">Clear</button></div>
       ${list.length ? `<div class="scroll-x"><table class="bf-table ${pf.density === 'compact' ? 'compact' : ''}" data-testid="bf-table"><thead><tr>
         <th class="bf-ck"><input type="checkbox" id="bf-all" aria-label="Select all shown" ${shown.length && shown.every((l) => bf.sel.has(l.id)) ? 'checked' : ''}></th>
-        ${sortH('date', 'Date')}${sortH('desc', 'Bank description')}${pf.cols.check ? '<th>Check no.</th>' : ''}${pf.cols.payee ? '<th>Payee</th>' : ''}
-        <th>${bf.tab === 'review' ? 'Category or match' : bf.tab === 'posted' ? 'Posted as' : 'Reason'}</th>${sortH('amount', 'Spent', 'num')}<th class="num">Received</th>${pf.cols.balance ? '<th class="num">Balance</th>' : ''}<th><span class="sr-only">Action</span></th></tr></thead>
+        ${sortH('date', 'Date')}${sortH('desc', 'Bank description')}${pf.cols.check ? '<th>Check no.</th>' : ''}${pf.cols.payee ? (bf.tab === 'review' ? sortH('payee', 'Payee') : '<th>Payee</th>') : ''}
+        ${bf.tab === 'review' ? sortH('cat', 'Category or match') : `<th>${bf.tab === 'posted' ? 'Posted as' : 'Reason'}</th>`}${sortH('amount', 'Spent', 'num')}<th class="num">Received</th>${pf.cols.balance ? '<th class="num">Balance</th>' : ''}<th><span class="sr-only">Action</span></th></tr></thead>
         <tbody>${shown.map((l) => row(b, a, l, plans[l.id], pf) + (bf.open === l.id && plans[l.id] ? `<tr class="bf-detail"><td colspan="${ncol}">${detail(b, a, l, plans[l.id])}</td></tr>` : '')).join('')}</tbody></table></div>
         ${pages > 1 ? `<div class="bf-pager"><button class="btn ghost small" id="bf-prev" ${bf.page ? '' : 'disabled'}>Previous</button><span>Page ${bf.page + 1} of ${pages} · ${list.length} lines</span><button class="btn ghost small" id="bf-next" ${bf.page < pages - 1 ? '' : 'disabled'}>Next</button></div>` : ''}
         <p class="muted small bf-keys">Keys: ↑ ↓ move · Enter open · Space select · A post · X exclude · Esc close</p>`
@@ -162,7 +186,7 @@
     let mid = '', act = '';
     if (bf.tab === 'review') {
       if (p.best) { mid = `<span class="badge ok">Match</span> ${candLabel(b, p.best)}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-match-btn">Match</button>`; }
-      else if (p.categoryId) { mid = `${p.sug && p.sug.splits && !(bf.drafts[l.id] || {}).categoryId ? 'Split: ' + p.sug.splits.map((x) => esc(b.accountLabel(x.accountId))).join(' + ') : esc(b.accountLabel(p.categoryId))}${p.sug && !bf.drafts[l.id] ? ` <span class="badge ${p.sug.source === 'rule' ? 'ok' : ''}" title="${esc(p.sug.reason)}">${{ rule: 'Rule', clients: 'Other clients', common: 'Common merchant' }[p.sug.source] || 'Last time'}</span>` : ''}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-add-btn">Add</button>`; }
+      else if (p.categoryId) { mid = `${p.sug && p.sug.splits && !(bf.drafts[l.id] || {}).categoryId ? 'Split: ' + p.sug.splits.map((x) => esc(b.accountLabel(x.accountId))).join(' + ') : esc(b.accountLabel(p.categoryId))}${p.sug && !bf.drafts[l.id] ? ` <span class="badge ${p.sug.source === 'rule' || p.sug.sure ? 'ok' : ''}" title="${esc(p.sug.reason)}" data-testid="bf-badge">${{ rule: 'Rule', clients: 'Other clients', common: 'Common merchant', books: p.sug.sure ? 'Sure' : 'Check' }[p.sug.source] || 'Last time'}</span>` : ''}`; act = `<button class="btn small primary" data-act="post" data-testid="bf-add-btn">Add</button>`; }
       else { mid = `<span class="muted">${p.cands.length ? p.cands.length + ' possible match' + (p.cands.length === 1 ? '' : 'es') : 'Choose a category'}</span>`; act = `<button class="btn small" data-act="open">Review</button>`; }
     } else if (bf.tab === 'posted') {
       mid = l.links ? `Matched to ${l.links.length} entries: ${l.links.slice(0, 3).map((x) => { const y = b.txById[x.txnId]; return y ? `<a href="#/txn/${esc(y.id)}">${esc(UI.typeLabel(y.type))}${y.number ? ' ' + esc(y.number) : ''}</a>` : ''; }).join(', ')}` : t ? `${l.auto === 'books' ? '<span class="badge ok" title="' + esc((l.matchReasons || []).join(' · ')) + '">Already in books</span> ' : ''}${l.via === 'match' ? 'Matched to ' : l.via === 'deposit' ? 'Deposit · ' : ''}<a href="#/txn/${esc(t.id)}">${esc(UI.typeLabel(t.type))}${t.number ? ' ' + esc(t.number) : ''}</a>${t.status === 'void' ? ' <span class="badge void">Void</span>' : ''}${l.categoryId ? ' · ' + esc(b.accountLabel(l.categoryId)) : ''}` : '<span class="muted">—</span>';
@@ -185,7 +209,8 @@
         <label class="field"><span>Payee</span>${UI.comboHtml('contact', 'any', d.contactId !== undefined ? d.contactId : p.contactId, 'data-d="contactId"', { placeholder: '—', label: 'Payee' })}</label>
         <label class="field"><span>Memo</span><input data-d="memo" value="${esc(d.memo !== undefined ? d.memo : l.description)}"></label></div>
         ${p.sug ? `<p class="muted small">Suggested: ${esc(p.sug.reason)}.</p>` : ''}
-        <div class="form-actions"><button class="btn primary" data-act="add" data-testid="bf-detail-add">${l.amount > 0 ? 'Add deposit' : l.checkNo ? 'Add check ' + esc(l.checkNo) : 'Add expense'}</button></div>`;
+        <div class="form-actions"><button class="btn primary" data-act="add" data-testid="bf-detail-add">${l.amount > 0 ? 'Add deposit' : l.checkNo ? 'Add check ' + esc(l.checkNo) : 'Add expense'}</button>
+          ${(() => { const n = likeIds(b, a, p).length; return n > 1 ? `<button class="btn" data-act="like" data-testid="bf-like">Select the ${n} lines of this payee</button>` : ''; })()}</div>`;
     else if (tab === 'match') body = p.cands.length ? `<table class="bf-cands"><tbody>${p.cands.map((c, i) => `<tr><td><input type="radio" name="bfc-${esc(l.id)}" data-cand="${i}" ${(d.cand === undefined ? (c.best ? 0 : -1) : d.cand) === i ? 'checked' : ''} aria-label="Choose this match"></td>
           <td>${c.split ? '<span class="badge">Split</span>' : ({ open: '<span class="badge">Open</span>', deposit: '<span class="badge">Deposit</span>', group: '<span class="badge">Several</span>' }[c.kind] || '<span class="badge">Entry</span>')} ${candLabel(b, c)}</td><td class="num">${UI.money(Math.abs(l.amount))}</td><td class="muted small">${esc(c.reasons.join(' · '))}</td></tr>`).join('')}</tbody></table>
         <div class="form-actions"><button class="btn primary" data-act="match" data-testid="bf-detail-match">Match</button></div>`
@@ -267,8 +292,8 @@
     return imp;
   }
   function preview(b, imp) {
-    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert, skipPending: imp.skipPending !== false });
-    imp.rows = parsed.rows; imp.errors = parsed.errors; imp.pending = parsed.pending;
+    const parsed = I.parseBankRows(imp.table, imp.mapping, { invert: imp.invert });
+    imp.rows = parsed.rows; imp.errors = parsed.errors;
     imp.bal = I.checkBalances(parsed.rows); imp.pre = b.bankPreview(imp.accountId, parsed.rows);
   }
   function importPanel(b) {
@@ -303,7 +328,6 @@
         ${imp.pre.inBooks && imp.pre.inBooks.length ? `<dt>Already in your books</dt><dd data-testid="bf-inbooks"><label class="check"><input type="checkbox" id="bfi-books" ${imp.matchBooks !== false ? 'checked' : ''}> <strong>${imp.pre.inBooks.length}</strong> line${imp.pre.inBooks.length === 1 ? ' is' : 's are'} already entered in ${esc(acc.name)} — match ${imp.pre.inBooks.length === 1 ? 'it' : 'them'} instead of adding again</label>
           <details><summary>Show which</summary><table class="data compact bf-inbooks"><thead><tr><th>Bank date</th><th>Description</th><th class="num">Amount</th><th>In the books as</th></tr></thead><tbody>${imp.pre.inBooks.slice(0, 60).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.description)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc(x.entry)} <span class="muted small">${esc(x.reasons.slice(1).join(' · '))}</span></td></tr>`).join('')}</tbody></table></details></dd>` : ''}
         ${imp.pre.autoAdd ? `<dt>Auto-add rules</dt><dd><label class="check"><input type="checkbox" id="bfi-auto" ${imp.autoAdd !== false ? 'checked' : ''}> <strong>${imp.pre.autoAdd}</strong> line${imp.pre.autoAdd === 1 ? '' : 's'} will be posted by your auto-add rules</label></dd>` : ''}
-        ${imp.pending ? `<dt>Pending</dt><dd data-testid="bf-pending"><label class="check"><input type="checkbox" id="bfi-pending" ${imp.skipPending !== false ? 'checked' : ''}> Leave out <strong>${imp.pending}</strong> pending line${imp.pending === 1 ? '' : 's'}</label> <span class="muted small">They come in with your next file once they clear, so nothing is counted twice.</span></dd>` : ''}
         <dt>Money in / out</dt><dd>${UI.money(U.sum(rows.filter((r) => r.amount > 0), (r) => r.amount), { symbol: true })} in · ${UI.money(-U.sum(rows.filter((r) => r.amount < 0), (r) => r.amount), { symbol: true })} out</dd>
         <dt>Running balance</dt><dd data-testid="bf-balance-check">${!bal.hasBalance ? '<span class="muted">No balance column in this file</span>' : bal.mismatches.length ? `<span class="badge warn">Breaks at line${bal.mismatches.length === 1 ? '' : 's'} ${esc(bal.mismatches.slice(0, 8).join(', '))}</span> — lines may be missing or the file was edited` : `<span class="badge ok">Checks out</span> · ending balance ${UI.money(bal.endingBalance, { symbol: true })} on ${esc(U.fmtDate(bal.endingDate))}`}</dd>
         ${imp.errors.length ? `<dt>Skipped</dt><dd><details><summary>${imp.errors.length} line${imp.errors.length === 1 ? '' : 's'} could not be read</summary><ul>${imp.errors.slice(0, 50).map((e) => `<li>${esc(e)}</li>`).join('')}</ul></details></dd>` : ''}
@@ -334,6 +358,9 @@
     on('#bf-prev', 'click', () => { bf.page--; rerender(); }); on('#bf-next', 'click', () => { bf.page++; rerender(); });
     el.querySelectorAll('[data-sort]').forEach((x) => x.addEventListener('click', () => { const k = x.dataset.sort; bf.sort = { key: k, desc: bf.sort.key === k ? !bf.sort.desc : k !== 'desc' }; rerender(); }));
     on('#bf-all', 'change', (e) => { el.querySelectorAll('tr.bf-row').forEach((tr) => { if (e.target.checked) bf.sel.add(tr.dataset.id); else bf.sel.delete(tr.dataset.id); }); rerender(); });
+    on('#bf-sortby', 'change', (e) => { const [k, d] = e.target.value.split(':'); bf.sort = { key: k, desc: d === 'd' }; bf.page = 0; rerender(); });
+    on('#bf-show', 'change', (e) => { bf.show = e.target.value; bf.page = 0; rerender(); });
+    on('#bf-sel-sure', 'click', () => { rowsFor(b, a).forEach((l) => { if (plan(b, l).level === 'sure') bf.sel.add(l.id); }); rerender(); });
     on('#bf-sel-ready', 'click', () => { rowsFor(b, a).forEach((l) => { const p = plan(b, l); if (p.best || p.categoryId) bf.sel.add(l.id); }); rerender(); });
     on('#bf-bclear', 'click', () => { bf.sel.clear(); rerender(); });
     on('#bf-bpost', 'click', (e) => UI.busy(e.target, () => batchPost(b, a, (($('#bf-bcat') || {}).value) || '')));
@@ -378,17 +405,22 @@
   const seq = (ids, fn) => ids.reduce((p, id) => p.then((acc) => fn(id).then(() => acc.concat([{ id, ok: true }]), (e) => acc.concat([{ id, ok: false, error: e.message }]))), Promise.resolve([]));
   const candDraft = (c) => c.kind === 'open' ? { kind: 'open', txnIds: c.txnIds, amounts: c.amounts } : c.kind === 'deposit' ? { kind: 'deposit', txnIds: c.txnIds } : c.kind === 'group' ? { kind: 'group', links: c.links } : { kind: 'match', txnId: c.txnId, splitIndex: c.splitIndex };
   function primary(b, id) { // the row's one-click action: the best match, else Add with its category (a rule's split posts as a split)
+    try { return b.postBankLine(id, primaryDraft(b, id)); } catch (e) { return Promise.reject(e); }
+  }
+  function primaryDraft(b, id) {
     const l = b.bankLineById[id], p = plan(b, l);
-    if (p.best) return b.postBankLine(id, candDraft(p.best));
-    if (!p.categoryId) return Promise.reject(new Error('Choose a category for ' + l.description + '.'));
+    if (p.best) return candDraft(p.best);
+    if (!p.categoryId) throw new Error('Choose a category for ' + l.description + '.');
     const d = bf.drafts[id] || {};
-    if (p.sug && p.sug.splits && !d.categoryId) return b.postBankLine(id, { kind: 'split', lines: p.sug.splits, contactId: p.contactId, memo: d.memo !== undefined ? d.memo : p.sug.memo });
-    return b.postBankLine(id, { kind: 'add', categoryId: p.categoryId, contactId: p.contactId, classId: p.sug && !d.categoryId ? p.sug.classId : '', memo: d.memo !== undefined ? d.memo : (p.sug && !d.categoryId && p.sug.memo) || undefined });
+    if (p.sug && p.sug.splits && !d.categoryId) return { kind: 'split', lines: p.sug.splits, contactId: p.contactId, memo: d.memo !== undefined ? d.memo : p.sug.memo };
+    return { kind: 'add', categoryId: p.categoryId, contactId: p.contactId, classId: p.sug && !d.categoryId ? p.sug.classId : '', memo: d.memo !== undefined ? d.memo : (p.sug && !d.categoryId && p.sug.memo) || undefined };
   }
   function batchPost(b, a, cat) {
     const ids = [...bf.sel];
     if (cat) ids.forEach((id) => { const d = bf.drafts[id] || (bf.drafts[id] = {}); d.categoryId = cat; });
-    return seq(ids, (id) => primary(b, id).then(() => { delete bf.drafts[id]; })).then((r) => { r.filter((x) => x.ok).forEach((x) => bf.sel.delete(x.id)); if (bf.open && !b.bankLineById[bf.open] || (b.bankLineById[bf.open] || {}).status !== 'review') bf.open = ''; done(r, 'posted'); });
+    // 1.57: decide every line first, then post. Deciding after each post re-read the whole statement (a second per line on a long one).
+    const drafts = {}; ids.forEach((id) => { try { drafts[id] = primaryDraft(b, id); } catch (e) { drafts[id] = e; } });
+    return seq(ids, (id) => (drafts[id] instanceof Error ? Promise.reject(drafts[id]) : b.postBankLine(id, drafts[id])).then(() => { delete bf.drafts[id]; })).then((r) => { r.filter((x) => x.ok).forEach((x) => bf.sel.delete(x.id)); if (bf.open && !b.bankLineById[bf.open] || (b.bankLineById[bf.open] || {}).status !== 'review') bf.open = ''; done(r, 'posted'); });
   }
   function excludeAsk(ids) {
     if (!ids.length) return;
@@ -406,6 +438,10 @@
     const id = pane.dataset.line, d = bf.drafts[id] || (bf.drafts[id] = {}), t = e.target.closest('[data-ptab], [data-act]'); if (!t) return;
     if (t.dataset.ptab) { bf.openTab = t.dataset.ptab; return UI.render(); }
     const act = t.dataset.act, l = b.bankLineById[id], p = plan(b, l);
+    if (act === 'like') {   // tick every line of this payee; a category already picked here goes with them
+      likeIds(b, b.accById[l.accountId], p).forEach((x) => { bf.sel.add(x); if (d.categoryId) (bf.drafts[x] || (bf.drafts[x] = {})).categoryId = d.categoryId; });
+      bf.open = ''; return UI.render();
+    }
     const post = (draft) => UI.busy(t, () => b.postBankLine(id, draft).then(() => { delete bf.drafts[id]; bf.open = ''; nextFocus(id); UI.toast('Posted.'); UI.render(); })).catch(UI.error);
     if (act === 'linesave') {
       const v = (k) => pane.querySelector(`[data-ln="${k}"]`).value;
@@ -514,7 +550,6 @@
     on('#bfi-remap', 'click', remap); on('#bfi-remap2', 'click', remap);
     on('#bfi-books', 'change', (e) => { imp.matchBooks = e.target.checked; });
     on('#bfi-auto', 'change', (e) => { imp.autoAdd = e.target.checked; });
-    on('#bfi-pending', 'change', (e) => { imp.skipPending = e.target.checked; preview(b, imp); UI.render(); });
     on('#bfi-go', 'click', (e) => UI.busy(e.target, () => {
       const bal = imp.bal, meta = { fileName: imp.fileName, source: 'csv', endingBalance: bal.hasBalance && !bal.mismatches.length ? bal.endingBalance : null, endingDate: bal.hasBalance ? bal.endingDate : '' };
       const save = imp.remember ? b.saveBankProfile(imp.accountId, { header: imp.header, mapping: imp.mapping, dateFormat: imp.mapping.dateFormat, invert: imp.invert }) : Promise.resolve();
@@ -577,7 +612,7 @@
         <div class="scroll-x"><table class="data compact" data-testid="bf-xpay-table"><thead><tr><th>Date</th><th>Customer or vendor</th><th class="num">Payment</th><th>Apply to</th><th class="num">Amount</th></tr></thead><tbody>${pl.rows.slice(0, 12).map((x) => `<tr><td>${UI.date(x.date)}</td><td>${esc(x.name)}</td><td class="num">${UI.money(x.amount)}</td><td>${esc((x.kind === 'Bill payment' ? 'Bill ' : 'Invoice ') + (x.doc || U.fmtDate(x.docDate)))}</td><td class="num">${UI.money(x.applied)}</td></tr>`).join('')}${pl.rows.length > 12 ? `<tr><td colspan="5" class="muted">and ${pl.rows.length - 12} more in the file</td></tr>` : ''}</tbody></table></div>
         <div class="form-actions"><button class="btn" id="bfx-paylist" data-testid="bfx-paylist">Download payments to apply (.csv)</button></div></section>` : ''}
       ${iif ? `<p class="small"><button class="btn ghost small" id="bfx-paylist-old" data-testid="bfx-paylist-old">Payments to apply for lines already exported</button> <span class="muted">If an earlier file left invoices open in QuickBooks: this lists which invoices each of those payments pays, for the chosen period.</span></p>
-      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd ${UI.qbToolWhere} › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
+      <p class="small"><button class="btn ghost small" id="bfx-qbbatch" data-testid="bfx-qbbatch">Connector batch for QuickBooks (.json)</button> <span class="muted">Customer payments in the chosen period, exported before or not, for VaultBook QuickBooks.cmd (tools folder) › Send: it records each payment against its invoices in QuickBooks Desktop, so they close. Banking › Send to QuickBooks does this for invoices too.</span></p>` : ''}
       <div class="form-actions"><span class="spacer"></span><button class="btn primary" id="bfx-go" data-testid="bf-export-go" ${r && r.txnCount ? '' : 'disabled'}>${iif ? 'Download .iif' : 'Download .csv' + (ex.accountIds.length > 1 ? ' files' : '')}</button></div>
       ${hist.length ? `<details class="bf-xhist"><summary>Export history (${hist.length})</summary><table class="data compact" data-testid="bf-export-history"><tbody>${hist.map((h) => `<tr class="${h.undone ? 'inactive' : ''}"><td>${esc(new Date(h.at).toLocaleString())}</td><td>${esc(h.fileName)}</td><td class="num">${h.count} line${h.count === 1 ? '' : 's'}</td>
         <td>${h.undone ? '<span class="badge void">Marked not exported</span>' : `<button class="btn ghost small" data-xundo="${esc(h.id)}">Mark as not exported</button>`}</td></tr>`).join('')}</tbody></table></details>` : ''}`;

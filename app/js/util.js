@@ -283,6 +283,17 @@
   };
 
   /* ---------- Misc ---------- */
+  /**
+   * Text QuickBooks Desktop can read. Its request reader accepts Latin-1 only and refuses the WHOLE request
+   * ("error when parsing the provided XML text stream") on one long dash, curly quote or other character beyond it.
+   * Typographic marks become their plain form; anything else outside Latin-1 becomes a space.
+   */
+  U.qbText = function (s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/[\u2018\u2019\u201A\u2032]/g, "'").replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+      .replace(/\u2026/g, '...').replace(/[\u2022\u00B7]/g, '-').replace(/[\u00A0\u2000-\u200B\u202F]/g, ' ')
+      .replace(/[^\x09\x0A\x0D\x20-\x7E\xA1-\xFF]/g, ' ');
+  };
   U.esc = function (s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];

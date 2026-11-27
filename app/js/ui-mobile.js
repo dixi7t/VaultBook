@@ -353,11 +353,6 @@
         <p>Type or paste the lines from your bank and credit card statements, a month or a whole year at a time. They wait in <b>For review</b> until you pick a category; VaultBook suggests one from your rules and past choices and spots entries you already recorded.</p>
         ${total ? `<p class="m-feed-total"><b>${total}</b> line${total === 1 ? '' : 's'} waiting for review</p>` : ''}
       </section>
-      ${(() => { const st = sfState();
-        return st.connected ? `<section class="m-card m-sync-card" data-testid="m-sync-card"><div class="m-card-h"><h2>Bank Sync</h2><a href="#/m/feed/sync">Settings</a></div>
-            <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + (st.lastResult ? ' · ' + esc(st.lastResult) : '') : 'Connected. Not synced yet.'}</p>
-            <button type="button" class="m-btn primary" data-sf-sync>${icon(I.swap)}Sync Now</button></section>`
-          : `<a class="m-card m-row-link m-sync-offer" href="#/m/feed/sync" data-testid="m-sync-offer">${icon(I.swap)}<span>Automatic bank sync<small>Optional · bring in new transactions daily with SimpleFIN</small></span>${icon(I.chev)}</a>`; })()}
       ${list.length ? list.map((a) => {
         const rev = book.bankLinesFor(a.id, 'review').length, posted = book.bankLinesFor(a.id, 'posted'), card = a.type === 'cc';
         const lastD = book.bankLinesFor(a.id)[0];
@@ -365,13 +360,12 @@
           <div class="m-feed-acct-h"><span class="m-tx-ic">${icon(card ? I.bill : I.bank)}</span>
             <span class="m-tx-main"><b>${esc(a.name)}</b><small>${card ? 'Credit card' : 'Bank'}${lastD ? ' · statement lines to ' + esc(U.fmtDate(lastD.date)) : ' · no statement lines yet'}</small></span>
             <span class="m-tx-amt">${signed(book.accountBalance(a.id, today))}<small>${card ? 'owed' : 'in VaultBook'}</small></span></div>
-          <div class="m-feed-btns m-feed-btns3">
-            <a class="m-btn primary" href="#/m/feed/import?account=${encodeURIComponent(a.id)}" data-testid="m-feed-import">${icon(I.upload)}Import</a>
-            <a class="m-btn" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Type</a>
+          <div class="m-feed-btns">
+            <a class="m-btn primary" href="#/m/feed/enter?account=${encodeURIComponent(a.id)}">${icon(I.plus)}Add Lines</a>
             <a class="m-btn ${rev ? 'warn' : ''}" href="#/m/feed/review?account=${encodeURIComponent(a.id)}">${icon(I.check)}Review${rev ? ` <i class="m-badge">${rev}</i>` : ''}</a>
           </div>
           ${posted.length ? `<small class="m-feed-meta">${posted.length} line${posted.length === 1 ? '' : 's'} posted</small>` : ''}
-          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Type</small>` : ''}
+          ${loadDraft(a.id).length ? `<small class="m-feed-meta warn">${loadDraft(a.id).length} unsaved line${loadDraft(a.id).length === 1 ? '' : 's'} in progress — tap Enter statement</small>` : ''}
         </section>`;
       }).join('') : '<section class="m-card"><p class="m-empty">No bank or credit card accounts yet. Add one below to start.</p></section>'}
       <section class="m-card">
@@ -386,8 +380,8 @@
         </form>
       </section>
       <h2 class="m-sec">Other ways in</h2><section class="m-card m-menu">
-        <a class="m-row-link" href="#/m/feed/import">${icon(I.upload)}<span>Import a statement file<small>CSV, Excel, OFX, QFX, QBO or PDF</small></span>${icon(I.chev)}</a>
-        <a class="m-row-link" href="#/bankfeed?full=1">${icon(I.grid)}<span>Full bank feed<small>Every option, laptop layout</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/bankfeed?full=1">${icon(I.upload)}<span>Import a bank file (CSV, OFX, QFX)<small>Opens the full bank feed</small></span>${icon(I.chev)}</a>
+        <a class="m-row-link" href="#/pdfimport">${icon(I.doc)}<span>Import a PDF statement</span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/rules">${icon(I.list)}<span>Bank rules<small>Categorize repeating lines automatically</small></span>${icon(I.chev)}</a>
         <a class="m-row-link" href="#/reconcile">${icon(I.check)}<span>Reconcile to a statement</span>${icon(I.chev)}</a>
       </section>`, { sub: 'Bank and credit card statements' });
@@ -584,303 +578,7 @@
     el.querySelectorAll('[data-rf]').forEach((x) => x.addEventListener('click', () => { filt = x.dataset.rf; shown = 40; el.querySelectorAll('[data-rf]').forEach((y) => y.setAttribute('aria-selected', String(y === x))); draw(); }));
     draw();
   }
-  /* ---------- Import a statement file (touch screens) ----------
-   * The same engine as the full bank feed: OB.importer reads the file, the column layout is remembered per account
-   * (Book.bankProfile), Book.bankPreview finds duplicates and lines already in the books, Book.importBankLines adds the
-   * new lines to For review. OFX, QFX, QBO and PDF go to the statement reader, which returns here when done. */
-  const IMP = OB.importer;
-  const SHARED = 'vaultbook-share';           // where the service worker leaves a file shared from another app (Android)
-  function feedImport(el, r) {
-    const book = b(), list = feedAccts();
-    if (!list.length) return UI.go('#/m/feed');
-    const acct = list.some((a) => a.id === r.params.account) ? r.params.account : list[0].id, card = isCard(acct);
-    let imp = null;
-    el.innerHTML = page('Import File', `
-      ${pickAcct(acct, '#/m/feed/import?account=')}
-      <section class="m-card m-imp-pick" id="m-imp-pick">
-        <label class="m-drop" data-testid="m-import-pick">
-          <input type="file" id="m-imp-file" accept=".csv,.txt,.tsv,.xlsx,.xls,.xlsm,.ofx,.qfx,.qbo,.pdf,text/csv,application/pdf">
-          ${icon(I.upload)}<b>Choose a Statement File</b>
-          <small>CSV, Excel, OFX, QFX, QBO or PDF from your bank's website. Read on this device only; lines you already imported are skipped.</small>
-        </label>
-        <p class="m-note">On iPhone: download the transactions file in Safari or your bank's app, then pick it here from the Files app.</p>
-      </section>
-      <div id="m-imp"></div>`, { back: '#/m/feed', sub: accName(acct) });
-    wirePick(el);
-    const host = el.querySelector('#m-imp'), pickCard = el.querySelector('#m-imp-pick');
-    const fail = (msg) => { host.innerHTML = `<p class="m-err" role="alert">${esc(msg)}</p>`; pickCard.hidden = false; };
-
-    const start = (table, fileName, sheets, sheetIdx) => {
-      table = table.slice(IMP.findHeader(table));
-      const header = (table[0] || []).map((c) => String(c).replace(/^﻿/, '').trim()).join('|');
-      const prof = book.bankProfile(acct, header);
-      const m = prof ? Object.assign({}, prof.mapping) : IMP.detectColumns(table[0] || [], table.slice(1));
-      if (!prof) m.hasHeader = (table[0] || []).some((c) => isNaN(parseFloat(String(c).replace(/[$,]/g, ''))) && !IMP.parseDateAs(c, 'MDY'));
-      if (prof && prof.mapping.status === undefined) { const d = IMP.detectColumns(table[0] || [], table.slice(1)); m.status = d.status; }   // layouts saved before 1.56
-      const df = IMP.detectDateFormat(m.date >= 0 ? table.slice(m.hasHeader ? 1 : 0).map((row) => row[m.date]) : []);
-      m.dateFormat = prof ? prof.dateFormat : df.format;
-      imp = { table, fileName, header, mapping: m, sheets, sheet: sheetIdx || 0, fromProfile: !!prof, ambiguous: !prof && df.ambiguous,
-        invert: prof ? prof.invert : card, remember: true, skipPending: true, matchBooks: true, autoAdd: true };
-      pickCard.hidden = true;
-      if (prof && IMP.checkFile(table, m).ok) previewStep(); else mapStep();
-    };
-    const readFile = (f) => {
-      if (!f) return;
-      host.innerHTML = '<p class="m-note">Reading ' + esc(f.name) + '…</p>';
-      if (/\.(ofx|qfx|qbo|pdf)$/i.test(f.name) || f.type === 'application/pdf') { UI.statementQueue = { files: [f], accountId: acct }; return UI.go('#/pdfimport'); }
-      if (/\.(xlsx|xlsm|xls)$/i.test(f.name)) {
-        return f.arrayBuffer().then((buf) => UI.loadVendor(['sheetjs.min.js']).then(() => {
-          const wb = window.XLSX.read(buf, { type: 'array', cellNF: true });
-          const sheets = IMP.pickSheets(wb.SheetNames.map((name) => ({ name, rows: OB.qbimport.sheetRows(wb.Sheets[name], window.XLSX.SSF) })));
-          if (!sheets.length) return fail('No sheet in "' + f.name + '" has a date column and an amount (or money in and money out) column.');
-          start(sheets[0].table, f.name, sheets);
-        })).catch((e) => fail('Could not read "' + f.name + '": ' + e.message));
-      }
-      f.text().then((text) => {
-        const table = /\.tsv$/i.test(f.name) ? text.split(/\r?\n/).filter((x) => x.trim()).map((x) => x.split('\t')) : U.parseCSV(text);
-        if (!table.some((row) => row.some((c) => String(c).trim()))) return fail('The file "' + f.name + '" is empty.');
-        start(table, f.name);
-      }, () => fail('Could not read "' + f.name + '".'));
-    };
-
-    function mapStep() {
-      const t = imp.table, m = imp.mapping, ncol = Math.max(1, ...t.slice(0, 20).map((row) => row.length)), chk = IMP.checkFile(t, m);
-      const sample = (i) => t.slice(m.hasHeader ? 1 : 0, 4).map((row) => row[i]).filter((x) => String(x || '').trim()).slice(0, 2).join(', ').slice(0, 32);
-      const opts = (sel) => '<option value="-1">None</option>' + Array.from({ length: ncol }, (_, i) => {
-        const name = m.hasHeader && t[0][i] ? String(t[0][i]) : 'Column ' + (i + 1), s = sample(i);
-        return `<option value="${i}"${sel === i ? ' selected' : ''}>${esc(name + (s ? ' (' + s + ')' : ''))}</option>`; }).join('');
-      const sel = (k, label, v) => `<label class="m-f"><span>${label}</span><select data-m="${k}">${opts(v)}</select></label>`;
-      host.innerHTML = `<section class="m-card m-form" data-testid="m-import-map">
-          <div class="m-card-h"><h2>Check the Columns</h2></div>
-          <p class="m-note"><b>${esc(imp.fileName)}</b> · ${t.length - (m.hasHeader ? 1 : 0)} lines. VaultBook picked these; fix any that are wrong.</p>
-          ${chk.ok ? '' : `<p class="m-err">${esc(chk.message)}</p>`}
-          ${imp.ambiguous ? '<p class="m-err">Every date could be read as month/day or day/month. Check the date order against a transaction you know.</p>' : ''}
-          ${(imp.sheets || []).length > 1 ? `<label class="m-f"><span>Sheet</span><select data-sheet>${imp.sheets.map((x, i) => `<option value="${i}"${i === imp.sheet ? ' selected' : ''}>${esc(x.name)} (${x.count} lines)</option>`).join('')}</select></label>` : ''}
-          ${sel('date', 'Date', m.date)}
-          <label class="m-f"><span>Date order</span><select data-df>${[['MDY', 'Month / day / year'], ['DMY', 'Day / month / year'], ['YMD', 'Year-month-day']].map(([v, l]) => `<option value="${v}"${m.dateFormat === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-          ${sel('description', 'Description', m.description)}
-          ${sel('amount', 'Amount (one column; minus = money out)', m.amount)}
-          ${sel('debit', 'Or: money out column', m.debit)}
-          ${sel('credit', 'And: money in column', m.credit)}
-          <label class="m-check"><input type="checkbox" data-o="hasHeader"${m.hasHeader ? ' checked' : ''}> First row is a header</label>
-          <label class="m-check"><input type="checkbox" data-o="invert"${imp.invert ? ' checked' : ''}> Reverse signs (card files that show charges as positive)</label>
-          <button type="button" class="m-btn primary" id="m-imp-next"${chk.ok ? '' : ' disabled'}>Continue</button>
-          <button type="button" class="m-btn ghost" id="m-imp-other">Choose Another File</button>
-        </section>
-        <section class="m-card"><div class="m-card-h"><h2>First Lines of the File</h2></div><div class="scroll-x"><table class="data compact m-imp-raw"><tbody>${t.slice(0, 5).map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
-      const read = () => {
-        host.querySelectorAll('[data-m]').forEach((x) => { m[x.dataset.m] = +x.value; });
-        m.dateFormat = host.querySelector('[data-df]').value;
-        m.hasHeader = host.querySelector('[data-o=hasHeader]').checked; imp.invert = host.querySelector('[data-o=invert]').checked;
-        if (m.amount >= 0 && (m.debit >= 0 || m.credit >= 0)) { m.debit = -1; m.credit = -1; }
-        imp.ambiguous = false;
-      };
-      host.querySelectorAll('select[data-m], select[data-df], input[data-o]').forEach((x) => x.addEventListener('change', () => { read(); mapStep(); }));
-      const sh = host.querySelector('[data-sheet]'); if (sh) sh.addEventListener('change', () => { const k = +sh.value, sheets = imp.sheets; start(sheets[k].table, imp.fileName, sheets, k); });
-      host.querySelector('#m-imp-next').addEventListener('click', () => { read(); if (IMP.checkFile(imp.table, imp.mapping).ok) previewStep(); else mapStep(); });
-      host.querySelector('#m-imp-other').addEventListener('click', () => { imp = null; host.innerHTML = ''; pickCard.hidden = false; });
-    }
-
-    function previewStep() {
-      const parsed = IMP.parseBankRows(imp.table, imp.mapping, { invert: imp.invert, skipPending: imp.skipPending });
-      const rows = parsed.rows, pre = book.bankPreview(acct, rows), bal = IMP.checkBalances(rows), n = pre.fresh;
-      const dates = rows.map((x) => x.date).sort(), inn = U.sum(rows.filter((x) => x.amount > 0), (x) => x.amount), out = -U.sum(rows.filter((x) => x.amount < 0), (x) => x.amount);
-      const L = card ? { in: 'Payments and credits', out: 'Charges' } : { in: 'Money in', out: 'Money out' };
-      const tog = (k, on, text) => `<label class="m-check"><input type="checkbox" data-t="${k}"${on ? ' checked' : ''}> ${text}</label>`;
-      host.innerHTML = `<section class="m-card m-form" data-testid="m-import-preview">
-          <div class="m-card-h"><h2>Ready to Import</h2></div>
-          <p class="m-note"><b>${esc(imp.fileName)}</b>${imp.fromProfile ? ' · columns remembered from your last import' : ''}${dates.length ? ' · ' + esc(U.fmtDate(dates[0])) + ' – ' + esc(U.fmtDate(dates[dates.length - 1])) : ''}</p>
-          <div class="m-stats m-stats3"><div><span>New lines</span><b>${n}</b></div><div><span>${L.in}</span><b class="in">${money(inn)}</b></div><div><span>${L.out}</span><b>${money(out)}</b></div></div>
-          ${pre.duplicates ? '<p class="m-note">Money totals are for the whole file, including lines imported before.</p>' : ''}
-          <ul class="m-imp-facts">
-            ${pre.duplicates ? `<li>${pre.duplicates} line${pre.duplicates === 1 ? ' was' : 's were'} imported before and will be skipped.</li>` : ''}
-            ${parsed.errors.length ? `<li>${parsed.errors.length} line${parsed.errors.length === 1 ? '' : 's'} could not be read (for example: ${esc(parsed.errors[0])}).</li>` : ''}
-            ${bal.hasBalance ? `<li>${bal.mismatches.length ? 'The running balance does not add up at line ' + esc(bal.mismatches.slice(0, 3).join(', ')) + '; check the file before importing.' : 'The running balance in the file adds up.'}</li>` : ''}
-          </ul>
-          ${parsed.pending ? tog('skipPending', imp.skipPending, `Leave out <b>${parsed.pending}</b> pending line${parsed.pending === 1 ? '' : 's'} (they arrive with your next file once they clear)`) : ''}
-          ${pre.inBooks && pre.inBooks.length ? tog('matchBooks', imp.matchBooks, `Match <b>${pre.inBooks.length}</b> line${pre.inBooks.length === 1 ? '' : 's'} already in your books instead of adding them again`) : ''}
-          ${pre.autoAdd ? tog('autoAdd', imp.autoAdd, `Post <b>${pre.autoAdd}</b> line${pre.autoAdd === 1 ? '' : 's'} with your auto-add bank rules`) : ''}
-          ${tog('remember', imp.remember, 'Remember these columns for ' + esc(accName(acct)))}
-          <button type="button" class="m-btn primary" id="m-imp-go" data-testid="m-import-go"${n ? '' : ' disabled'}>${n ? `Import ${n} Line${n === 1 ? '' : 's'}` : 'Nothing New to Import'}</button>
-          <button type="button" class="m-btn ghost" id="m-imp-cols">Check the Columns</button>
-        </section>
-        ${rows.length ? `<section class="m-card"><div class="m-card-h"><h2>First Lines</h2></div><div class="m-plist">${rows.slice(0, 8).map((x) => `<div class="m-pline"><div class="m-pedit"><span><b>${esc(x.description)}</b><small>${esc(U.fmtDate(x.date))}${x.checkNo ? ' · #' + esc(x.checkNo) : ''}</small></span><i class="${x.amount > 0 ? 'in' : 'out'}">${x.amount > 0 ? '+' : '−'}${money(x.amount)}</i></div></div>`).join('')}</div></section>` : ''}`;
-      host.querySelectorAll('[data-t]').forEach((x) => x.addEventListener('change', () => { imp[x.dataset.t] = x.checked; if (x.dataset.t === 'skipPending') previewStep(); }));
-      host.querySelector('#m-imp-cols').addEventListener('click', () => { imp.fromProfile = false; mapStep(); });
-      host.querySelector('#m-imp-go').addEventListener('click', async (e) => {
-        const btn = e.currentTarget; btn.disabled = true;
-        try {
-          if (imp.remember) await book.saveBankProfile(acct, { header: imp.header, mapping: imp.mapping, dateFormat: imp.mapping.dateFormat, invert: imp.invert });
-          const meta = { fileName: imp.fileName, source: 'csv', endingBalance: bal.hasBalance && !bal.mismatches.length ? bal.endingBalance : null, endingDate: bal.hasBalance ? bal.endingDate : '', matchBooks: imp.matchBooks, autoAdd: imp.autoAdd };
-          const res = await book.importBankLines(acct, rows, meta);
-          const waiting = res.added - (res.matched || 0) - (res.autoAdded || 0);
-          host.innerHTML = `<section class="m-card m-done" data-testid="m-import-done">${icon(I.check)}<h2>${res.added} Line${res.added === 1 ? '' : 's'} Imported</h2>
-            <p class="m-note">${waiting} waiting for review${res.matched ? ' · ' + res.matched + ' matched to entries already in your books' : ''}${res.autoAdded ? ' · ' + res.autoAdded + ' posted by your rules' : ''}${res.duplicates ? ' · ' + res.duplicates + ' already imported' : ''}.</p>
-            <a class="m-btn primary" href="#/m/feed/review?account=${encodeURIComponent(acct)}">Review Now</a>
-            <button type="button" class="m-btn ghost" id="m-imp-again">Import Another File</button></section>`;
-          host.querySelector('#m-imp-again').addEventListener('click', () => { imp = null; host.innerHTML = ''; pickCard.hidden = false; });
-          markTab();
-        } catch (x) { btn.disabled = false; UI.toast(x.message || String(x), 'error'); }
-      });
-    }
-
-    el.querySelector('#m-imp-file').addEventListener('change', (e) => { readFile(e.target.files[0]); e.target.value = ''; });
-    // a file shared to VaultBook from another app (Android "Share"): the service worker kept it for us
-    if (r.params.shared && 'caches' in window) {
-      caches.open(SHARED).then((c) => c.match('shared-file').then((res) => {
-        if (!res) return;
-        const name = decodeURIComponent(res.headers.get('X-File-Name') || 'shared-file.csv');
-        return res.blob().then((blob) => { c.delete('shared-file'); readFile(new File([blob], name, { type: blob.type })); });
-      })).catch(() => {});
-    }
-  }
-  /* ---------- Automatic bank sync through SimpleFIN Bridge (1.59.0, optional, off until connected) ----------
-   * The Access URL is kept by OB.secrets (encrypted on this device, never in backups). Which SimpleFIN account feeds
-   * which VaultBook account, and when the last sync ran, are device settings (not secret) kept in OB.prefs. */
-  const SFX = OB.simplefin, DAYSEC = 86400;
-  const sfId = () => 'simplefin:' + b().company.id;
-  const sfKey = () => 'sfState:' + b().company.id;
-  const sfState = () => Object.assign({ connected: false, map: {}, accounts: [], lastAt: 0, lastSync: '', lastResult: '', messages: [], auto: false, firstDays: 30, log: [] }, OB.prefs.get(sfKey()) || {});
-  const sfSave = (st) => OB.prefs.set(sfKey(), st);
-  const sfHome = () => (isPhone() || touchMQ.matches) ? '#/m/feed' : '#/settings?tab=security';   // where Back goes
-  const sfWhen = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; } };
-  const MAX_DAY = 20, MIN_GAP = 10 * 60;      // SimpleFIN asks apps to stay well under 24 requests a day
-  function sfGuard(st, requests) {
-    const now = Date.now() / 1000, log = (st.log || []).filter((t) => t > now - DAYSEC);
-    if (log.length + requests > MAX_DAY) return 'Bank sync has already asked SimpleFIN ' + log.length + ' times today. SimpleFIN limits how often apps may ask; try again tomorrow.';
-    if (st.lastAt && now - st.lastAt < MIN_GAP) return 'Synced a few minutes ago. SimpleFIN updates about once a day; try again in ' + Math.ceil((MIN_GAP - (now - st.lastAt)) / 60) + ' minutes.';   // between syncs only; listing accounts does not count
-    return '';
-  }
-  /** Fetch from SimpleFIN and add new lines to the bank feed. Resolves a summary; rejects with a readable error. */
-  async function sfSync() {
-    const book = b(), st = sfState(), access = await OB.secrets.get(sfId());
-    if (!access) { st.connected = false; sfSave(st); throw new Error('Bank sync is not connected on this device.'); }
-    const now = Math.floor(Date.now() / 1000), start = st.lastAt ? st.lastAt - 5 * DAYSEC : now - (st.firstDays || 30) * DAYSEC;   // 5-day overlap, as SimpleFIN advises
-    const wins = SFX.windows(start, now).length, g = sfGuard(st, wins);
-    if (g) throw new Error(g);
-    st.log = (st.log || []).filter((t) => t > now - DAYSEC).concat(Array(wins).fill(now)); sfSave(st);
-    const r = await SFX.fetchRange(access, start, now);
-    const sum = { added: 0, matched: 0, autoAdded: 0, duplicates: 0, unmapped: 0, accounts: 0 };
-    for (const a of r.accounts) {
-      const target = st.map[a.id], rows = SFX.rows(a.transactions);
-      if (!target || !book.accById[target]) { sum.unmapped += rows.length; continue; }
-      if (!rows.length) continue;
-      const x = await book.importBankLines(target, rows, { fileName: 'SimpleFIN sync ' + U.fmtDate(U.today()), source: 'simplefin', matchBooks: true, autoAdd: true });
-      sum.added += x.added; sum.matched += x.matched || 0; sum.autoAdded += x.autoAdded || 0; sum.duplicates += x.duplicates || 0; sum.accounts++;
-    }
-    const s2 = sfState();
-    s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance }));
-    s2.lastAt = now; s2.lastSync = new Date().toISOString(); s2.messages = r.messages;
-    s2.lastResult = sum.added ? sum.added + ' new line' + (sum.added === 1 ? '' : 's') : 'nothing new';
-    sfSave(s2); markTab();
-    return Object.assign(sum, { messages: r.messages });
-  }
-  const sfSummary = (x) => (x.added ? x.added + ' new line' + (x.added === 1 ? '' : 's') + ' for review' : 'No new transactions') +
-    (x.matched ? ' · ' + x.matched + ' matched to your books' : '') + (x.autoAdded ? ' · ' + x.autoAdded + ' posted by rules' : '') +
-    (x.unmapped ? ' · ' + x.unmapped + ' from accounts not linked to VaultBook' : '') + '.';
-  document.addEventListener('click', (e) => {
-    const t = e.target.closest && e.target.closest('[data-sf-sync]'); if (!t) return;
-    e.preventDefault(); t.disabled = true;
-    sfSync().then((x) => { UI.toast('Bank sync: ' + sfSummary(x)); UI.render(); }, (x) => { t.disabled = false; UI.toast(x.message || String(x), 'error'); });
-  });
-
-  function feedSync(el) {
-    const book = b(), st = sfState(), list = feedAccts();
-    if (!st.connected) {
-      el.innerHTML = page('Bank Sync', `
-        <section class="m-card m-sync-intro">
-          <p>Bring new bank and credit card transactions into the bank feed automatically, about once a day, instead of downloading statement files. It is optional and off until you connect it.</p>
-          <ul class="m-imp-facts">
-            <li>Uses <b>SimpleFIN Bridge</b>, a separate service you sign up for and pay yourself (about $15 a year). It covers most US banks and card issuers.</li>
-            <li>Your bank login goes to SimpleFIN and its data provider (MX), <b>never to VaultBook</b>. They keep a copy of your bank data under their own terms.</li>
-            <li>VaultBook fetches straight from this device. There is no VaultBook server. The connection key is encrypted on this device and never included in backups.</li>
-            <li>New lines wait in For review, like an imported file. Nothing posts by itself unless you have auto-add bank rules.</li>
-          </ul>
-        </section>
-        <h2 class="m-sec">How to connect</h2>
-        <section class="m-card m-form">
-          <ol class="m-steps"><li>At <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener noreferrer">beta-bridge.simplefin.org</a>, create an account and connect your banks.</li>
-            <li>There, choose <b>New app connection</b> and copy the <b>setup token</b>.</li><li>Paste it here and tap Connect.</li></ol>
-          <label class="m-f"><span>Setup token</span><textarea id="m-sf-token" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the setup token" data-testid="m-sf-token"></textarea></label>
-          <label class="m-f"><span>On the first sync, bring in</span><select id="m-sf-days">${[[30, 'The last 30 days'], [60, 'The last 60 days'], [90, 'The last 90 days']].map(([v, l]) => `<option value="${v}"${v === st.firstDays ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-          <p class="m-err" id="m-sf-err" hidden></p>
-          <button type="button" class="m-btn primary" id="m-sf-connect" data-testid="m-sf-connect">Connect</button>
-          <p class="m-note">A setup token works once. If it was used or shared by mistake, revoke it at SimpleFIN Bridge and make a new one.</p>
-        </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
-      const errEl = el.querySelector('#m-sf-err'), btn = el.querySelector('#m-sf-connect');
-      btn.addEventListener('click', async () => {
-        errEl.hidden = true; btn.disabled = true; btn.textContent = 'Connecting…';
-        try {
-          if (!OB.secrets.available()) throw new Error('This browser cannot keep the connection key encrypted, so bank sync cannot be used here.');
-          const access = await SFX.claim(el.querySelector('#m-sf-token').value);
-          await OB.secrets.put(sfId(), access, { companyId: book.company.id, kind: 'simplefin', label: 'SimpleFIN Bridge' });
-          el.querySelector('#m-sf-token').value = '';
-          const s2 = sfState(); s2.connected = true; s2.firstDays = +el.querySelector('#m-sf-days').value; s2.lastAt = 0; s2.lastSync = ''; s2.lastResult = '';
-          try {
-            const r = await SFX.accounts(access, { balancesOnly: true });
-            s2.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s2.messages = r.messages;
-            s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]);
-          } catch (x) { s2.messages = [x.message]; }
-          sfSave(s2); UI.toast('Bank sync connected. Choose which account each bank account goes to.'); feedSync(el);
-        } catch (x) { errEl.textContent = x.message || String(x); errEl.hidden = false; btn.disabled = false; btn.textContent = 'Connect'; }
-      });
-      return;
-    }
-    const opt = (sel) => '<option value="">Don\'t bring in</option>' + list.map((a) => `<option value="${esc(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
-    const mapped = Object.values(st.map).filter(Boolean).length;
-    el.innerHTML = page('Bank Sync', `
-      <section class="m-card" data-testid="m-sf-status">
-        <div class="m-card-h"><h2>Connected</h2><small>SimpleFIN Bridge</small></div>
-        <p class="m-note">${st.lastSync ? 'Last synced ' + esc(sfWhen(st.lastSync)) + ' · ' + esc(st.lastResult) : 'Not synced yet. The first sync brings in the last ' + st.firstDays + ' days.'}</p>
-        ${(st.messages || []).length ? `<ul class="m-imp-facts m-sf-msgs">${st.messages.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
-        <button type="button" class="m-btn primary" data-sf-sync${mapped ? '' : ' disabled'} data-testid="m-sf-sync">${icon(I.swap)}Sync Now</button>
-        ${mapped ? '' : '<p class="m-note">Choose a VaultBook account for at least one bank account below first.</p>'}
-      </section>
-      <h2 class="m-sec">Where each bank account goes</h2>
-      <section class="m-card m-form" data-testid="m-sf-map">
-        ${(st.accounts || []).length ? st.accounts.map((a) => `<label class="m-f"><span>${esc(a.name)}${a.org ? ' · ' + esc(a.org) : ''} · ${signed(a.balance)}</span><select data-sf-map="${esc(a.id)}">${opt(st.map[a.id])}</select></label>`).join('')
-          : '<p class="m-empty">SimpleFIN has not listed any accounts yet. Check that your banks are connected at SimpleFIN Bridge, then tap Refresh.</p>'}
-        <button type="button" class="m-btn ghost" id="m-sf-refresh">Refresh Account List</button>
-        <p class="m-note">Need a new account in VaultBook first? Add it on the <a href="#/m/feed">Bank Feed</a> screen.</p>
-      </section>
-      <h2 class="m-sec">Options</h2>
-      <section class="m-card m-form">
-        <label class="m-check"><input type="checkbox" id="m-sf-auto"${st.auto ? ' checked' : ''}> Sync when VaultBook opens (at most twice a day)</label>
-        <p class="m-note">VaultBook can only sync while it is open; nothing runs in the background.</p>
-        <button type="button" class="m-btn ghost m-danger" id="m-sf-disconnect" data-testid="m-sf-disconnect">Disconnect Bank Sync</button>
-      </section>`, { back: sfHome(), sub: 'Optional · SimpleFIN Bridge' });
-    el.querySelectorAll('[data-sf-map]').forEach((s) => s.addEventListener('change', () => {
-      const s2 = sfState(); if (s.value) s2.map[s.dataset.sfMap] = s.value; else delete s2.map[s.dataset.sfMap]; sfSave(s2); feedSync(el);
-    }));
-    el.querySelector('#m-sf-auto').addEventListener('change', (e) => { const s2 = sfState(); s2.auto = e.target.checked; sfSave(s2); });
-    el.querySelector('#m-sf-refresh').addEventListener('click', async (e) => {
-      const s2 = sfState(), g = sfGuard(s2, 1); if (g) return UI.toast(g, 'error');
-      e.currentTarget.disabled = true;
-      try {
-        const access = await OB.secrets.get(sfId()); if (!access) throw new Error('Bank sync is not connected on this device.');
-        s2.log = (s2.log || []).concat([Math.floor(Date.now() / 1000)]); sfSave(s2);
-        const r = await SFX.accounts(access, { balancesOnly: true });
-        const s3 = sfState(); s3.accounts = r.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance })); s3.messages = r.messages; sfSave(s3); feedSync(el);
-      } catch (x) { UI.toast(x.message || String(x), 'error'); feedSync(el); }
-    });
-    el.querySelector('#m-sf-disconnect').addEventListener('click', () => {
-      UI.confirm('Disconnect bank sync?', '<p>VaultBook deletes the connection key from this device and stops syncing. Lines already brought in stay in your books.</p><p>To cut off access completely, also remove VaultBook at beta-bridge.simplefin.org.</p>', { ok: 'Disconnect' })
-        .then((yes) => yes && OB.secrets.remove(sfId()).then(() => { OB.prefs.set(sfKey(), null); UI.toast('Bank sync disconnected.'); UI.go(sfHome()); })).catch(UI.error);
-    });
-  }
-  /* optional: sync once when VaultBook opens (at most every 12 hours), if the person turned it on */
-  let sfAutoTried = false;
-  function sfAuto() {
-    if (sfAutoTried || !UI.book) return; sfAutoTried = true;
-    const st = sfState();
-    if (!st.connected || !st.auto || !Object.keys(st.map).length || Date.now() / 1000 - st.lastAt < 12 * 3600) return;
-    setTimeout(() => sfSync().then((x) => { if (x.added) UI.toast('Bank sync: ' + sfSummary(x)); }, () => { /* shown next time on the Bank Sync screen */ }), 2500);
-  }
-  UI.sfSettingsLink = () => '#/m/feed/sync';
-
-  /* after a PDF / OFX statement is imported, touch screens go back to the bank feed Review screen */
-  UI.feedReviewHash = (accId) => (isPhone() || touchMQ.matches) ? '#/m/feed/review?account=' + encodeURIComponent(accId) : '';
-  const feed = (el, r) => ({ enter: feedEnter, review: feedReview, import: feedImport, sync: feedSync }[r.sub] || feedHub)(el, r);
+  const feed = (el, r) => ({ enter: feedEnter, review: feedReview }[r.sub] || feedHub)(el, r);
 
   /* ---------- Add sheet (bottom sheet with every way to record something) ---------- */
   function addSheet() {
@@ -891,10 +589,10 @@
     wrap.innerHTML = `<div class="m-sheet" role="dialog" aria-modal="true" aria-label="Add">
       <div class="m-grab" aria-hidden="true"></div><h2>Add</h2>
       <div class="m-tiles">
-        ${T('#/m/feed/import', I.upload, 'Import statement')}${T('#/m/feed/enter', I.bank, 'Type lines')}${T('#/m/feed/review', I.check, 'Review bank lines')}${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
+        ${T('#/m/feed/enter', I.bank, 'Enter statement')}${T('#/m/feed/review', I.check, 'Review bank lines')}${T('#/m/add?kind=expense', I.out, 'Expense')}${T('#/m/add?kind=income', I.in, 'Income')}${T('#/m/add?kind=transfer', I.swap, 'Transfer')}
         ${T('#/txn/new?type=invoice', I.doc, 'Invoice')}${T('#/txn/new?type=payment', I.cash, 'Receive payment')}${T('#/txn/new?type=salesReceipt', I.cash, 'Sales receipt')}
         ${T('#/txn/new?type=bill', I.bill, 'Bill')}${T('#/txn/new?type=billPayment', I.check, 'Pay bills')}${T('#/txn/new?type=check', I.bill, 'Write check')}
-        
+        ${T('#/bankfeed', I.upload, 'Import bank file')}${T('#/pdfimport', I.doc, 'Import statement')}${T('#/txn/new?type=journal', I.list, 'Journal entry')}
       </div>
       <button type="button" class="m-btn ghost" id="m-all-types">All transaction types…</button>
       <button type="button" class="m-btn" id="m-sheet-x">Cancel</button></div>`;
@@ -930,8 +628,7 @@
 
   /* ---------- routes ---------- */
   UI.routes.m = (el, r) => {
-    if (r.id === 'feed' && (isPhone() || touchMQ.matches || r.sub === 'sync')) {   /* Bank Sync also opens on a laptop */
-      root.classList.add('m-screen'); feed(el, r); markTab(); return; }
+    if (r.id === 'feed' && (isPhone() || touchMQ.matches)) { root.classList.add('m-screen'); feed(el, r); markTab(); return; }
     if (!isPhone()) { const map = { activity: '#/transactions', reports: '#/reports', more: '#/gateway', add: '#/txn/new?type=' + ((KINDS[r.params.kind] || KINDS.expense).full) }; location.replace(map[r.id] || '#/dashboard'); return; }
     root.classList.add('m-screen');
     ({ activity, add, reports, more }[r.id] || home)(el, r);
@@ -952,7 +649,7 @@
   });
   /* leaving a mobile screen drops its page styling; the tab bar keeps the current tab lit */
   const baseRender = UI.render;
-  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); sfAuto(); return res; };
+  UI.render = function () { root.classList.remove('m-screen'); const res = baseRender.apply(this, arguments); markTab(); return res; };
   markTab();
 
   /* ---------- offline app (service worker) on https or localhost ---------- */

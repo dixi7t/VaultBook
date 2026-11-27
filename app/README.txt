@@ -149,8 +149,8 @@ tests\dev\find_ui.py         Developer-only test of Find (1.27).
 tests\dev\mis_ui.py          Developer-only test of Invoice Payment Days (1.29).
 tests\dev\qbsend_ui.py       Developer-only test of Send to QuickBooks Desktop (1.30).
 tests\dev\qbd_ui.py          Developer-only test of the QuickBooks Desktop section (1.32).
-tools\VaultBook QuickBooks.cmd    Windows: Read QuickBooks (snapshot), Send VaultBook invoices and
-                    payments (applied to their invoices), Export everything (1.32). One menu; asks
+tools\VaultBook QuickBooks.cmd    Windows: Connect to VaultBook, QuickBooks -> VaultBook (export),
+                    VaultBook -> QuickBooks (send), preview, snapshot, reports. One menu; asks
                     for files, never searches. Runs VaultBook-QB.ps1; see USER_GUIDE.
 docs\SCHEMA.txt     Database layout and migration notes.
 README.txt          This file.

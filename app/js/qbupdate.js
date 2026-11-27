@@ -19,7 +19,7 @@
   var name = function (r) { return r ? txt(r.FullName || r.Name || '') : ''; };
   var cents = function (v) { var n = parseFloat(txt(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? Math.round(n * 100) : 0; };
   var money = function (c) { return (c / 100).toFixed(2); };
-  var clean = function (m) { return txt(m).replace(/\s*\[VB:[^\]]*\]/g, '').trim(); };
+  var clean = function (m) { return U.qbText(txt(m)).replace(/\s*\[VB:[^\]]*\]/g, '').replace(/ {2,}/g, ' ').trim(); };   // 1.60.1: both sides in QuickBooks' character set, so a long dash is not an edit
   var QBTYPE = { bank: 'Bank', cc: 'CreditCard', ar: 'AccountsReceivable', ap: 'AccountsPayable', oca: 'OtherCurrentAsset', fixed: 'FixedAsset', oa: 'OtherAsset',
     ocl: 'OtherCurrentLiability', ltl: 'LongTermLiability', equity: 'Equity', income: 'Income', oi: 'OtherIncome', cogs: 'CostOfGoodsSold', expense: 'Expense', oe: 'OtherExpense' };
   var KIND = { check: 'Check', deposit: 'Deposit', journal: 'JournalEntry' };

@@ -3086,6 +3086,22 @@ table.statement th { text-transform: uppercase; letter-spacing: .03em; font-weig
 .bf-table th { background: var(--surface-2); font-size: max(11px, .8rem); text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
 .bf-detail > td { background: var(--accent-soft); border-bottom: 1px solid var(--line); }
 .bf-ready { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.qs-since { max-width: 460px; }
+.qs-go { margin-top: .8rem; }
+/* 1.64 report .iif picking */
+#rp-iif.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
+.rp-iifbar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 0 0 .8rem; position: sticky; top: 0; z-index: 5; }
+.rp-iif-note { flex: 1 1 100%; }
+.rp-gen { display: inline-flex; align-items: center; gap: .6rem; font-weight: 600; }
+.rp-gen .pr-spin { width: 18px; height: 18px; border-width: 3px; }
+article.report.iif-on .rp-pick { margin: 0 .45rem 0 0; vertical-align: -2px; width: 15px; height: 15px; cursor: pointer; }
+@media print { .rp-pick { display: none; } }
+.qs-run { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin-top: .8rem; max-width: 860px; }
+/* 1.57 bank feed: sort and show pickers, counts, sortable headings that look sortable */
+.bf-pick { display: inline-flex; align-items: center; gap: .35rem; font-size: .84rem; color: var(--text-3); }
+.bf-pick select { height: 30px; }
+.bf-counts { flex: 1 1 auto; }
+.bf-table th .bf-sort:not(.on)::after { content: ' \2195'; opacity: .45; }
 
 @media print { .st-period, .st-new, .st-hometabs, .st-shortcuts { display: none !important; } .report, .card, table.data, .st-widgets > .st-w { box-shadow: none !important; } }
 
@@ -3844,32 +3860,6 @@ b.out { color: var(--text); }
 @media print { .m-tabbar, .m-sheet-wrap { display: none !important; } }
 /* keyboard focus (iPad keyboards): the ring sits outside filled blue controls so it never blends into them */
 :is(.m-page, .m-tabbar, .m-sheet) :focus-visible { outline-offset: 3px; }
-
-/* ---------- Import a statement file (1.56.0) ---------- */
-.m-feed-btns3 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.m-feed-btns3 .m-btn { font-size: 15px; padding: 0 6px; gap: 4px; }
-.m-feed-btns3 .m-btn svg { width: 18px; height: 18px; }
-.m-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 16px; border: 1.5px dashed var(--line-strong); border-radius: 12px; text-align: center; cursor: pointer; }
-.m-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
-.m-drop svg { width: 30px; height: 30px; padding: 12px; box-sizing: content-box; border-radius: 50%; background: var(--ios-btn); color: #fff; }
-.m-drop b { font-size: 17px; font-weight: 600; color: var(--accent); }
-.m-drop small { font-size: 13px; color: var(--text-3); line-height: 1.4; max-width: 34ch; }
-.m-drop:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
-.m-stats3 { grid-template-columns: repeat(3, 1fr); margin: 4px 0; }
-.m-imp-facts { margin: 0; padding-left: 18px; font-size: 15px; color: var(--text-2); line-height: 1.45; }
-.m-imp-facts:empty { display: none; }
-.m-imp-raw td { white-space: nowrap; font-size: 13px; }
-.m-pedit:is(div) { cursor: default; }
-
-/* ---------- Bank Sync (1.59.0) ---------- */
-.m-sync-intro p { margin: 4px 0 10px; font-size: 15px; line-height: 1.45; color: var(--text-2); }
-.m-steps { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; color: var(--text-2); }
-.m-steps a { color: var(--accent); }
-.m-paste textarea, #m-sf-token { min-height: 84px; padding: 10px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 15px !important; line-height: 1.35; border: 0; border-radius: 10px; background: var(--ios-fill, var(--surface-2)); color: var(--text); width: 100%; box-sizing: border-box; resize: vertical; }
-.m-sync-offer { padding: 12px 16px; }
-.m-sync-card .m-btn { margin-top: 8px; }
-.m-sf-msgs li { color: var(--warning); }
-.m-btn.m-danger { color: var(--danger); }
 
 /* == css/gate.css == */
 /* VaultBook passcode screen (js/gate.js), modelled on the iOS passcode screen. */

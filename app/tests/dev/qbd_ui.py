@@ -51,7 +51,7 @@ async def main():
         else: await go('#/qbd')
         await pg.wait_for_selector('[data-testid=qbd-step-4]')
         txt = await pg.inner_text('.page')
-        check(all(s in txt for s in ['Import everything from QuickBooks', 'Read QuickBooks and see the gap', 'Send what QuickBooks is missing', 'Load what happened', 'Tie-out report', 'The connector', 'Export everything']), 'Overview lists the four steps, reports and the connector menu')
+        check(all(s in txt for s in ['Import everything from QuickBooks', 'Read QuickBooks and see the gap', 'Send what QuickBooks is missing', 'Load what happened', 'Tie-out report', 'The connector', 'QuickBooks -> VaultBook', 'Connect to VaultBook']), 'Overview lists the four steps, reports and the connector menu')
         check('Not yet' in await pg.inner_text('[data-testid=qbd-glance]'), 'Status strip: nothing imported yet')
 
         f = tempfile.mktemp(suffix='.json', prefix='VaultBook-QB-full-'); open(f, 'w').write(json.dumps(FULL))

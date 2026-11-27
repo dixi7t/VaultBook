@@ -1,0 +1,22 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "app/css/studio.css"
+        ],
+        "createdAt": "2026-11-10T21:12:18.029Z",
+        "reason": "assistant decision: bank feed underline tabs with border-radius 0, as in the G2 design the user chose"
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-11-12T17:14:01.186Z"
+      }
+    ]
+  }
+}

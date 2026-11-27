@@ -377,29 +377,3 @@ b.out { color: var(--text); }
 @media print { .m-tabbar, .m-sheet-wrap { display: none !important; } }
 /* keyboard focus (iPad keyboards): the ring sits outside filled blue controls so it never blends into them */
 :is(.m-page, .m-tabbar, .m-sheet) :focus-visible { outline-offset: 3px; }
-
-/* ---------- Import a statement file (1.56.0) ---------- */
-.m-feed-btns3 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.m-feed-btns3 .m-btn { font-size: 15px; padding: 0 6px; gap: 4px; }
-.m-feed-btns3 .m-btn svg { width: 18px; height: 18px; }
-.m-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 16px; border: 1.5px dashed var(--line-strong); border-radius: 12px; text-align: center; cursor: pointer; }
-.m-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
-.m-drop svg { width: 30px; height: 30px; padding: 12px; box-sizing: content-box; border-radius: 50%; background: var(--ios-btn); color: #fff; }
-.m-drop b { font-size: 17px; font-weight: 600; color: var(--accent); }
-.m-drop small { font-size: 13px; color: var(--text-3); line-height: 1.4; max-width: 34ch; }
-.m-drop:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
-.m-stats3 { grid-template-columns: repeat(3, 1fr); margin: 4px 0; }
-.m-imp-facts { margin: 0; padding-left: 18px; font-size: 15px; color: var(--text-2); line-height: 1.45; }
-.m-imp-facts:empty { display: none; }
-.m-imp-raw td { white-space: nowrap; font-size: 13px; }
-.m-pedit:is(div) { cursor: default; }
-
-/* ---------- Bank Sync (1.59.0) ---------- */
-.m-sync-intro p { margin: 4px 0 10px; font-size: 15px; line-height: 1.45; color: var(--text-2); }
-.m-steps { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; color: var(--text-2); }
-.m-steps a { color: var(--accent); }
-.m-paste textarea, #m-sf-token { min-height: 84px; padding: 10px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 15px !important; line-height: 1.35; border: 0; border-radius: 10px; background: var(--ios-fill, var(--surface-2)); color: var(--text); width: 100%; box-sizing: border-box; resize: vertical; }
-.m-sync-offer { padding: 12px 16px; }
-.m-sync-card .m-btn { margin-top: 8px; }
-.m-sf-msgs li { color: var(--warning); }
-.m-btn.m-danger { color: var(--danger); }

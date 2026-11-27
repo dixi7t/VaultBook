@@ -639,6 +639,75 @@ Still open from the gap plan: GAP-SEND (bills, bill payments, checks, expenses, 
 | MB-03 | Side menu off by default (once, pref menubarSeen); company opens on #/dashboard | Done | menubar_ui MB-03, MB-11; e2e 192 |
 | MB-04 | studio.css tokens: grey chrome, blue accent, light and dark | Done | menubar_ui MB-15; studio 40 |
 
+## Phase 6z.51 — 1.57.0 Bank feed uses the books' history (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| FE-01 | hints.js: payeeText, vendorMatch (joined, cut-off, noise, start/inside) | Done | close.tests CL-08 |
+| FE-02 | close.js: habits by contact, deposit-line payer, money back, C.forFeed | Done | CL-09, CL-10 |
+| FE-03 | Bank feed: levels, counts, select sure, sort/show pickers, same-payee select | Done | tests/dev/feedengine_ui.py 11 |
+| FE-04 | Match finding remembered until the books change; date windows; far matches not auto | Done | CL-11; FE-10 |
+| FE-05 | Bulk post decides first, then posts | Done | user's file: 509 lines in 3.5 s |
+| FE-06 | merchants.js: 185 more brands | Done | hints_ui 12 |
+
+## Phase 6z.52 — 1.58.0 Send to QuickBooks from a date (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QF-01 | qbsend.js: Q.fromDate (from a day, not yet in QuickBooks, earlier invoices of included payments, left-out types) | Done | qbsend.tests QS-10 |
+| QF-02 | Entries imported from QuickBooks count as already there (importRef TxnID) | Done | QS-10 |
+| QF-03 | From a date tab, menu and toolbar links | Done | tests/dev/qbfrom_ui.py 6 |
+
+## Phase 6z.53 — 1.59.0 Send by period, straight to the tool (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QF-04 | Q.fromDate(book, from, to): one day or a period | Done | qbsend.tests QS-10 |
+| QF-05 | By date tab: period choices, remembered | Done | tests/dev/qbfrom_ui.py QF-07..09 |
+| QF-06 | Send to QuickBooks now through the existing link (apply), result applied | Done | qbfrom_ui QF-10..12 |
+
+## Phase 6z.54 — 1.60.0 Connector menu in plain order (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| CM-01 | VaultBook-QB.ps1: menu reordered and renamed (7 lines), start box shortened, header comment | Done (not run on Windows) | ASCII and LF checked; bracket count |
+| CM-02 | Screens and guide use the new names and numbers | Done | qbd_ui, qbupdate_ui, qbsend_ui |
+
+## Phase 6z.55 — 1.60.1 Long dash stopped a send (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QX-01 | U.qbText; used by qbsend and qbupdate clean() | Done | qbsend.tests QS-11 |
+| QX-02 | Connector X(): plain forms and numeric references | Done (not run on Windows) | ASCII and LF checked |
+
+## Phase 6z.56 — 1.61.0 Long sends in parts, resumable (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QP-01 | Q.chunks (order across parts), Q.resultSummary (stopped / declined) | Done | qbsend.tests QS-12 |
+| QP-02 | runSend: parts through the link, result applied per part, progress, halt, resume | Done | tests/dev/qbfrom_ui.py QF-13..15 |
+| QP-03 | Connector: apply accepts yes for later parts; /hello version 1.61; 0.7 s between bank entries | Done (not run on Windows) | ASCII and LF checked |
+
+## Phase 6z.57 — 1.62.0 Bank transactions of a period as .iif (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QI-01 | Q.inQB, Q.markIIF; sendList and fromDate use them | Done | qbsend.tests QS-13 |
+| QI-02 | X.txnsIIF (chosen transactions); Bank feed export skips what is in QuickBooks | Done | QS-13 |
+| QI-03 | By date tab: .iif button, import question | Done | tests/dev/qbfrom_ui.py QF-16..19 |
+
+## Phase 6z.58 — 1.63.0 Remove what VaultBook sent; empty check numbers (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| QR-01 | Connector: empty RefNumber for checks without a number | Done (not run on Windows) | ASCII and LF, bracket count |
+| QR-02 | Connector 8 Remove: [VB:] entries in a date range, typed DELETE, TxnDel in a safe order, result file | Done (not run on Windows) | same |
+| QR-03 | VaultBook: Deleted items clear the sent mark; failed removals keep it; .iif memos carry [VB:] | Done | qbsend.tests QS-13, QS-14 |
+
+## Phase 6z.59 — 1.64.0 .iif from any report (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| RI-01 | X.anyIIF: invoices and bank transactions in one file; in-QuickBooks and other types left out | Done | qbsend.tests QS-15 |
+| RI-02 | Report .iif button, tick boxes, select all, progress, import question | Done | tests/dev/reportiif_ui.py 13 |
+
+## Phase 6z.60 — 1.65.0 Citi card statements (done)
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| CT-01 | Citi reader in the statement engine: one-date payment, post date, card signs, spaced words, wrapped names, no rewards/footer text, cardholder sections, Account summary totals | Done | tests/dev/citicard_ui.py 9 |
+| CT-02 | Same reader in Statement Studio V8.16 | Done | 118 of 118 lines on the client statement, both totals match |
+
 ## Phase 7 — Release verification
 
 | Task ID | Requirement IDs | Task | Acceptance criteria | Status | Evidence / notes |

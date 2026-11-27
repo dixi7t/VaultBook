@@ -177,7 +177,7 @@
     const tkey = 'report:' + key + (def.cols ? ':' + (p.columns || 'total') : '') + (def.compare ? ':' + (p.compare || 'none') : '');
     el.innerHTML = `<div class="page report-page fill">
       <div class="page-head no-print"><div><a href="#/reports" class="back">Reports</a><h1>${esc(def.title)}</h1></div>
-        <div class="actions">${def.kind === 'year' ? '<a class="btn" href="#/1099">1099 setup</a>' : ''}${def.fields ? '<button type="button" class="btn" id="rp-fields" data-testid="rp-fields">Fields</button>' : UI.columnsButton(tkey)}<button class="btn" data-x="csv">CSV</button><button class="btn" data-x="xlsx" data-key="e">Excel</button><button class="btn" data-x="pdf">PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
+        <div class="actions">${def.kind === 'year' ? '<a class="btn" href="#/1099">1099 setup</a>' : ''}${def.fields ? '<button type="button" class="btn" id="rp-fields" data-testid="rp-fields">Fields</button>' : UI.columnsButton(tkey)}<button class="btn" id="rp-iif" data-testid="rp-iif" aria-pressed="false" title="Pick entries and download them for QuickBooks Desktop">.iif</button><button class="btn" data-x="csv">CSV</button><button class="btn" data-x="xlsx" data-key="e">Excel</button><button class="btn" data-x="pdf">PDF</button><button class="btn primary" data-print data-key="p">Print</button></div></div>
       <form class="toolbar wrap no-print" id="rp-form">
         ${def.kind === 'range' ? `<label>Period ${UI.rangeSelect('rp-range', p.range)}</label>
           <label>From <input type="date" id="rp-from" value="${esc(p.from)}"></label><label>To <input type="date" id="rp-to" value="${esc(p.to)}"></label>` : def.kind === 'year' ? `<label>Tax year <select id="rp-year">${years.map((y) => `<option${y === p.year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>
@@ -229,7 +229,79 @@
       const header = [[{ v: b.company.name, bold: true }], [{ v: out.title || def.title, bold: true }], [period + (def.basis ? ' · ' + p.basis + ' basis' : '')], []];
       UI.exportMatrix(def.title.replace(/[^A-Za-z]+/g, '_'), header.concat(out.matrix), btn.dataset.x, { report: true });
     }));
+    bindIIF(el, b, def, period);
   };
+
+  /**
+   * 1.64: .iif beside CSV on any report that lists entries. Pressed, each entry gets a tick box; the bar above the report
+   * selects all of them or none and downloads the ticked ones as one .iif (invoices and bank transactions; see
+   * OB.qbexport.anyIIF). The choice lives here and is cleared when the report's dates or account change.
+   */
+  const iif = { on: false, sel: new Set(), key: '', note: null };
+  function bindIIF(el, b, def, period) {
+    const btn = el.querySelector('#rp-iif'), art = el.querySelector('article.report');
+    const links = art ? [...art.querySelectorAll('a[href^="#/txn/"]')] : [];
+    if (!btn) return;
+    if (!links.length) { btn.remove(); return; }
+    const key = b.company.id + location.hash;
+    if (iif.key !== key) { iif.key = key; iif.sel.clear(); iif.note = null; }
+    btn.setAttribute('aria-pressed', String(iif.on)); btn.classList.toggle('on', iif.on);
+    btn.addEventListener('click', () => { iif.on = !iif.on; if (!iif.on) { iif.sel.clear(); iif.note = null; } UI.render(); });
+    if (!iif.on) return;
+    const idOf = (a) => decodeURIComponent(a.getAttribute('href').slice(6).split(/[?#]/)[0]);
+    const all = [...new Set(links.map(idOf))].filter((id) => b.txById[id]);
+    const done = new Set();
+    links.forEach((a) => {   // one box per row, before the row's first entry link
+      const tr = a.closest('tr'); if (!tr || done.has(tr)) return; done.add(tr);
+      const id = idOf(a); if (!b.txById[id]) return;
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'rp-pick'; cb.dataset.id = id; cb.checked = iif.sel.has(id);
+      cb.setAttribute('aria-label', 'Select ' + a.textContent.trim() + ' ' + b.txById[id].date);
+      a.parentNode.insertBefore(cb, a);
+    });
+    art.classList.add('iif-on');
+    const bar = document.createElement('div'); bar.className = 'banner info rp-iifbar no-print'; bar.setAttribute('data-testid', 'rp-iifbar');
+    art.parentNode.insertBefore(bar, art);
+    const draw = () => {
+      const n = iif.sel.size, note = iif.note;
+      bar.innerHTML = note && note.busy ? `<span class="rp-gen" role="status" aria-live="polite"><span class="pr-spin" aria-hidden="true"></span> Preparing the .iif file: ${note.busy} entr${note.busy === 1 ? 'y' : 'ies'}…</span>`
+        : `<span><strong data-testid="rp-iif-count">${n}</strong> of ${all.length} selected</span>
+        <button class="btn small" id="rp-iif-all" data-testid="rp-iif-all">Select all ${all.length} in this report</button>
+        <button class="btn small" id="rp-iif-none" ${n ? '' : 'disabled'}>Clear</button>
+        <button class="btn small primary" id="rp-iif-go" data-testid="rp-iif-go" ${n ? '' : 'disabled'}>Download .iif (${n})</button>
+        ${note && note.file ? `<span class="rp-iif-note" data-testid="rp-iif-note">${note.marked !== undefined ? `<strong>${note.marked}</strong> marked as in QuickBooks.` : `Saved <strong>${esc(note.file)}</strong> with ${note.count} entr${note.count === 1 ? 'y' : 'ies'}.${note.left ? ' Left out: ' + esc(note.left) + '.' : ''} ${note.count ? 'Did QuickBooks import it without errors? <button class="btn small" id="rp-iif-yes" data-testid="rp-iif-yes">Yes, mark them</button> <button class="btn small" id="rp-iif-no">No</button>' : ''}`}</span>` : ''}`;
+      const on = (q, f) => { const x = bar.querySelector(q); if (x) x.addEventListener('click', f); };
+      on('#rp-iif-all', () => { all.forEach((id) => iif.sel.add(id)); sync(); });
+      on('#rp-iif-none', () => { iif.sel.clear(); sync(); });
+      on('#rp-iif-go', go);
+      on('#rp-iif-yes', () => OB.qbsend.markIIF(b, note.keys).then((m) => { iif.note = { file: note.file, marked: m }; draw(); }));
+      on('#rp-iif-no', () => { iif.note = null; draw(); });
+    };
+    const sync = () => { art.querySelectorAll('.rp-pick').forEach((c) => { c.checked = iif.sel.has(c.dataset.id); }); draw(); };
+    art.addEventListener('change', (e) => {
+      const c = e.target.closest && e.target.closest('.rp-pick'); if (!c) return;
+      if (c.checked) iif.sel.add(c.dataset.id); else iif.sel.delete(c.dataset.id); sync();
+    });
+    art.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.rp-pick')) e.stopPropagation(); }, true);   // a tick does not open the entry
+    function go() {
+      const ids = [...iif.sel]; iif.note = { busy: ids.length }; draw();
+      // let the bar paint and turn at least once before the work, so the user sees the file being made
+      const wait = new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(ok, 50))));
+      const min = new Promise((ok) => setTimeout(ok, 700));
+      wait.then(() => {
+        const out = OB.qbexport.anyIIF(b, ids, { names: b.company.qbNames || {} });
+        const co = (b.company.name || 'VaultBook').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+        const file = `${co}-${(def.title || 'report').replace(/[^A-Za-z]+/g, '-')}-${period.replace(/[^0-9]+/g, '-').replace(/^-|-$/g, '') || 'entries'}.iif`;
+        const left = [out.inQB.length ? out.inQB.length + ' already in QuickBooks' : ''].concat(Object.keys(out.cannot).map((k) => out.cannot[k] + ' ' + k.toLowerCase() + (out.cannot[k] === 1 ? '' : 's') + ' (not in .iif yet)')).filter(Boolean).join(', ');
+        return min.then(() => {
+          if (out.count) U.download(file, new Blob([OB.qbexport.toAnsi(out.text)], { type: 'text/plain' }));
+          iif.note = { file: out.count ? file : '', count: out.count, keys: out.keys, left };
+          if (!out.count) { iif.note = null; UI.toast('Nothing to put in the file: ' + (left || 'no entries') + '.', 'warn'); }
+          draw();
+        });
+      }).catch((e) => { iif.note = null; draw(); UI.toast(e.message, 'error'); });
+    }
+    draw();
+  }
 
   /* drill-down helpers */
   const glLink = (accountId, from, to, html, basis) => `<a href="#/report/gl?${UI.qs({ account: accountId, range: 'custom', from: from || '1900-01-01', to, basis })}">${html}</a>`;

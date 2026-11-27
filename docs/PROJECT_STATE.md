@@ -7,7 +7,7 @@
 - Current phase: Phases 1–3 delivered (foundations, Gateway/navigation, F11/F12); Phases 4–6 partly (entry strip, row cursor, design tokens on all screens)
 - Current task: ER-design audit follow-up delivered (ERD-001…006, Phase 11, app 1.13.0); next: user to choose ERD-008…010 scope; then import .iif into real QuickBooks Desktop (INV-005), open exports in real Microsoft Excel (XW-007, FR-003/004), QA-002
 - Last verified commit/branch: `master` — see `git log` (session 2 commits: VaultBook workspace, refinements)
-- Last update: 2026-11-23 (app 1.59.1, data format 8)
+- Last update: 2026-11-27 (app 1.65.0, data format 8)
 
 ## Product goal
 Transform the existing application into a coherent, Tally Prime–inspired, keyboard-first US accounting system named VaultBook, preserving its accounting engine, stored data, offline operation, security, and existing features.
@@ -343,13 +343,6 @@ Transform the existing application into a coherent, Tally Prime–inspired, keyb
 ## 1.50.4 checkpoint (2026-11-19)
 - Rule from the user: no instruction notes on screens or reports unless a user could not figure it out. UI.page subtitles now need { html } (only data). Menu bar redesign: Version D1 and D2 on the design canvas, not built yet.
 
-## 1.59.1 checkpoint (2026-11-23) — connector download
-- Done: "Download the QuickBooks tool" (Send to QuickBooks Desktop: page header, Items header, first-step button in the empty Months screen; QuickBooks Desktop page > The connector). `tools/build-site.py` now also writes `tools/VaultBook-QuickBooks-Connector.zip` (the .cmd and .ps1 in one folder, fixed dates so the bytes only change with the tool; `--check` compares it). Every "VaultBook's tools folder" wording links to the zip (ui-qbsend, ui-qbd, ui-bankfeed). The .cmd stops with an "Extract All first" message when VaultBook-QB.ps1 is not beside it.
-- Files: app/tools/build-site.py, app/tools/VaultBook QuickBooks.cmd, app/tools/VaultBook-QuickBooks-Connector.zip (new, generated), app/js/ui-qbsend.js, app/js/ui-qbd.js, app/js/ui-bankfeed.js, app/js/schema.js, CHANGELOG.
-- Tests: `node app/tests/run-node.js` 275/275. `build-site.py --check` up to date; zip entries byte-identical to the two tool files. Browser check (Playwright Chromium, file://, CSP bypassed): button present on #/qbsend (header + empty state), #/qbsend?tab=items, #/qbd; clicking it downloads VaultBook-QuickBooks-Connector.zip identical to the built file; no page errors. Developer UI tests qbsend_ui / qbd_ui / bankfeed_ui FAIL at their first wait_for_function: the page's CSP forbids string eval (`script-src` has no 'unsafe-eval'); the unchanged 1.59.0 page fails the same way, so not caused by this change.
-- Not verified: running the extracted tool on a real Windows PC with QuickBooks Desktop (NEEDS VERIFICATION); SmartScreen wording on Windows.
-- Next action: make the developer UI tests CSP-safe (pass functions, not strings, to wait_for_function, or use bypass_csp) and re-run them.
-
 ## 1.56.0 checkpoint (2026-11-20) — review fixes (Impeccable critique + audit)
 - Done: everything in the 2026-11-20 critique (`.impeccable/critique/2026-11-20T21-02-24Z__app-index-src-html.md`): payment auto-apply and unapplied-credit question; dialog focus trap, inert background, Esc guard, z-order; one save-button row on all entry forms; Settings fixes (unknown tab, inline save error, photo logos, sales tax retry, switches act at once); tab de-duplication and restore cap; Reports finder; View can hide toolbar / F-key panel; phone tables scroll in their box, save bars above the tab bar, one-row Settings tabs and type keys, VaultBook blue on phone, bank feed accounts as desktop; first-run checklist and copy; Gateway hints; contrast and focus fixes. See DEC-046 and CHANGELOG 1.56.0.
 - Tests: Node 266/266 (new: company name limit). Developer UI tests 34 run, all pass (including qbinvoice_ui 22/22 updated for Ctrl+S = Save, menubar_ui 17/17, vaultbook_ui 45/45, studio_ui 40/40, payroll 38/38). paystub_iif_ui NOT RUN (needs tools/paystub-iif). e2e: 182 checks pass, then the run stops at the encrypted-backup download with "browser has been closed" — the unchanged 1.55.2 code stops at the same step in this environment (system Chrome, no Playwright Chromium), so not caused by this change; NEEDS VERIFICATION on a machine with Playwright's Chromium. Browser checks of each fix: 28/28 (desktop, phone, dark).
@@ -360,6 +353,51 @@ Transform the existing application into a coherent, Tally Prime–inspired, keyb
 - The user chose Version F from the design canvas: the D1 menu bar and toolbar with the mixed style. Built as js/ui-menubar.js (no new routes; every item points at an existing screen). The old K/Y/O/X/P bar stays in the page, invisible, so its keys and menus work; File opens them.
 - Side menu hidden once on first start (pref menubarSeen); landing page and Esc fallback are #/dashboard. Tokens in css/studio.css are now grey with blue #2452c7 (dark: #7fa2f5).
 - Not done: the dashboard widgets were restyled only through tokens, not rebuilt to the demo layout; fonts stay the system fonts (no network).
+
+## 1.57.0 checkpoint (2026-11-23) — Bank feed uses the books' history
+- The user's complaint: the Bank feed offered nothing from 11 years of QuickBooks history, had no visible sort, and suggestions could not be ticked and posted together. The Close the books engine (habits, payee reading) already existed; it is now what the Bank feed asks (OB.close.forFeed), after rules and last-time history.
+- Measured on the user's own file (kept outside the repo): 1,329 bank lines for 2026 against books of 11,608 entries. Before: 259 sure, 460 to check, 157 common, 443 nothing (and only inside Close the books). After: 509 sure, 479 to check (412 habit + 67 common), 341 nothing. Self-test on 2025 (learn from earlier years): 383 sure lines, 362 right (94.5%); 241 suggestions, 207 right.
+- The 341 with nothing are payees that are not in the books (new in 2026). The same-payee select is for those.
+- Speed fixes were needed for a file this size: bankCandidates is memoised per line until reindex; bulk post plans first.
+- Not done: auto-post on import (still a person's click); a merchant list for groceries, gyms, government fees; learning across a firm's clients beyond "Other clients".
+
+## 1.58.0 checkpoint (2026-11-24) — Send to QuickBooks from a date
+- The user asked for one step: give a date, send everything from it, skip what QuickBooks has. The pieces existed (send list, batch, the connector's own duplicate check); added Q.fromDate and a From a date tab.
+- Found on the user's company: the 11,607 entries imported from QuickBooks showed as Not sent, so a wide date would have offered them all back. They now count as already in QuickBooks through the TxnID in importRef.
+- The PowerShell connector was not changed (it cannot be tested here).
+
+## 1.59.0 checkpoint (2026-11-24) — Send by period, straight to the tool
+- The user wants the connector to take the data from VaultBook itself and to choose a date, a period (12 months) or custom dates. The link built for Update QuickBooks (127.0.0.1:47321, action apply) already accepts any vaultbook-qb-batch, so the By date tab posts its batch there and applies the returned result. No PowerShell change.
+- Tested with a stand-in for the tool in the browser test; not run against real QuickBooks.
+
+## 1.60.0 checkpoint (2026-11-24) — Connector menu
+- The user found the connector menu confusing (screenshot of the 8-line menu). Reordered by intent: Connect first, then the two directions, preview, snapshot, reports, setup. Cycle mode left the menu but -Mode Cycle still works.
+- Only the menu array, the pick-to-mode switch, the start box, two messages and the header comment changed in the script. It could not be run here (no PowerShell).
+
+## 1.60.1 checkpoint (2026-11-24) — parse error on the first real send
+- The user's first linked send of 1,329 bank entries stopped at entry 1: "error when parsing the provided XML text stream", 0 recorded. 1,302 of the 1,329 memos held U+2014 from the Bank feed description. Fixed in VaultBook (U.qbText in the batch) and in the script's X().
+- Not confirmed on Windows yet; the cause is inferred from the message and the data.
+
+## 1.61.0 checkpoint (2026-11-25) — QuickBooks stopped after 54 of 1,329
+- The 1.60.1 character fix worked (entries recorded). Then QuickBooks itself stopped ("Unexpected error. Check qbsdklog.txt") at entry 55 of a file send. Cause not known (no log seen); QuickBooks Desktop is known to stop under long runs of SDK adds.
+- Answer: VaultBook drives the send in parts of 25 through the link, each part a new tool process and QuickBooks session, results applied per part, resume by pressing Send again. The script change is three lines (yes for later parts, version, a longer pause).
+- Not verified on Windows. If QuickBooks still stops often, lower Q.CHUNK or raise Q.REST_MS, and ask for qbsdklog.txt.
+
+## 1.62.0 checkpoint (2026-11-25) — .iif for a period
+- QuickBooks stopped during long connector sends; the user asked for an .iif of all bank transactions for a chosen period. The Bank feed already had an .iif export (bank lines only, its own exported marks); the new button on By date takes any bank transaction of the period that is not in QuickBooks, and asks afterwards before marking (company.qbSent[id] = { qbTxnId: '', iif, at }).
+- On the user's 2026 draft: 1,329 transactions, 1,182 checks and 147 deposits, 468 KB, 0 characters lost.
+
+## 1.63.0 checkpoint (2026-11-25) — wrong check numbers in QuickBooks
+- After the linked send, QuickBooks showed checks numbered 9001, 9002... that had no number in VaultBook: CheckAdd without RefNumber takes the next check number. Now an empty RefNumber is sent for checks (expected to stay empty; not verified).
+- The user asked to delete a date range from QuickBooks. Built as option 8, limited to entries with the [VB:] mark, typed DELETE, removal record back to VaultBook.
+
+## 1.64.0 checkpoint (2026-11-25) — .iif from reports
+- The user asked for .iif beside CSV/Excel/PDF/Print on the General Ledger, with a tick box on each entry, select all in the period, and an indicator while the file is made. Built generically in ui-reports.js: any report row that links to an entry gets a box.
+- The file is the same writer as By date and the Bank feed (txnsIIF, invoicesIIF), so the [VB:] mark and plain text apply.
+
+## 1.65.0 checkpoint (2026-11-27) — Citi card statements
+- The user attached a Citi Costco Anywhere Visa Business statement and asked for support in VaultBook and Statement Studio. The general reader found 116 of 118 lines, glued words, pulled the rewards panel and footer into descriptions and could not reconcile.
+- A Citi-only reader (readCitiCard) runs before the general reader and returns null for any other statement. On the client statement: 118 of 118 lines, both totals match. Fixture is made up (tests/fixtures/statements/citi-card-sample.pdf).
 
 ## Session 7 checkpoint (2026-11-05) — ER-design audit, sales tax, estimates/POs, audit chain (app 1.13.0)
 - Done: `docs/ERD_AUDIT.md`; sales tax (rates, lines, posting, print, .iif, Sales Tax Liability, exempt customers); estimates and purchase orders; SHA-256 hash-chained audit; closing-date history and password; credit-limit warning; SCHEMA.txt updated.

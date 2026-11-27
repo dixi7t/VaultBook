@@ -303,8 +303,6 @@
       return new Promise(function (res) { tx.oncomplete = res; });
     }).then(function () {
       return new Promise(function (resolve) { var r = root.indexedDB.deleteDatabase(DB.dbName(companyId)); r.onsuccess = r.onerror = r.onblocked = function () { resolve(); }; });
-    }).then(function () {   // 1.58.0: connection secrets of the company go with it
-      return OB.secrets && OB.secrets.available() ? OB.secrets.removeCompany(companyId).catch(function () {}) : null;
     });
   };
 

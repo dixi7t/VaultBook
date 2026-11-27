@@ -46,20 +46,8 @@
       if (v.length && (/^(type|transaction type|txn type|dr ?\/ ?cr|cr ?\/ ?dr|d ?\/ ?c|c ?\/ ?d|debit ?\/ ?credit|credit ?\/ ?debit|details|indicator|sign)$/.test(name) || !name)
         && v.filter(function (x) { return signOf(x); }).length >= v.length * 0.8) m.sign = i;
     });
-    // 1.56.0: a Status column (Pending / Posted) lets pending lines be left out until they clear
-    m.status = -1;
-    h.forEach(function (name, i) {
-      if (m.status >= 0 || used[i] || i === m.sign) return;
-      var v = col(i).map(function (x) { return String(x || '').trim().toLowerCase(); }).filter(Boolean);
-      if (/^(status|transaction status|txn status|posting status|state|pending)$/.test(name) || (v.length && v.every(function (x) { return /^(pending|posted|cleared|settled|authorized|complete|completed)$/.test(x); }))) m.status = i;
-    });
     if (m.date >= 0 && rows.length) m.dateFormat = I.detectDateFormat(col(m.date)).format;
     return m;
-  };
-  /** A bank line that has not cleared yet: the Status column says pending, or the description starts with PENDING. */
-  I.isPendingRow = function (row, mapping) {
-    if (mapping.status >= 0 && /pend|authori[sz]ed/i.test(String(row[mapping.status] || ''))) return true;
-    return mapping.description >= 0 && /^\s*\*?\s*pending\b/i.test(String(row[mapping.description] || ''));
   };
 
   /* ---------- dates (BF-04) ---------- */
@@ -124,14 +112,13 @@
    */
   I.parseBankRows = function (table, mapping, opts) {
     opts = opts || {};
-    var rows = [], errors = [], pending = 0;
+    var rows = [], errors = [];
     var start = mapping.hasHeader ? 1 : 0, fmt = mapping.dateFormat || 'MDY';
     // the type column only decides when the file's amounts carry no minus sign of their own
     var useSign = mapping.sign >= 0 && mapping.amount >= 0 && !table.slice(start).some(function (row) { try { return amountOf(row[mapping.amount]) < 0; } catch (e) { return false; } });
     for (var r = start; r < table.length; r++) {
       var row = table[r], line = r + 1;
       if (!row.some(function (c) { return String(c || '').trim(); })) continue;
-      if (I.isPendingRow(row, mapping)) { pending++; if (opts.skipPending) continue; }
       try {
         var date = I.parseDateAs(row[mapping.date], fmt);
         if (!date) { errors.push('Line ' + line + ': unrecognized date "' + (row[mapping.date] || '') + '"'); continue; }
@@ -150,7 +137,7 @@
         rows.push({ date: date, description: desc || '(no description)', amount: amount, checkNo: mapping.check >= 0 ? String(row[mapping.check] || '').trim() : '', balance: bal, line: line });
       } catch (e) { errors.push('Line ' + line + ': ' + e.message); }
     }
-    return { rows: rows, errors: errors, pending: pending };
+    return { rows: rows, errors: errors };
   };
 
   /** Index of the header row: the first of the top 30 rows that names a date and an amount (or money in / out)

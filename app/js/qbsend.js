@@ -14,7 +14,7 @@
   'use strict';
   var OB = root.OB = root.OB || {};
   var U = OB.util, Q = OB.qbsend = {};
-  var clean = function (s) { return String(s === null || s === undefined ? '' : s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").trim(); };
+  var clean = function (s) { return U.qbText(s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").replace(/ {2,}/g, ' ').trim(); };   // 1.60.1: U.qbText, or one long dash stops the whole send
   var qbName = function (s) { return clean(s).replace(/:/g, '-').slice(0, 41); };
   var money = function (c) { return (c / 100).toFixed(2); };
   var termsText = function (t) {
@@ -47,6 +47,23 @@
     return { kind: 'journal', head: m[0] || splits[0], headId: (m[0] || splits[0]).accountId, amount: U.sum(splits, function (x) { return x.amount > 0 ? x.amount : 0; }), splits: splits };
   };
 
+  /**
+   * Is this entry in QuickBooks already? → { qbTxnId, at } (a result file, a snapshot match, or imported from QuickBooks:
+   * 1.58) or { iif, at } (1.62: in an .iif file the user said QuickBooks imported), else null.
+   */
+  Q.inQB = function (book, t) {
+    var s = ((book.company && book.company.qbSent) || {})[t.id];
+    if (s && (s.qbTxnId || s.iif)) return s;
+    var m = /^QuickBooks .*TxnID (\S+)/.exec(t.importRef || '');
+    return m ? { qbTxnId: m[1], at: t.createdAt || '' } : null;
+  };
+  /** 1.62: the user says QuickBooks imported the .iif: mark its entries (no QuickBooks id is known; a later snapshot or result adds it). */
+  Q.markIIF = function (book, keys, at) {
+    var ch = {}; at = at || new Date().toISOString();
+    keys.forEach(function (k) { if (book.txById[k] && !Q.inQB(book, book.txById[k])) ch[k] = { qbTxnId: '', iif: at, at: at }; });
+    return book.saveCompanySent(ch).then(function () { return Object.keys(ch).length; });
+  };
+
   Q.sendList = function (book, opts) {
     opts = opts || {};
     var kinds = opts.kinds && opts.kinds.length ? opts.kinds : ['invoice', 'payment'], sent = (book.company && book.company.qbSent) || {}, rows = [];
@@ -61,7 +78,8 @@
       var amount = shape ? shape.amount : kind === 'invoice' ? t.total : Math.abs(t.amount || t.total || 0);
       if (opts.min && amount < opts.min) return;
       if (opts.max && amount > opts.max) return;
-      var s = sent[t.id] || {}, isSent = !!s.qbTxnId, status = isSent ? 'Sent' : s.problem ? 'Problem' : 'Not sent';
+      var s = Q.inQB(book, t) || sent[t.id] || {};
+      var isSent = !!(s.qbTxnId || s.iif), status = isSent ? 'Sent' : s.problem ? 'Problem' : 'Not sent';
       if (opts.status === 'new' && isSent) return;
       if (opts.status === 'sent' && !isSent) return;
       if (opts.status === 'problem' && status !== 'Problem') return;
@@ -71,6 +89,56 @@
     });
     rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.kind === 'invoice' ? -1 : 1) - (b.kind === 'invoice' ? -1 : 1) || String(a.number).localeCompare(String(b.number), undefined, { numeric: true }); });
     return rows;
+  };
+
+  /**
+   * 1.58: everything dated from a day onward (1.59: or within from..to) that QuickBooks does not have yet (not marked sent by a result file or a
+   * snapshot). Invoices dated earlier that an included payment pays come along, or the payment could not close them.
+   * → { keys, items, extra, counts: { invoice, payment, bank }, already (from that day, in QuickBooks), left: { type: n } (types the connector cannot record) }
+   * The connector checks each item against QuickBooks again before recording, so an entry typed there by hand is skipped too.
+   */
+  Q.fromDate = function (book, from, to) {
+    var out = { keys: [], items: [], extra: [], counts: { invoice: 0, payment: 0, bank: 0 }, already: 0, left: {} };
+    if (!/^\d{4}-\d\d-\d\d$/.test(String(from || ''))) return out;
+    to = /^\d{4}-\d\d-\d\d$/.test(String(to || '')) ? to : '';   // 1.59: an end date makes it a period (one day when both are the same)
+    var all = Q.sendList(book, { kinds: ['invoice', 'payment', 'bank'], from: from, to: to }), have = {}, seen = {};
+    all.forEach(function (x) { seen[x.id] = 1; if (x.sent) { out.already++; have[x.id] = 1; } else { out.items.push(x); out.keys.push(x.id); out.counts[x.kind]++; } });
+    var sent = (book.company && book.company.qbSent) || {};
+    out.items.forEach(function (x) {
+      if (x.kind !== 'payment') return;
+      (x.t.applications || []).forEach(function (a) {
+        var d = book.txById[a.txnId];
+        if (!d || d.type !== 'invoice' || seen[d.id] || d.status !== 'posted' || Q.inQB(book, d)) return;
+        seen[d.id] = 1; out.keys.push(d.id); out.extra.push({ id: d.id, number: d.number || '', date: d.date, t: d });
+      });
+    });
+    book.posted().forEach(function (t) { if (t.date >= from && (!to || t.date <= to) && !seen[t.id] && !t.voidedBy && t.type !== 'invoice' && t.type !== 'payment' && !Q.BANK_TYPES[t.type]) out.left[t.type] = (out.left[t.type] || 0) + 1; });
+    return out;
+  };
+
+  /**
+   * 1.61: a long send goes to QuickBooks in small parts, each in a fresh QuickBooks session (QuickBooks Desktop tends to
+   * stop when hundreds of entries arrive in one go). Order matters across parts: invoices first (the earlier ones a
+   * payment needs before the rest), then payments, then bank entries; by date inside each.
+   */
+  Q.CHUNK = 25; Q.REST_MS = 2000;   // entries per part; rest between parts
+  Q.chunks = function (r, size) {
+    size = size || Q.CHUNK;
+    var rank = { invoice: 0, payment: 1, bank: 2 }, list = r.extra.map(function (x) { return { id: x.id, k: -1, date: x.date }; })
+      .concat(r.items.map(function (x) { return { id: x.id, k: rank[x.kind], date: x.date }; }));
+    list.sort(function (a, b) { return a.k - b.k || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0); });
+    var out = []; for (var i = 0; i < list.length; i += size) out.push(list.slice(i, i + size).map(function (x) { return x.id; }));
+    return out;
+  };
+  /** What one part's result says: { recorded, dup, prob, stopped (QuickBooks stopped answering), declined (the user answered No) }. */
+  Q.resultSummary = function (res) {
+    var s = { recorded: 0, dup: 0, prob: 0, stopped: false, declined: false }, items = (res && res.items) || [];
+    items.forEach(function (i) {
+      if (i.status === 'Recorded' || i.status === 'Updated') s.recorded++; else if (i.status === 'Already in QuickBooks') s.dup++; else if (i.status === 'Problem') s.prob++;
+      if (/QuickBooks stopped/i.test(i.details || '')) s.stopped = true;
+    });
+    s.declined = !s.stopped && items.length > 0 && !s.recorded && !s.dup && !s.prob;   // everything still Ready: nothing was written
+    return s;
   };
 
   Q.batch = function (book, keys, opts) {
@@ -124,7 +192,9 @@
     var at = result.at || new Date().toISOString(), sent = 0, problems = 0, changes = {};
     result.items.forEach(function (it) {
       if (!it || !it.key || !book.txById[it.key]) return;
+      if (it.kind === 'removed' && it.status !== 'Deleted') return;   // not removed: it is still in QuickBooks, its mark stays
       if (it.txnId && (it.status === 'Recorded' || it.status === 'Already in QuickBooks')) { changes[it.key] = { qbTxnId: String(it.txnId), at: it.status === 'Recorded' ? at : (book.company.qbSent && book.company.qbSent[it.key] && book.company.qbSent[it.key].at) || at }; sent++; }
+      else if (it.status === 'Deleted') { changes[it.key] = null; }   // 1.63: removed from QuickBooks by the tool: not sent any more
       else if (it.status === 'Problem') { changes[it.key] = { problem: clean(it.details || 'problem').slice(0, 300), at: at }; problems++; }
     });
     return book.saveCompanySent(changes).then(function () { return { sent: sent, problems: problems }; });
@@ -133,7 +203,7 @@
   /** Company-level record of what reached QuickBooks: company.qbSent[txnId] = { qbTxnId, at } or { problem, at }. */
   OB.Book.prototype.saveCompanySent = function (changes) {
     var self = this, c = U.clone(this.company); c.qbSent = Object.assign({}, c.qbSent || {});
-    Object.keys(changes).forEach(function (k) { c.qbSent[k] = changes[k]; });
+    Object.keys(changes).forEach(function (k) { if (changes[k] === null) delete c.qbSent[k]; else c.qbSent[k] = changes[k]; });
     var n = Object.keys(changes).length, au = this._auditEntry('qbSend', '', 'QuickBooks Desktop result loaded: ' + n + ' item' + (n === 1 ? '' : 's'));
     return this._commit([{ store: 'company', value: c }, { store: 'audit', value: au }], function () { self.company = c; self.audit.push(au); });
   };

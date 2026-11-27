@@ -330,6 +330,22 @@ table.statement th { text-transform: uppercase; letter-spacing: .03em; font-weig
 .bf-table th { background: var(--surface-2); font-size: max(11px, .8rem); text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
 .bf-detail > td { background: var(--accent-soft); border-bottom: 1px solid var(--line); }
 .bf-ready { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.qs-since { max-width: 460px; }
+.qs-go { margin-top: .8rem; }
+/* 1.64 report .iif picking */
+#rp-iif.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
+.rp-iifbar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 0 0 .8rem; position: sticky; top: 0; z-index: 5; }
+.rp-iif-note { flex: 1 1 100%; }
+.rp-gen { display: inline-flex; align-items: center; gap: .6rem; font-weight: 600; }
+.rp-gen .pr-spin { width: 18px; height: 18px; border-width: 3px; }
+article.report.iif-on .rp-pick { margin: 0 .45rem 0 0; vertical-align: -2px; width: 15px; height: 15px; cursor: pointer; }
+@media print { .rp-pick { display: none; } }
+.qs-run { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin-top: .8rem; max-width: 860px; }
+/* 1.57 bank feed: sort and show pickers, counts, sortable headings that look sortable */
+.bf-pick { display: inline-flex; align-items: center; gap: .35rem; font-size: .84rem; color: var(--text-3); }
+.bf-pick select { height: 30px; }
+.bf-counts { flex: 1 1 auto; }
+.bf-table th .bf-sort:not(.on)::after { content: ' \2195'; opacity: .45; }
 
 @media print { .st-period, .st-new, .st-hometabs, .st-shortcuts { display: none !important; } .report, .card, table.data, .st-widgets > .st-w { box-shadow: none !important; } }
 

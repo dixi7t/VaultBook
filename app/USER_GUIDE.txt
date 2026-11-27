@@ -509,14 +509,14 @@ EXCEL AND CSV BANK FILES (1.47.1)
 UPDATE QUICKBOOKS TO MATCH VAULTBOOK (1.47)
 - QuickBooks Desktop > Update QuickBooks. Back up the QuickBooks file.
 - On the QuickBooks PC open the tool (Open the QuickBooks tool, or
-  VaultBook QuickBooks.cmd > 7 Connect to VaultBook). First time only:
-  run 8 Install the link so VaultBook can open it.
+  VaultBook QuickBooks.cmd > 1 Connect to VaultBook). First time only:
+  run 7 Set up one-click open so VaultBook can open it.
 - Type the link code the tool shows and click Connect and get the
   export. VaultBook lists every edit and void.
 - Click Send to the tool and answer Y/N in the tool's window. Then get
   a fresh export: the number of edits should be 0.
-- Without the link: Download the update file and run 2 Send to
-  QuickBooks with it; load a new 5 Export everything to check.
+- Without the link: Download the update file and run 3 VaultBook ->
+  QuickBooks with it; load a new 2 QuickBooks -> VaultBook to check.
 
 CLOSE THE BOOKS (1.46)
 - Choose the year (or one month) at the top. Work down the eight steps;
@@ -605,17 +605,17 @@ STATEMENT LOOKS (1.39)
   Click a total to list the transactions behind it.
 
 SEND BANK TRANSACTIONS TO QUICKBOOKS (1.38)
-- First: connector > 1 Read QuickBooks, then load the snapshot in
+- First: connector > 5 What QuickBooks has, then load the snapshot in
   QuickBooks Desktop > Months & send. What QuickBooks has shows as Sent.
 - Items tab: tick Bank transactions (and Invoices / Customer payments),
   choose the Account and dates, tick the rows, Download for QuickBooks.
   Or Months tab: tick months and download.
-- Connector > 4 Check only with that file first, then 2 Send. Use the
+- Connector > 4 Preview a VaultBook file first, then 3 VaultBook -> QuickBooks. Use the
   connector files from this version: the older script ignores bank
   transactions in the file.
 
 CONNECTOR: REPORTS AND LEDGERS (1.37)
-- VaultBook QuickBooks.cmd > 6 Reports and ledgers. Pick what (for a
+- VaultBook QuickBooks.cmd > 6 Reports to Excel. Pick what (for a
   ledger: pick the account, or type part of its name or number), pick the
   dates, pick a folder once. The .csv opens in Excel. Nothing is written
   to QuickBooks.
@@ -653,7 +653,7 @@ QUICKBOOKS DESKTOP SECTION (1.32)
   missing, 4 Load what happened, then the reports (Tie-out, Months, Sent,
   Problems), the connector menu and the other routes.
 - Import everything: on the QuickBooks PC run VaultBook QuickBooks.cmd >
-  5 Export everything, choose a folder (and a start date, or Enter for all
+  2 QuickBooks -> VaultBook, choose a folder (and a start date, or Enter for all
   dates). In VaultBook choose the VaultBook-QB-full-....json on the
   Overview. The preview opens; press Import. An empty company receives it;
   a company with transactions gets a new company named from the file.
@@ -661,6 +661,81 @@ QUICKBOOKS DESKTOP SECTION (1.32)
   QuickBooks.
 - Tie-out report: every balance-sheet account, QuickBooks against
   VaultBook. Differences appear when either side changed after the export.
+
+CITI CARD STATEMENTS (1.65)
+- Banking > Import bank statement, choose the card account, drop the Citi
+  PDF and press Extract.
+- Check totals should show both totals matching the Account summary.
+- Each cardholder's purchases are listed under their own name.
+
+.IIF FROM A REPORT (1.64)
+- Open a report that lists entries, for example Reports > General Ledger
+  with one account and the period you want.
+- Press .iif (beside CSV). Tick entries, or Select all N in this report.
+- Download .iif. Wait for "Preparing the .iif file" to finish.
+- Back up QuickBooks, then File > Utilities > Import > IIF Files.
+- In VaultBook answer Yes only if QuickBooks imported it without errors.
+
+REMOVE WHAT VAULTBOOK SENT (1.63)
+- In QuickBooks first: File > Back Up Company. A removal cannot be undone.
+- Run the tool, choose 8 Remove what VaultBook sent, pick the dates.
+- It lists only entries recorded from VaultBook ([VB:...] in the memo).
+  Type DELETE to remove them, or press Enter to stop.
+- Load the record it saves in VaultBook: Send to QuickBooks > Load
+  snapshot or result file. The entries can then be sent again.
+
+BANK TRANSACTIONS AS ONE .IIF (1.62)
+- Send to QuickBooks Desktop > By date: choose the period in Send, then
+  Download bank transactions as .iif.
+- Back up the QuickBooks company file first: an .iif import cannot be
+  undone, and it does not check for duplicates.
+- In QuickBooks: File > Utilities > Import > IIF Files, pick the file.
+- Back in VaultBook answer the question: Yes only if QuickBooks imported
+  it without errors. Then those transactions count as in QuickBooks.
+- Load any connector result file first, so entries the connector already
+  recorded are not in the .iif.
+
+LONG SENDS IN PARTS (1.61)
+- Send to QuickBooks now sends 25 entries at a time and shows progress.
+  Answer Y once in the tool's window.
+- If QuickBooks stops: reopen QuickBooks and the company file, choose
+  Window > Close All, and press Send to QuickBooks now again. Nothing
+  recorded is sent twice.
+- Stop after this part ends the send cleanly; Send again goes on.
+- A file sent with 3 VaultBook -> QuickBooks still goes in one run. For
+  more than a few hundred entries use 1 Connect to VaultBook.
+
+THE QUICKBOOKS TOOL MENU (1.60)
+- 1 Connect to VaultBook: keep this window open and work in VaultBook.
+- 2 QuickBooks -> VaultBook: export everything, to import in VaultBook.
+- 3 VaultBook -> QuickBooks: record a file VaultBook made.
+- 4 Preview a VaultBook file: shows the plan, writes nothing.
+- 5 What QuickBooks has: snapshot by month for the Months tab.
+- 6 Reports to Excel: ledgers and statements as .csv.
+- 7 Set up one-click open: one time, so VaultBook can open the tool.
+- Older text that says Read QuickBooks, Send to QuickBooks, Check only or
+  Export everything means 5, 3, 4 and 2.
+
+SEND TO QUICKBOOKS BY DATE, STRAIGHT TO THE TOOL (1.59)
+- Send to QuickBooks Desktop > By date. Send: From a date onward, One day,
+  Last 12 months, This fiscal year to date, Last fiscal year, This month,
+  Last month or Custom period.
+- On the QuickBooks computer click Open the QuickBooks tool (or run
+  VaultBook QuickBooks.cmd > 1 Connect to VaultBook), type the link code
+  it shows, then Send to QuickBooks now. Answer the questions in the
+  tool's window. The result comes back by itself.
+- QuickBooks on another computer: Download the file instead, run the tool
+  there, choose Send, then load the result file here.
+
+SEND TO QUICKBOOKS FROM A DATE (1.58)
+- Send to QuickBooks Desktop > From a date: enter the first day to send.
+  The table shows what will go (invoices, customer payments, bank
+  transactions), what is left out because QuickBooks already has it, and
+  what the connector cannot record yet (bills and others).
+- Download for QuickBooks, then on the QuickBooks PC run VaultBook
+  QuickBooks.cmd > Send and pick the file. The script checks each item
+  against QuickBooks again and skips any that is already there.
+- Load the .result.json back here so those items count as in QuickBooks.
 
 SEND TO QUICKBOOKS DESKTOP (1.30, 1.31)
 - Banking > Send to QuickBooks records VaultBook invoices and customer
@@ -673,7 +748,7 @@ SEND TO QUICKBOOKS DESKTOP (1.30, 1.31)
   File > Switch to Single-user Mode. When QuickBooks asks to allow
   "VaultBook Connector", choose Yes, always and log in as Admin.
 - Step 1, Read QuickBooks: double-click VaultBook QuickBooks.cmd, choose
-  1. Pick a folder; it saves a snapshot (every transaction of the last
+  5 What QuickBooks has. Pick a folder; it saves a snapshot (every transaction of the last
   five years, by month; nothing is written). In VaultBook: Load snapshot
   or result file. The Months tab now shows each month: In QuickBooks, In
   VaultBook, Matched, Only in VaultBook, Only in QuickBooks, and a state
@@ -683,8 +758,8 @@ SEND TO QUICKBOOKS DESKTOP (1.30, 1.31)
   payment pays come along automatically. Download for QuickBooks saves
   one file. (The Items tab lets you pick single invoices and payments
   instead, with period, customer, status and amount filters.)
-- Step 3, Send: run VaultBook QuickBooks.cmd, choose 2 (or 3 to read,
-  send and read again), pick the file. It checks every item, asks before
+- Step 3, Send: run VaultBook QuickBooks.cmd, choose 3 VaultBook ->
+  QuickBooks, pick the file. It checks every item, asks before
   creating any missing customer or item, shows the plan (Ready / Already
   in QuickBooks / Problem) and asks once more before recording invoices
   first, then payments. Option 4 shows the plan and writes nothing.
@@ -751,6 +826,21 @@ what will move before you press Reclassify (Ctrl+Enter). Lines that can't
 move say why: A/R and A/P lines follow their invoice or bill, product lines
 take their account from the item (class only), reconciled and closed-period
 transactions are locked. History lists every change with Undo.
+
+BANK FEED: SURE, TO CHECK, NO SUGGESTION (1.57)
+- VaultBook reads the payee from each bank line and looks at where that
+  payee was posted before in your books, including history brought in from
+  QuickBooks. The badge says Sure or Check; hover it for the reason.
+- Sure: the same account every time lately, and not an owner, loan,
+  payroll, tax or balance sheet account. Those always wait for you.
+- "Select the N sure" ticks them; Post selected posts them. "Select all
+  with a suggestion" ticks the To check lines as well.
+- Sort by Payee to see one payee's lines together. Show picks Sure, To
+  check or No suggestion.
+- For a new payee: open one line, pick the category, press "Select the N
+  lines of this payee", then Post selected.
+- Also ask > Other clients looks at your other companies on this computer
+  for lines that still have no suggestion.
 
 BANK FEED: ALREADY IN YOUR BOOKS, SMARTER RULES, SEVERAL ENTRIES (1.23)
 - Already in your books: if you typed some transactions in yourself and later

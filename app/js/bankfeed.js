@@ -13,6 +13,14 @@
     reindex0.apply(this, arguments);
     var self = this; this.bankLines = this.bankLines || []; this.bankImports = this.bankImports || [];
     this.bankLineById = {}; this.bankLines.forEach(function (l) { self.bankLineById[l.id] = l; });
+    this._bfMemo = null;   // 1.57: match finding is remembered until the books change (a long statement redrew in seconds, not instantly)
+  };
+  function memo(book) { return book._bfMemo || (book._bfMemo = { cands: {}, win: {}, docs: {} }); }
+  /** Posted entries of an account dated from..to (the split index is in date order: two binary searches, not a full scan). */
+  Book.prototype._bankWindow = function (accountId, from, to) {
+    var list = this.splitIndex()[accountId] || [];
+    function lower(d) { var lo = 0, hi = list.length; while (lo < hi) { var mid = (lo + hi) >> 1; if (list[mid].t.date < d) lo = mid + 1; else hi = mid; } return lo; }
+    return list.slice(lower(from), lower(U.addDays(to, 1)));
   };
 
   /** Lines of an account by status ('review' | 'posted' | 'excluded'), newest first. */
@@ -84,7 +92,8 @@
 
   /** Book entries already claimed by a posted bank line: "txnId:splitIndex" → line id. */
   Book.prototype._bankLinked = function () {
-    var m = {}; this.bankLines.forEach(function (l) { if (l.status === 'posted' && l.txnId) m[l.txnId + ':' + l.splitIndex] = l.id; }); return m;
+    var mm = memo(this); if (mm.linked) return mm.linked;
+    var m = {}; this.bankLines.forEach(function (l) { if (l.status === 'posted' && l.txnId) m[l.txnId + ':' + l.splitIndex] = l.id; }); return (mm.linked = m);
   };
   function words(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3; }); }
   function nameIn(name, desc) { // every significant word of the contact's name appears in the bank text
@@ -101,7 +110,7 @@
   Book.prototype.bankCandidates = function (lineId) {
     var self = this, l = this.bankLineById[lineId]; if (!l || l.status !== 'review') return [];
     var linked = this._bankLinked(), out = [];
-    (this.splitIndex()[l.accountId] || []).forEach(function (e) {
+    this._bankWindow(l.accountId, U.addDays(l.date, -90), U.addDays(l.date, 20)).forEach(function (e) {
       if (e.t.status !== 'posted' || e.s.amount !== l.amount || e.s.cleared === 'R' || linked[e.t.id + ':' + e.i]) return;
       var dd = U.daysBetween(l.date, e.t.date); // book date − bank date
       if (dd < -90 || dd > 20) return;
@@ -113,7 +122,8 @@
       out.push({ kind: 'register', txnId: e.t.id, splitIndex: e.i, score: score, reasons: reasons });
     });
     var acc = this.accById[l.accountId], wantType = l.amount > 0 ? 'invoice' : 'bill';
-    if (acc && acc.type !== 'cc') this.transactions.forEach(function (t) {
+    var mm = memo(this), docs = mm.docs[wantType] || (mm.docs[wantType] = this.transactions.filter(function (t) { return t.type === wantType && t.status === 'posted'; }));
+    if (acc && acc.type !== 'cc') docs.forEach(function (t) {
       if (t.type !== wantType || t.status !== 'posted' || self.openBalance(t) !== Math.abs(l.amount) || t.date > U.addDays(l.date, 5)) return;
       var c = self.contactById[t.contactId], score = 8, reasons = ['open ' + S.TXN_TYPES[t.type].label.toLowerCase() + (t.number ? ' ' + t.number : '') + ' for exactly this amount'];
       if (c && nameIn(c.name, l.description)) { score += 6; reasons.push(c.name + ' is in the bank text'); }

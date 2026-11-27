@@ -396,7 +396,32 @@ Next: the user picks D1 or D2 for the menu bar (design canvas); then build it wi
 ## Resume after 1.51.0
 Next: the user looks at the menu bar and colours in the real app and says what to adjust (menu contents, toolbar order, blue). Then VaultBook's own DESIGN.md, and Close the books sign-off package.
 
-### 2026-11-23 — QBD connector — Download the QuickBooks tool (1.59.1)
-- **Change:** One-click download of the connector (.cmd + .ps1 zipped by build-site.py) on Send to QuickBooks Desktop and the QuickBooks Desktop page; "tools folder" wording now links to it; .cmd warns when not extracted.
-- **Files:** `app/tools/build-site.py`, `app/tools/VaultBook QuickBooks.cmd`, `app/js/ui-qbsend.js`, `app/js/ui-qbd.js`, `app/js/ui-bankfeed.js`.
-- **Verification:** Node 275/275; build --check OK; Playwright download check passes. qbsend_ui/qbd_ui/bankfeed_ui fail on CSP string-eval (pre-existing, same on 1.59.0). Real Windows + QuickBooks run: NOT RUN (no Windows here).
+## Resume after 1.57.0
+Next: the user tries the Bank feed on the real company (Select the sure, sort by payee, same-payee select) and reports wrong Sure lines, if any. Then: decide whether Sure lines may post by themselves on import; DESIGN.md; Close the books sign-off package.
+
+## Resume after 1.58.0
+Next: the user sends the 2026 entries to QuickBooks with the From a date tab on Windows and loads the result file. Open: sure lines posting by themselves on import; bills and bill payments through the connector; DESIGN.md.
+
+## Resume after 1.59.0
+Next: the user tries Send to QuickBooks now on Windows with QuickBooks open (link code, answer Y in the tool) for the 2026 entries. Open: bills through the connector; sure lines posting by themselves; DESIGN.md.
+
+## Resume after 1.60.0
+Next: the user runs the new connector menu on Windows and reports any line that does the wrong thing. Open: return to the menu after an action instead of closing; bills through the connector.
+
+## Resume after 1.60.1
+Next: the user sends again (one day first). If QuickBooks still refuses, get the entry it names and the log.
+
+## Resume after 1.61.0
+Next: the user loads the result file of the 54 recorded entries (or lets the tool skip them), then sends through 1 Connect to VaultBook. If QuickBooks stops again, get qbsdklog.txt and the entry it stopped on.
+
+## Resume after 1.62.0
+Next: the user loads the result file of the 54 recorded entries, downloads the 2026 .iif and imports it into a backed-up QuickBooks file. Then: bills through the connector or .iif; sure lines posting by themselves.
+
+## Resume after 1.63.0
+Next: the user backs up QuickBooks, runs 8 Remove what VaultBook sent for 2026, loads the record in VaultBook, then sends one day with the new tool and checks the check number stays empty. If it still fills in, try the .iif route.
+
+## Resume after 1.64.0
+Next: the user tries General Ledger > .iif on the real company and imports into a backed-up QuickBooks file. Open: bills and payments in .iif; account choice on By date.
+
+## Resume after 1.65.0
+Next: the user imports the Citi PDF into the card account and checks the Bank feed. Open: bills and payments in .iif; account choice on By date.

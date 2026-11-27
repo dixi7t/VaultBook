@@ -15,7 +15,7 @@
   var ITEM = { service: 'SERV', noninventory: 'PART', inventory: 'INVENTORY', othercharge: 'OTHC', discount: 'DISC', payment: 'PMT', subtotal: 'SUBT', group: 'GRP', salestax: 'STAX', fixedasset: 'OTHC' };
   X.ACC = ACC; X.ITEM = ITEM;
 
-  var clean = function (s) { return String(s === null || s === undefined ? '' : s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").trim(); };
+  var clean = function (s) { return OB.util.qbText(s).replace(/[\t\r\n]+/g, ' ').replace(/"/g, "'").replace(/ {2,}/g, ' ').trim(); };   // 1.62: same plain text as the connector
   var qbName = function (s) { return clean(s).replace(/:/g, '-').slice(0, 41); }; // QuickBooks name rules: no ':' in a name, 41 characters
   var money = function (c) { return (c / 100).toFixed(2); };
   var qbDate = function (d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : ''; };
@@ -139,6 +139,8 @@
       .sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : (x.seq || 0) - (y.seq || 0); })
       .forEach(function (l) {
         if (onlyNew && l.exportId) return skip(l, 'already exported ' + (l.exportedAt ? 'on ' + U.fmtDate(l.exportedAt.slice(0, 10)) : 'before'));
+        if (onlyNew && OB.qbsend && (l.links ? l.links.map(function (x) { return x.txnId; }) : [l.txnId]).some(function (id) { return book.txById[id] && OB.qbsend.inQB(book, book.txById[id]); }))
+          return skip(l, 'already in QuickBooks');   // 1.62: recorded by the connector, or imported from QuickBooks
         if (l.status === 'review') return skip(l, 'not posted yet (post it in the Bank feed first)'); // only what is in the books goes to QuickBooks
         var ids = l.links ? l.links.map(function (x) { return x.txnId; }) : [l.txnId];   // a group match (1.23) links several entries
         var txs = ids.map(function (id) { return book.txById[id]; });
@@ -161,7 +163,7 @@
    *  Returns { text, txnCount, lineIds, skipped, byAccount }. */
   X.bankIIF = function (book, opts) {
     opts = opts || {};
-    var p = pick(book, opts), names = opts.names || {}, cleared = opts.cleared !== false;
+    var p = opts.picked || pick(book, opts), names = opts.names || {}, cleared = opts.cleared !== false;
     var accName = function (id) { var a = book.accById[id]; return names[id] && String(names[id]).trim() ? clean(names[id]) : a ? clean(book.accountFullName(a)) : ''; };
     var clsName = function (id) { return id && book.classFullName ? clean(book.classFullName(id)) : ''; };
     var usedAcc = {}, usedName = {}, body = [];
@@ -182,6 +184,7 @@
       var clr = function (s) { return cleared && (s.cleared === 'C' || s.cleared === 'R') ? 'Y' : 'N'; };
       usedAcc[head.accountId] = 1;
       var memo = clean(t.memo || head.memo);
+      if (opts.mark) memo = (memo.slice(0, 4000) + ' [VB:' + t.id + ']').trim();   // 1.63: the same mark the tool writes, so it can find (and remove) these later
       if (asPay) { var pays = X.appliedText(book, t); memo = clean((memo && memo.indexOf(pays) < 0 ? memo + ' · ' : '') + pays).slice(0, 4000); if (!num) { var bl = book.bankLineById[it.lineIds[0]]; num = clean(t.checkNo || (bl && bl.checkNo) || ''); } }
       body.push(row(['TRNS', '', type, d, accName(head.accountId), who, clsName(head.classId || t.classId), money(head.amount), num, memo, clr(head)]));
       splits.forEach(function (s) {
@@ -209,6 +212,38 @@
     out.push(row(['!SPL', 'SPLID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']));
     out.push('!ENDTRNS');
     return { text: out.concat(body).join('\r\n') + '\r\n', txnCount: p.items.length, lineIds: p.lineIds, skipped: p.skipped, byAccount: p.byAccount, format: 'iif' };
+  };
+
+  /** 1.62: an .iif of chosen bank transactions (by id, as Send to QuickBooks > By date lists them), oldest first. */
+  X.txnsIIF = function (book, ids, opts) {
+    var items = [], skipped = [];
+    ids.map(function (id) { return book.txById[id]; }).filter(Boolean).sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; }).forEach(function (t) {
+      var sh = t.status === 'posted' && OB.qbsend.bankShape(book, t);
+      if (sh) items.push({ txn: t, bankAccountId: sh.headId, lineIds: [] }); else skipped.push({ txnId: t.id, date: t.date, reason: 'not a bank transaction' });
+    });
+    return X.bankIIF(book, Object.assign({ mark: true }, opts, { picked: { items: items, skipped: skipped, byAccount: {}, lineIds: [] } }));
+  };
+
+  /**
+   * 1.64: one .iif for any picked transactions (a report's tick boxes): invoices through invoicesIIF, bank transactions
+   * through txnsIIF. Left out: what QuickBooks already has (Q.inQB) and types an .iif from VaultBook cannot carry yet.
+   * → { text, count, keys (in the file), inQB (ids), cannot: { typeLabel: n } }
+   */
+  X.anyIIF = function (book, ids, opts) {
+    opts = opts || {};
+    var Q = OB.qbsend, inv = [], bank = [], inQB = [], cannot = {}, seen = {};
+    (ids || []).forEach(function (id) {
+      var t = book.txById[id]; if (!t || seen[id]) return; seen[id] = 1;
+      if (t.status !== 'posted' && !(t.type === 'invoice' && t.status === 'closed')) { cannot.Void = (cannot.Void || 0) + 1; return; }
+      if (Q.inQB(book, t)) { inQB.push(id); return; }
+      if (t.type === 'invoice') inv.push(id);
+      else if (Q.bankShape(book, t)) bank.push(id);
+      else { var k = (OB.schema.TXN_TYPES[t.type] || {}).label || t.type; cannot[k] = (cannot[k] || 0) + 1; }
+    });
+    var parts = [], count = 0;
+    if (inv.length) { var a = X.invoicesIIF(book, inv, opts); parts.push(a.text); count += a.count; }
+    if (bank.length) { var c = X.txnsIIF(book, bank, opts); parts.push(c.text); count += c.txnCount; }
+    return { text: parts.join(''), count: count, keys: inv.concat(bank), inQB: inQB, cannot: cannot };
   };
 
   /** "Pays invoice 1162 $340,074.75; invoice 1170 $30,000.00" — what a payment was applied to in VaultBook. */

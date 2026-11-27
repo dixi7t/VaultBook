@@ -232,3 +232,13 @@ reportChart, homeWidgets, homePrivacy. No stores added.
 1.50.1: Calendar to-dos gain time ("HH:MM" or "" all day), dur (minutes), remind (minutes before, or null), moved { <occurrence date>: { date, time, dur } } and skip [occurrence dates] for single repeats; repeat may be daily. company.calendar.expectOn { <invoice id>: expected date }.
 1.47.0: no stored change. Update batch (not stored): { format: "vaultbook-qb-batch", version: 3, kind: "update", company, createdAt, snapshotAt (the QuickBooks export compared), accounts: { "<QuickBooks full name>": "<qbXML AccountType>" } (to create first), updates: [ { key (VaultBook txn id), kind: check|deposit|journal, txnId, editSeq, label, header: null | { date?, memo?, ref?, payee? }, lines: [ { lineId (TxnLineID, "-1" = new line), side? (Debit|Credit), account?, amount?, memo?, name? } ] (every QuickBooks line; an id alone keeps that line), what: [text] } ], voids: [ { key, kind, txnId, editSeq, label } ] }. Result version 3 adds item kinds update and void with status Updated, Voided or Problem. Link (connector 7, 127.0.0.1:47321): GET /hello; POST /run, body text JSON { code, action: export } answers the full export, { code, action: apply, batchText } answers the result.
 1.51.0: no data change. Browser preferences only: menubarSeen (true after the first start with the menu bar; that start hides the side menu once), sidebarCollapsed now defaults to true.
+1.57.0: no data change. Nothing new is stored: bank-line suggestions are worked out from the transactions and contacts each time and kept in memory until the next save.
+1.58.0: no data change. Browser preference qbFrom:<company id> keeps the last date used on Send to QuickBooks > From a date.
+1.59.0: no data change. Browser preference qbFrom:<company id> is now { per, from, to } (1.58 kept the date alone; both are read).
+1.60.0: no data change.
+1.60.1: no data change.
+1.61.0: no data change.
+1.62.0: company.qbSent[txnId] may be { qbTxnId: '', iif: <ISO time>, at } (in an .iif the user said QuickBooks imported). Old values are unchanged.
+1.63.0: no data change. A result item with status Deleted removes company.qbSent[key].
+1.64.0: no data change.
+1.65.0: no data change.

@@ -28,14 +28,18 @@
   function keyOf(w) { return w.slice(0, 4).join(' '); }
   function wordsKey(s) { var k = keyOf(H.words(s)); return H.notPayee(k) ? '' : k; }
   // a past entry is filed under its payee's name and under its bank wording, so a bank line finds it either way
-  function txnKeys(book, t) {
-    var c = t.contactId && book.contactById[t.contactId], a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(t.memo));
-    return [a, b].filter(function (k, i, l) { return k && l.indexOf(k) === i; });
+  // (1.57: also under the contact itself, so "Interest Earned" or a payer named on a deposit line is learned too)
+  function txnKeys(book, t, who) {
+    var c = who && book.contactById[who], a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(t.memo));
+    return [c ? 'c:' + c.id : '', a, b].filter(function (k, i, l) { return k && l.indexOf(k) === i; });
   }
+  var OTHER = { '|in': '|out', '|out': '|in' };
   function lineKey(book, desc, hab, dir) {
-    var c = H.vendorIn(book, desc), a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(desc));
-    var k = [a, b].find(function (x) { return x && hab && hab[x + dir]; }) || a || b;
-    return { key: k, contact: c };
+    var m = H.vendorMatch(book, desc), c = m ? m.contact : null, a = c ? wordsKey(c.name) : '', b = wordsKey(I.ruleTextFor(H.payeeText(desc)));
+    var keys = [c ? 'c:' + c.id : '', a, b];
+    var k = keys.find(function (x) { return x && hab && hab[x + dir]; }), cross = false;
+    if (!k) { k = keys.find(function (x) { return x && hab && hab[x + OTHER[dir]]; }); cross = !!k; }   // money back from a payee you pay (or the reverse)
+    return { key: k || a || b, contact: c, how: m ? m.how : '', cross: cross };
   }
   function cashSplit(book) { return function (s) { var a = book.accById[s.accountId]; return a && (a.type === 'bank' || a.type === 'cc'); }; }
   function money(c) { return U.fmt(Math.abs(c), { symbol: true }); }
@@ -48,8 +52,9 @@
       var ps = book.buildSplitsSafe(t), c = ps.filter(isCash); if (c.length !== 1 || ps.length !== 2) return;
       var o = ps[0] === c[0] ? ps[1] : ps[0], a = book.accById[o.accountId];
       if (!a || a.system === 'RE' || FEED[a.type]) return;
-      var dir = c[0].amount > 0 ? '|in' : '|out', u = { date: t.date, acct: a.id, contactId: t.contactId || '' };
-      txnKeys(book, t).forEach(function (k) { (m[k + dir] = m[k + dir] || []).push(u); });
+      var who = t.contactId || o.contactId || '';   // a QuickBooks deposit names the payer on its line
+      var dir = c[0].amount > 0 ? '|in' : '|out', u = { date: t.date, acct: a.id, contactId: who };
+      txnKeys(book, t, who).forEach(function (k) { (m[k + dir] = m[k + dir] || []).push(u); });
     });
     return m;
   };
@@ -86,14 +91,15 @@
       else p.why = 'A split rule: post it in the bank feed';
       return p;
     }
-    var uses = lk.key && hab[lk.key + (l.amount > 0 ? '|in' : '|out')];
+    var dir = l.amount > 0 ? '|in' : '|out', uses = lk.key && hab[lk.key + (lk.cross ? OTHER[dir] : dir)];
     if (uses && uses.length) {
       var dz = decide(book, uses, l.date, p.label);
       p.kind = 'habit'; p.categoryId = dz.best; p.top = dz.top; p.reason = dz.reason; p.contactId = p.contactId || dz.contactId;
       p.d = { kind: 'add', categoryId: dz.best, contactId: p.contactId };
       var why = C.risky(book, dz.best);
-      p.auto = dz.sure && !why;
-      p.why = why ? 'Goes to ' + why + ': you decide' : dz.sure ? '' : dz.top.length > 1 ? 'Used more than one account' : 'Not used often enough yet';
+      var weak = lk.cross ? 'Money back from a payee you pay: check' : lk.how === 'inside' ? 'Name found in the middle of the bank text: check' : '';
+      p.auto = dz.sure && !why && !weak;
+      p.why = why ? 'Goes to ' + why + ': you decide' : weak || (dz.sure ? '' : dz.top.length > 1 ? 'Used more than one account' : 'Not used often enough yet');
       return p;
     }
     var h = H && H.fromCommon(book, l);
@@ -150,8 +156,8 @@
       var ps = book.buildSplitsSafe(t), c = ps.filter(isCash); if (c.length !== 1 || ps.length !== 2) return;
       var o = ps[0] === c[0] ? ps[1] : ps[0], a = book.accById[o.accountId]; if (!a || a.system === 'RE' || FEED[a.type]) return;
       r.lines++;
-      var cn = t.contactId && book.contactById[t.contactId] ? book.contactById[t.contactId].name : '';
-      var dir = c[0].amount > 0 ? '|in' : '|out', lk = lineKey(book, t.memo || cn, hab, dir), uses = lk.key && hab[lk.key + dir];
+      var who = t.contactId || o.contactId, cn = who && book.contactById[who] ? book.contactById[who].name : '';
+      var dir = c[0].amount > 0 ? '|in' : '|out', lk = lineKey(book, t.memo && !/^deposit$/i.test(t.memo) ? t.memo : cn, hab, dir), uses = !lk.cross && lk.key && hab[lk.key + dir];
       if (!uses) { r.ask++; return; }
       var dz = decide(book, uses, t.date, lk.key), sure = dz.sure && !C.risky(book, dz.best), b = sure ? r.auto : r.suggest;
       b.n++; if (dz.best === a.id) b.right++; else if (sure && r.wrong) r.wrong.push([lk.key, book.accById[dz.best].name, a.name, dz.reason]);
@@ -159,6 +165,15 @@
     });
     return r;
   };
+  /** The Bank feed's view of the same plans: { lineId: plan } for one account, kept until the books change (every commit reindexes). */
+  C.forFeed = function (book, accountId) {
+    var memo = book._feedPlans || (book._feedPlans = {});
+    if (!memo[accountId]) { var m = memo[accountId] = {}; C.prepare(book, { accountId: accountId, auto: true }).forEach(function (p) { m[p.line.id] = p; }); }
+    return memo[accountId];
+  };
+  var reindex0 = OB.Book.prototype.reindex;
+  OB.Book.prototype.reindex = function () { this._feedPlans = null; if (H.forgetVendors) H.forgetVendors(this); return reindex0.apply(this, arguments); };
+
   /** Auto-posting is offered only on a clear measured result: at least 20 sure lines, 95% right. */
   C.autoAllowed = function (t) { return !!(t && t.auto && t.auto.n >= 20 && t.auto.right / t.auto.n >= 0.95); };
 

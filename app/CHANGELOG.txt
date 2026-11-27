@@ -1,75 +1,202 @@
 VaultBook (formerly OfflineBooks US) — Changelog
 ================================================
 
-1.59.1  (2026-11-23)  Download the QuickBooks tool from VaultBook
+1.65.0  (2026-11-27)  Citi card statements import
 -------------------------------------------------------------------------------
-  * Send to QuickBooks Desktop and the QuickBooks Desktop page now have a
-    "Download the QuickBooks tool" button. It saves one zip with both
-    connector files (VaultBook QuickBooks.cmd and VaultBook-QB.ps1) in one
-    folder. On the PC with QuickBooks Desktop: right-click the zip,
-    Extract All, then double-click VaultBook QuickBooks.cmd. Before, the
-    steps pointed to VaultBook's tools folder, which people using VaultBook
-    online did not have.
-  * If VaultBook QuickBooks.cmd is opened from inside the zip without
-    extracting it first, it now says so instead of failing.
+  * Import bank statement reads Citi card PDFs (Costco Anywhere Visa
+    Business and other Citi cards) and names the issuer Citibank.
+  * Every line is found, including the autopay that prints only a post
+    date. Each line takes the post date; the year comes from the billing
+    period, so December lines on a January statement get the earlier year.
+  * Charges come in as money out and payments and credits as money in.
+  * Merchant names keep their spaces (AMAZON MKTPLACE PMTS, not
+    AMAZONMKTPLACEPMTS). The rewards panel beside the list and the page
+    footer no longer end up in descriptions. A merchant name printed on
+    two lines is joined.
+  * Purchases are grouped by cardholder, for example Purchases · name.
+  * Totals are checked against the Account summary: payments plus credits,
+    and purchases plus cash advances, fees and interest.
 
-1.59.0  (2026-11-21)  Optional automatic bank sync (SimpleFIN)
+1.64.0  (2026-11-25)  .iif from any report: tick the entries, download
 -------------------------------------------------------------------------------
-  * Bank Sync (Bank Feed > Automatic bank sync, or Settings > Security >
-    Connected services): optional and off until you connect it. Sign up
-    at SimpleFIN Bridge (a separate paid service, about $15 a year), link
-    your banks there, make a setup token for VaultBook and paste it in.
-    VaultBook fetches new transactions straight from this device; there is
-    no VaultBook server. The connection key is encrypted on this device and
-    never included in backups.
-  * Choose which VaultBook account each bank account feeds, then Sync Now.
-    The first sync brings in the last 30, 60 or 90 days; later syncs
-    overlap by 5 days and skip lines already brought in. Pending
-    transactions are left out. New lines wait in For review (auto-add bank
-    rules and matching to your books apply, as with a file).
-  * Optional: sync when VaultBook opens, at most twice a day. VaultBook only
-    syncs while it is open. It asks SimpleFIN at most 20 times a day and
-    not again within 10 minutes of a sync, as SimpleFIN asks of apps.
-  * Disconnect deletes the key from this device; lines already brought in
-    stay. To cut off access completely, also remove VaultBook at SimpleFIN.
-  * The page's security policy allows connections to SimpleFIN Bridge
-    (beta-bridge.simplefin.org) only, besides VaultBook itself.
-  * Bank Feed account buttons are now Import, Type and Review (shorter, so
-    they fit on one line on a phone).
+  * Reports that list entries (General Ledger, Transaction List, account
+    QuickReports and others) have an .iif button beside CSV, Excel, PDF
+    and Print.
+  * Press it and each entry gets a tick box. The bar above the report
+    shows how many are selected and has Select all N in this report,
+    Clear, and Download .iif (N). Ticking a box does not open the entry.
+  * While the file is made, the bar shows a turning indicator and
+    "Preparing the .iif file: N entries...", then the file downloads.
+    It is named for the company, the report and the period.
+  * The file holds invoices and bank transactions (checks, deposits,
+    transfers, card charges and credits, journal entries). Entries already
+    in QuickBooks are left out, as are types an .iif cannot carry yet
+    (bills, payments); the bar says how many and why.
+  * Then it asks whether QuickBooks imported the file. Yes marks those
+    entries as in QuickBooks, everywhere in VaultBook.
+  * A new period or account starts with nothing selected. Press .iif
+    again to hide the boxes. They never print.
 
-1.58.0  (2026-11-21)  Security groundwork for bank sync
+1.63.0  (2026-11-25)  Remove what VaultBook sent; no more invented check numbers
 -------------------------------------------------------------------------------
-  * Stricter script policy: the page now runs only scripts from VaultBook's
-    own files. Inline scripts, inline click handlers and code generated at
-    run time are refused by the browser, so text that sneaks into a screen
-    cannot run as code. (Startup and theme scripts moved into files; the
-    two Print buttons no longer use inline handlers.)
-  * Encrypted keys for outside services: a separate store on the device
-    keeps keys such as a future bank-sync connection. Each key is encrypted
-    (AES-256) with a device key the browser will not reveal even to
-    VaultBook, is never part of a company, so never in a backup, export or
-    QuickBooks file, and is removed when its company is deleted.
-  * Settings > Security > Connected services lists those keys (names and
-    dates only, never the key) with Remove. Nothing is connected yet.
+  * Checks sent with no number arrived in QuickBooks numbered 9001, 9002 and
+    so on: when the number was left out, QuickBooks used its next check
+    number. The connector now sends the number empty, so a check with no
+    number stays without one. (Not yet confirmed on Windows.)
+  * New connector choice: 8 Remove what VaultBook sent. Pick the dates
+    (one month, a quarter, a year, custom dates; all dates is not allowed).
+    It finds the entries in QuickBooks that this tool recorded from
+    VaultBook (they carry [VB:...] in the memo), lists them by type with a
+    total, and removes them only after you type DELETE. Entries typed in
+    QuickBooks, or brought into VaultBook from QuickBooks, are never
+    touched.
+  * It saves a removal record. Load it in VaultBook (Send to QuickBooks >
+    Load snapshot or result file) and the removed entries count as not
+    sent, ready to send again. An entry QuickBooks would not remove keeps
+    its mark.
+  * Bank .iif files from By date now carry the same [VB:...] mark in the
+    memo, so the connector can recognise and remove them too.
 
-1.57.0  (2026-11-21)  Import statement files on iPhone and iPad
+1.62.0  (2026-11-25)  Bank transactions of any period as one .iif
 -------------------------------------------------------------------------------
-  * Bank feed on iPhone and iPad: every account has Import File, Type Lines
-    and Review. Import File takes a CSV, Excel, OFX, QFX, QBO or PDF
-    statement from the Files app. It picks the columns, shows what will come
-    in (new lines, money in and out, running-balance check, lines imported
-    before) and adds the new lines to For review. The column layout is
-    remembered per account, so the next file from the same bank goes
-    straight to the summary.
-  * Pending lines: a Status column saying Pending, or a description starting
-    with PENDING, is now recognised. Pending lines are left out by default
-    (on the laptop import too) and arrive with the next file once they
-    clear, so nothing is counted twice. Untick the box to bring them in.
-  * Android: VaultBook appears in the Share menu once added to the Home
-    Screen; share a bank file to it and it opens in Import File. (iPhone
-    does not let web apps receive shared files; use the Files app.)
-  * PDF and OFX statements imported on a phone or iPad return to the bank
-    feed Review screen.
+  * Send to QuickBooks Desktop > By date has Download bank transactions as
+    .iif. It uses the Send choice above it (one day, from a date, last 12
+    months, a fiscal year, custom from and to, and so on) and puts every
+    bank transaction of that period that QuickBooks does not have yet into
+    one file: checks, deposits, transfers, card charges and credits,
+    journal entries.
+  * In QuickBooks: File > Utilities > Import > IIF Files. One import, no
+    entry-by-entry conversation.
+  * Afterwards VaultBook asks whether QuickBooks imported it. Yes marks
+    those transactions as in QuickBooks, so they are not offered again by
+    the connector, by a later .iif, or by the Bank feed export. No changes
+    nothing.
+  * The Bank feed's own export now also leaves out transactions that are
+    already in QuickBooks (recorded by the connector or imported from it),
+    not only those it exported before.
+  * IIF files use the same plain text as the connector.
+
+1.61.0  (2026-11-25)  Long sends to QuickBooks go in parts and can be resumed
+-------------------------------------------------------------------------------
+  * QuickBooks Desktop stopped ("Unexpected error") after about 50 entries
+    of a 1,329-entry send. Send to QuickBooks now (By date) hands the
+    entries over 25 at a time. Each part runs in a fresh QuickBooks
+    session, with a short rest between parts.
+  * The tool asks its question for the first part only.
+  * Each part's result is saved in VaultBook at once. The screen shows how
+    many were handed over, recorded, already there and skipped, or had
+    problems, and has Stop after this part.
+  * If QuickBooks stops, VaultBook says so and keeps what was recorded.
+    Reopen QuickBooks and press Send again: it goes on with what is left.
+    The entry QuickBooks stopped on is checked against QuickBooks before
+    it is sent again.
+  * Invoices go before the payments that pay them, across parts.
+  * The tool waits a little longer between bank entries (0.7 seconds).
+  * Needs the tools folder of this version on the QuickBooks PC. An older
+    tool still works but asks before every part.
+
+1.60.1  (2026-11-24)  Fix: QuickBooks refused a whole send over a long dash
+-------------------------------------------------------------------------------
+  * Sending bank transactions stopped at the first entry with "QuickBooks
+    found an error when parsing the provided XML text stream" and recorded
+    nothing. Cause: a memo copied from the Bank feed holds a long dash
+    ("Name - FULL BANK TEXT" is written with one), and QuickBooks Desktop
+    refuses a whole request over one character outside its own set.
+  * Everything VaultBook hands to QuickBooks is now put in QuickBooks'
+    character set first: long dashes, curly quotes, three-dot marks and
+    bullets become their plain form; other characters it cannot hold become
+    a space. Accented Latin letters are kept.
+  * The connector script does the same when it writes a request, so an
+    older file is safe too.
+  * Update QuickBooks compares memos in the same form, so the plain dash
+    in QuickBooks is not offered back as an edit.
+
+1.60.0  (2026-11-24)  QuickBooks connector: a menu in plain order
+-------------------------------------------------------------------------------
+  * The connector's menu (VaultBook QuickBooks.cmd) is reordered and
+    renamed around what you want to do. It has seven lines instead of
+    eight:
+      1 Connect to VaultBook      easiest: VaultBook sends and reads by itself
+      2 QuickBooks -> VaultBook   first time: copy QuickBooks into a file
+      3 VaultBook -> QuickBooks   record a VaultBook file; duplicates skipped
+      4 Preview a VaultBook file  see what would be recorded; writes nothing
+      5 What QuickBooks has       snapshot by month; writes nothing
+      6 Reports to Excel
+      7 Set up one-click open     one time
+  * "Read, send, read" left the menu. Each step is its own line now.
+  * The Before you start box is two numbered steps and the first-time note.
+  * What each choice does has not changed; only names, order and numbers.
+    VaultBook's screens and the guide use the new names.
+  * Not run on Windows here: the change is text and the number each line
+    stands for.
+
+1.59.0  (2026-11-24)  Send to QuickBooks: choose the period, send straight to the tool
+-------------------------------------------------------------------------------
+  * Send to QuickBooks Desktop > By date (was From a date) has a Send
+    choice: From a date onward, One day, Last 12 months, This fiscal year
+    to date, Last fiscal year, This month, Last month, or Custom period
+    with a from and a to date. The choice is remembered for each company.
+  * Send to QuickBooks now: with the QuickBooks tool open and connected
+    (the 6-digit link code), VaultBook hands the entries to the tool
+    itself. No file to download or pick. The tool shows its plan and asks
+    before recording, as before; its answer comes back by itself and the
+    screen shows how many were recorded, already there and skipped, or
+    had problems.
+  * Download the file instead is still there for a QuickBooks PC that is
+    not this computer.
+  * The connector script is unchanged: the link it already had for Update
+    QuickBooks accepts these entries too.
+
+1.58.0  (2026-11-24)  Send to QuickBooks from a date
+-------------------------------------------------------------------------------
+  * Send to QuickBooks Desktop has a new first tab, From a date. Enter one
+    date; VaultBook counts the invoices, customer payments and bank
+    transactions from that day that QuickBooks does not have yet, and
+    Download for QuickBooks saves them as one file for the connector.
+    The date is remembered for each company.
+  * What QuickBooks already has is left out: entries a result file or a
+    snapshot marked as sent, and now also every entry that was imported
+    from QuickBooks in the first place (they showed as Not sent before).
+  * Invoices dated before your date that an included payment pays are
+    added, so the payment can close them in QuickBooks.
+  * The connector script is unchanged. It still checks every item against
+    QuickBooks before recording and skips one that is already there (same
+    date, amount and account, or the VaultBook id in the memo).
+  * Toolbar > Send to QBD and Accountant > Send from a date open the new
+    tab. Months and Items are still there.
+
+1.57.0  (2026-11-23)  Bank feed reads your books: sure, to check, no suggestion
+-------------------------------------------------------------------------------
+  * The Bank feed now uses the history already in the books (for example
+    the years brought in from QuickBooks). For each bank line it reads the
+    payee out of the bank wording, looks at where that payee was posted
+    before, and offers that account. Before, only bank rules and lines you
+    had already posted from the feed were used.
+  * Every line is Sure, To check or No suggestion. Sure means the payee
+    went to the same account every time lately, and the account is not an
+    owner, loan, payroll, tax or balance sheet account. The counts show
+    above the list with two buttons: "Select the N sure" and "Select all
+    with a suggestion". Post selected then posts them.
+  * Sort by: date, payee, category, sure first, amount or description.
+    Show: all, sure, to check or no suggestion. Payee and Category headings
+    sort too. Sorting by payee keeps one payee's lines together.
+  * An opened line has "Select the N lines of this payee". Pick a category
+    first and it goes to all of them.
+  * Reading the payee is better: CIRCLEK is Circle K, a name the bank cut
+    short still counts, card and ACH noise is dropped, the company's own
+    name after INDN: is ignored, Zelle and wire lines are read for the
+    name. "Mobile purchase" is no longer taken for T-Mobile.
+  * Deposits learn from the payer on the deposit line (QuickBooks deposits
+    keep it there), so customer receipts get their income account.
+  * Money back from a payee you pay is offered the same account, to check.
+  * Common merchants are part of the feed (no switch), and about 185 more
+    brand names were added.
+  * A book entry more than 10 days from the bank date is offered as a
+    match but no longer chosen by itself, unless the check number agrees.
+    A monthly charge was being matched to last month's entry.
+  * Speed: a statement of 1,300 lines opens in under a second and redraws
+    at once (it took about ten seconds per redraw). Posting 500 selected
+    lines takes seconds (it took minutes).
 
 1.56.0  (2026-11-20)  Review fixes: payments, dialogs, one form layout
 -------------------------------------------------------------------------------

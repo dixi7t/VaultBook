@@ -123,12 +123,50 @@
   var NO_PAYEE_ANY = /\b(ATM|WIRE|MEMOWIRE|TYPEBOOK|WITHDRAWAL|WITHDRWL|CASH|TRANSFER|XFER|TFR)\b/;
   H.notPayee = function (key) { return !key || NOT_PAYEE.test(key) || NO_PAYEE_ANY.test(key) || key.length < 4; };
   /** The contact whose every name word is in the bank text (longest name wins), or null. */
-  H.vendorIn = function (book, desc) {
-    var d = ' ' + words(desc).join(' ') + ' ', best = null, bl = 0;
-    book.contacts.forEach(function (c) { if (c.active === false) return; var w = words(c.name); if (!w.length || w.join('').length < 3) return; var k = w.join(' ');
-      if (d.indexOf(' ' + k + ' ') >= 0 && k.length > bl) { best = c; bl = k.length; } });
-    return best;
+  /** The part of a bank description that can name the payee: upper case, the payee first, bank noise removed. */
+  var PROC = /^(TST|SQ|PY|PYL|SP|PP|PAYPAL|DNH|EB|FS|WPY|CKO|TOAST)\s*\*\s*/;
+  H.payeeText = function (desc) {
+    var s = String(desc || ''), cut = s.lastIndexOf(' — ');   // the feed shows "Short name — FULL BANK TEXT": read the full text
+    if (cut >= 0) s = s.slice(cut + 3);
+    s = s.toUpperCase();
+    var m = /\b(?:ORIG|BNF)\s*:\s*(.+?)\s+(?:ID|SND BK|BNF BK|PMT DET|RFB|OBI|BNF)\s*:/.exec(s) || /\bPAYMENT (?:TO|FROM)\s+(.+?)(?:\s+CONF\s*#|\s+FOR\b|$)/.exec(s);
+    if (m) return m[1].trim();
+    if (/^WIRE TYPE/.test(s)) return s;                                                                         // a wire names the party anywhere in its text
+    s = s.replace(/\b(DES|ID|INDN|CO ID|TRACE|PPD|CCD|REF)\s*:.*$/, '');                                        // ACH tail: it holds the company's own name
+    s = s.replace(/^(MOBILE\s+)?(PURCHASE|CHECKCARD|CHECK CARD|DEBIT CARD|POS)(\s+REFUND)?(\s+\d{4})?\s+/, '');   // card prefix and its date
+    s = s.replace(/\s+\d\d\/\d\d\s+#\d+.*$/, '');                                                             // "NAME 01/04 #000008163 PURCHASE NAME CITY"
+    s = s.replace(PROC, '').replace(/\bCKCD\b.*$/, '').replace(/\bX{4,}\S*/g, ' ');
+    return s.replace(/\s+/g, ' ').trim();
   };
+  var CORP = /^(THE|LLC|INC|CO|LTD|CORP|AND|OF)$/, LOOSE = /^(TRANSFER|EXPRESS|MOBILE|PAYMENT|DEPOSIT|ONLINE|PURCHASE|SERVICE|SERVICES|INTERNATIONAL)$/;
+  function tok(s) { return String(s || '').toUpperCase().replace(/['’]/g, '').replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(function (w) { return w && !CORP.test(w); }); }
+  function vendorIndex(book) {   // names with their words run together ("CIRCLEK"), longest first; rebuilt when the contact list changes
+    var ix = book._vendorIx;
+    if (ix && ix.src === book.contacts && ix.n === book.contacts.length) return ix.list;
+    var list = []; book.contacts.forEach(function (c) { if (c.active === false) return; var j = tok(c.name).join(''); if (j.length >= 3) list.push({ c: c, j: j }); });
+    list.sort(function (a, b) { return b.j.length - a.j.length; });
+    Object.defineProperty(book, '_vendorIx', { value: { src: book.contacts, n: book.contacts.length, list: list }, writable: true, configurable: true, enumerable: false });
+    return list;
+  }
+  H.forgetVendors = function (book) { if (book._vendorIx) book._vendorIx = null; };
+  /**
+   * The contact a bank line names: { contact, how }. how 'start' = the payee text begins with the name (spaces, dots and
+   * apostrophes ignored, so CIRCLEK is Circle K; a name the bank cut short still counts from 8 letters);
+   * 'inside' = the whole name appears later in the text (6 letters or more). The longest name wins; start beats inside.
+   */
+  H.vendorMatch = function (book, desc) {
+    var w = tok(H.payeeText(desc)); if (!w.length) return null;
+    var P = w.join(''), ends = {}, starts = {}, n = 0;
+    w.forEach(function (x) { starts[n] = 1; n += x.length; ends[n] = 1; });
+    var list = vendorIndex(book), i, e, inside = null;
+    for (i = 0; i < list.length; i++) {
+      e = list[i];
+      if (P.lastIndexOf(e.j, 0) === 0 ? (ends[e.j.length] || e.j.length >= 8) : (P.length >= 8 && e.j.lastIndexOf(P, 0) === 0)) return { contact: e.c, how: 'start' };
+      if (!inside && e.j.length >= 6 && !LOOSE.test(e.j)) { var at = P.indexOf(e.j, 1); while (at > 0 && !(starts[at] && ends[at + e.j.length])) at = P.indexOf(e.j, at + 1); if (at > 0) inside = e.c; }
+    }
+    return inside ? { contact: inside, how: 'inside' } : null;
+  };
+  H.vendorIn = function (book, desc) { var m = H.vendorMatch(book, desc); return m ? m.contact : null; };
   /** How many of these lines the source identified: { found, of }. */
   H.coverage = function (book, lines, fn) {
     return { of: lines.length, found: lines.filter(function (l) { return fn(l); }).length };

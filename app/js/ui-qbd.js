@@ -29,19 +29,19 @@
       <dl class="rr-glance qbd-glance" data-testid="qbd-glance">${glance.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <div class="qbd-steps">
       ${step(1, 'Import everything from QuickBooks', `<p>Bring a client's QuickBooks file into VaultBook: chart of accounts, customers, vendors, items, classes, terms and every transaction with its lines, payments applied to the right invoices, and each QuickBooks id kept.</p>
-          <ol class="qbd-how"><li>On the QuickBooks PC run <strong>VaultBook QuickBooks.cmd</strong> › <strong>5 Export everything</strong> and choose a folder.</li><li>Here, choose the <code>VaultBook-QB-full-….json</code> it saved. You get a preview first; nothing is posted until you press Import.</li></ol>
+          <ol class="qbd-how"><li>On the QuickBooks PC run <strong>VaultBook QuickBooks.cmd</strong> › <strong>2 QuickBooks -> VaultBook</strong> and choose a folder.</li><li>Here, choose the <code>VaultBook-QB-full-….json</code> it saved. You get a preview first; nothing is posted until you press Import.</li></ol>
           <p class="muted small">${b.transactions.some((t) => t.status === 'posted') ? 'This company already has transactions, so the export goes into a <strong>new company</strong> named from the file.' : 'This company is empty, so the export goes into it.'}</p>`,
         `${fileInput('qbd-full', 'Choose the full export…', 'primary')}${full ? '<a class="btn" href="#/qbd/tieout">Tie-out report</a>' : ''}`, !!full)}
       ${step(2, 'Read QuickBooks and see the gap', `<p>Before sending anything, see what QuickBooks already has, month by month: Done, Partly, Not in QuickBooks, QuickBooks only.</p>
-          <ol class="qbd-how"><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>1 Read QuickBooks</strong>.</li><li>Choose the snapshot it saved.</li></ol>`,
+          <ol class="qbd-how"><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>5 What QuickBooks has</strong>.</li><li>Choose the snapshot it saved.</li></ol>`,
         `${fileInput('qbd-snap', 'Choose a snapshot…', snap ? '' : 'primary')}<a class="btn" href="#/qbsend?tab=months">Months</a>`, !!snap)}
       ${step(3, 'Send what QuickBooks is missing', `<p>Tick months (any order) or single invoices and payments, then download one file for the connector. Payments go in applied to their invoices.</p>
           <ol class="qbd-how"><li>Choose in <strong>Months</strong> or <strong>Items</strong> and press <strong>Download for QuickBooks</strong>.</li><li>Run <strong>VaultBook QuickBooks.cmd</strong> › <strong>3 Read, send, read</strong> (or <strong>4 Check only</strong> first) and choose that file. It asks before creating any customer or item.</li></ol>`,
         `<a class="btn primary" href="#/qbsend?tab=months">Months</a><a class="btn" href="#/qbsend?tab=items">Items</a>`, cmp && !cmp.missing.length && !!snap)}
-      ${step(4, 'Load what happened', `<p>The connector saves a <code>.result.json</code> next to your file (and a new snapshot with option 3). Load them so every item shows Sent or Problem, and the months show Done.</p>`,
+      ${step(4, 'Load what happened', `<p>The connector saves a <code>.result.json</code> next to your file (and a new snapshot when you run 5 What QuickBooks has). Load them so every item shows Sent or Problem, and the months show Done.</p>`,
         `${fileInput('qbd-result', 'Choose a result or snapshot…')}<a class="btn" href="#/qbsend?tab=items&status=problem">Problems (${nProb})</a><a class="btn" href="#/qbsend?tab=items&status=sent">Sent (${nSent})</a>`, false)}
       ${step(5, 'Update QuickBooks to match VaultBook', `<p>Changed or reclassified entries in VaultBook that came from QuickBooks? VaultBook compares them with a fresh QuickBooks export and sends only the edits and voids; new accounts are created first. Nothing is deleted.</p>
-          <ol class="qbd-how"><li>On the QuickBooks PC: <strong>Open the QuickBooks tool</strong> (or VaultBook QuickBooks.cmd › <strong>7 Connect to VaultBook</strong>).</li><li>Type its link code here, get the export, check the list and send. Answer Y/N in the tool's window.</li></ol>`,
+          <ol class="qbd-how"><li>On the QuickBooks PC: <strong>Open the QuickBooks tool</strong> (or VaultBook QuickBooks.cmd › <strong>1 Connect to VaultBook</strong>).</li><li>Type its link code here, get the export, check the list and send. Answer Y/N in the tool's window.</li></ol>`,
         `<a class="btn primary" href="#/qbd/update" data-testid="qbd-update">Update QuickBooks</a>`, false)}
       </div>
       <div class="qbd-grid">
@@ -51,17 +51,16 @@
           <li><a href="#/qbsend?tab=items&status=sent"><strong>Sent to QuickBooks</strong><span>Every invoice and payment recorded or found in QuickBooks, with its QuickBooks id.</span></a></li>
           <li><a href="#/qbsend?tab=items&status=problem"><strong>Problems</strong><span>What the connector could not record, with the reason.</span></a></li></ul></section>
         <section class="card"><h2>The connector</h2>
-          <p>${UI.qbToolButton('btn primary')}</p>
-          <p>On the PC with QuickBooks Desktop, unzip it once (right-click › <strong>Extract All</strong>) and double-click <strong>VaultBook QuickBooks.cmd</strong> in the extracted folder. If Windows says it protected your PC, choose <strong>More info › Run anyway</strong>.</p>
+          <p>One file in VaultBook's <code>tools</code> folder: <strong>VaultBook QuickBooks.cmd</strong>. Copy the folder to the PC with QuickBooks Desktop once and double-click it there.</p>
           <table class="data compact qbd-menu"><tbody>
-            <tr><td>1</td><td>Read QuickBooks</td><td>Snapshot for step 2. Writes nothing.</td></tr>
-            <tr><td>2</td><td>Send to QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries).</td></tr>
-            <tr><td>3</td><td>Read, send, read</td><td>The usual cycle.</td></tr>
-            <tr><td>4</td><td>Check only</td><td>Shows the plan. Writes nothing.</td></tr>
-            <tr><td>5</td><td>Export everything</td><td>Full export for step 1. Writes nothing.</td></tr>
-            <tr><td>6</td><td>Reports and ledgers</td><td>A bank or any account's ledger, general ledger, transaction list, P&amp;L, Balance Sheet, Trial Balance, open invoices, unpaid bills, for any dates, as an Excel-ready .csv. Writes nothing; VaultBook is not needed.</td></tr>
-            <tr><td>7</td><td>Connect to VaultBook</td><td>VaultBook talks to the tool directly on this computer (link code shown in its window): fresh exports and updates without moving files.</td></tr>
-            <tr><td>8</td><td>Install the link</td><td>One time, no admin rights: lets <strong>Open the QuickBooks tool</strong> in VaultBook start the tool.</td></tr></tbody></table>
+            <tr><td>1</td><td>Connect to VaultBook</td><td>VaultBook talks to the tool directly on this computer (link code shown in its window): it sends entries and updates and reads QuickBooks without moving files.</td></tr>
+            <tr><td>2</td><td>QuickBooks -> VaultBook</td><td>Full export for step 1. Writes nothing.</td></tr>
+            <tr><td>3</td><td>VaultBook -> QuickBooks</td><td>Records a file from step 3: invoices, customer payments and bank transactions (checks, deposits, transfers, card charges, journal entries). What QuickBooks already has is skipped.</td></tr>
+            <tr><td>4</td><td>Preview a VaultBook file</td><td>Shows the plan. Writes nothing.</td></tr>
+            <tr><td>5</td><td>What QuickBooks has</td><td>Snapshot for step 2. Writes nothing.</td></tr>
+            <tr><td>6</td><td>Reports to Excel</td><td>A bank or any account's ledger, general ledger, transaction list, P&amp;L, Balance Sheet, Trial Balance, open invoices, unpaid bills, for any dates, as an Excel-ready .csv. Writes nothing; VaultBook is not needed.</td></tr>
+            <tr><td>7</td><td>Set up one-click open</td><td>One time, no admin rights: lets <strong>Open the QuickBooks tool</strong> in VaultBook start the tool.</td></tr>
+            <tr><td>8</td><td>Remove what VaultBook sent</td><td>For the dates you choose, deletes from QuickBooks only the entries this tool recorded (they carry [VB:…] in the memo). Lists them first and asks you to type DELETE. Back up QuickBooks first. Load the record it saves here, and those entries can be sent again.</td></tr></tbody></table>
           <p class="muted small">Before sending, choose <strong>Window › Close All</strong> in QuickBooks: open reports and registers recalculate after every entry and can make QuickBooks stop.</p>
           <p class="muted small">First time: open the company file as Admin in single-user mode; when QuickBooks asks, allow "VaultBook Connector" (Yes, always). Windows administrator rights are not needed. The connector never searches for files; it always asks.</p></section>
         <section class="card"><h2>Other ways</h2><ul class="report-links">
